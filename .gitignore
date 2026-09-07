@@ -13,3 +13,5 @@ libs/*.a
 tools/worldgen-check/.deps/
 tools/worldgen-check/wgtest
 tools/worldgen-check/dumpcolumn
+.winbuild/
+release/
