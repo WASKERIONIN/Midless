@@ -8,3 +8,8 @@ libs/*.h
 libs/*.a
 *.html
 *.bat
+
+# worldgen-check downloads its single-file dependencies here and builds two binaries
+tools/worldgen-check/.deps/
+tools/worldgen-check/wgtest
+tools/worldgen-check/dumpcolumn
