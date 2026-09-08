@@ -1,0 +1,46 @@
+# Публикует готовый архив tools/v42-water-wall/release/Midless-Windows-x64-v42.1.zip:
+#  1) как артефакт запуска (вкладка Actions -> запуск -> Artifacts),
+#  2) как GitHub Release "v42.1" с zip во вложениях (вкладка Releases).
+# Ничего не собирает - только проверяет контрольную сумму и выкладывает уже закоммиченный файл.
+name: Publish v42.1 (water wall fix)
+
+on:
+  push:
+    branches: [ "arena/01a07cc8-midless" ]
+    paths:
+      - "tools/v42-water-wall/release/**"
+      - ".github/workflows/publish-v42.1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify checksum of the zip
+        working-directory: tools/v42-water-wall/release
+        run: sha256sum -c --ignore-missing SHA256SUMS
+
+      - name: Upload zip as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Midless-Windows-x64-v42.1
+          path: tools/v42-water-wall/release/Midless-Windows-x64-v42.1.zip
+          if-no-files-found: error
+
+      - name: Create/refresh GitHub release v42.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REL: tools/v42-water-wall/release
+        run: |
+          if ! gh release view v42.1 >/dev/null 2>&1; then
+            gh release create v42.1 --target "$GITHUB_SHA" \
+              --title "Midless v42.1 — исправление стены воды" \
+              --notes-file "$REL/RELEASE_NOTES.md"
+          fi
+          gh release upload v42.1 "$REL/Midless-Windows-x64-v42.1.zip" "$REL/SHA256SUMS" --clobber
+          gh release view v42.1 --json url,assets -q '"\(.url)\n\(.assets[].name)"'
