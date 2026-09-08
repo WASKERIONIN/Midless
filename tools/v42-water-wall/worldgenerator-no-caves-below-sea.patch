@@ -1,0 +1,39 @@
+--- a/server/src/world/worldgenerator.c	1980-01-01 21:00:00.000000000 +0000
++++ b/server/src/world/worldgenerator.c	2026-09-08 18:33:58.465726771 +0000
+@@ -15,6 +15,7 @@
+ static fnl_state heightNoise, terrainNoise, caveNoise, offsetNoise, biomeNoise;
+ static float biomeAxisX, biomeAxisZ;   //направление "полюсов" климата (от сида)
+ static int generatorSeed;
++#define SEA_LEVEL 48   //вода: y < 48 (см. ServerWorldGenerator_Generate и client/src/map.c)
+ 
+ typedef struct TreeOriginCacheEntry {
+     long int key;
+@@ -92,6 +93,10 @@
+         float terrain = (fnlGetNoise3D(&terrainNoise, (p.x + off) * 2.5f, off, (p.z + off) * 2.5f) * off + 1) * 32 * elevation;
+         if (p.y + terrain >= 96 * elevation) return 0;
+     }
++    //Ниже уровня моря пещеры не прорезаем: иначе полости у берега получают
++    //сухой воздух рядом с водой соседней колонки -> "стена воды".
++    //(Как в ванили: под уровнем моря либо твёрдое, либо вода.)
++    if (p.y < SEA_LEVEL) return 1;
+     float a = fnlGetNoise3D(&caveNoise, p.x * 1.5f, p.y * 1.5f, p.z * 1.5f);
+     float b = fnlGetNoise3D(&caveNoise, p.x * 1.5f, (p.y + 2048) * 1.5f, p.z * 1.5f);
+     return a * b > 0.6f ? 2 : 1;
+@@ -179,7 +184,7 @@
+         int block = map[i] == 1 ? 1 : 0;
+         if (HasSurfaceAbove(i, map)) {
+             float t = GetTemperature(p.x, p.z);
+-            if (p.y > 48) {
++            if (p.y > SEA_LEVEL) {
+                 if (p.y > 72) block = 19;                //альпийский снег: шапки высоких гор
+                 else if (t < -0.15f) block = 19;         //снежная трава
+                 else if (t > 0.38f) block = 6;           //пустыня: песок глубже
+@@ -189,7 +194,7 @@
+                 block = 6;                               //пляж
+                 if (t > 0.38f && i - CHUNK_SIZE_XZ > 0) chunk->data[i - CHUNK_SIZE_XZ] = 21; //песчаник под пляжем
+             }
+-        } else if (map[i] == 0 && p.y < 48) {
++        } else if (map[i] == 0 && p.y < SEA_LEVEL) {
+             block = 5;
+             //лёд: поверхность воды в холоде (выше колонны - воздух или лёд)
+             if (GetTemperature(p.x, p.z) < -0.15f) {
