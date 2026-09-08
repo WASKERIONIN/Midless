@@ -1,0 +1,14 @@
+--- a/libs/enet.h	1980-01-01 21:00:00.000000000 +0000
++++ b/libs/enet.h	2026-09-08 19:08:05.898012570 +0000
+@@ -4883,7 +4883,10 @@
+ // !
+ // =======================================================================//
+ 
+-    #ifdef _WIN32
++    #if defined(_WIN32) && !defined(WIN_PTHREADS_TIME_H)
++        /* Midless: newer mingw-w64 headers (zig cc / mingw-w64 >= 12) already define
++           clock_gettime as static inline in <pthread_time.h> (pulled in by <time.h>);
++           defining it again here is a hard error there. Use theirs when present. */
+         static LARGE_INTEGER getFILETIMEoffset() {
+             SYSTEMTIME s;
+             FILETIME f;
