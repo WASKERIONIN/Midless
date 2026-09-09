@@ -117,7 +117,7 @@ void Starfield_Init(void) {
         float bandPull = Unit(Mix((uint32_t)i * 11u + 55u));
         if (bandPull < 0.5f) {
             /* pull bright stars toward the band too */
-            float along = Vector3Dot(dir, bandU);
+            float along = dir.x * bandU.x + dir.y * bandU.y + dir.z * bandU.z;
             Vector3 projected = Vector3Subtract(dir, Vector3Scale(bandNormal, along * 0.55f));
             dir = Vector3Normalize(projected);
         }

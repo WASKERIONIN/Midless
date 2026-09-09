@@ -75,11 +75,11 @@ static void DrawMenuBackground(void) {
     /* vertical indigo gradient with a magenta horizon glow */
     DrawRectangleGradientV(0, 0, screenWidth, screenHeight, (Color){10, 4, 26, 255}, (Color){38, 10, 66, 255});
     DrawCircleGradient((int)(w * 0.5f + sinf(t * 0.11f) * w * 0.06f),
-                       (int)(h * 1.06f), (int)(h * 0.75f),
+                       (int)(h * 1.06f), h * 0.75f,
                        (Color){150, 40, 200, 46}, BLANK);
-    DrawCircleGradient((int)(w * 0.16f), (int)(h * 0.22f), (int)(h * 0.42f),
+    DrawCircleGradient((int)(w * 0.16f), (int)(h * 0.22f), h * 0.42f,
                        (Color){40, 190, 210, 26}, BLANK);
-    DrawCircleGradient((int)(w * 0.84f), (int)(h * 0.30f), (int)(h * 0.38f),
+    DrawCircleGradient((int)(w * 0.84f), (int)(h * 0.30f), h * 0.38f,
                        (Color){210, 60, 235, 30}, BLANK);
 
     /* twinkling stars (positions wrap with the window size) */
@@ -216,6 +216,7 @@ void Screen_DrawGame(void) {
     float glowPulse = 0.5f + 0.5f * sinf((float)GetTime() * 2.0f);
     DrawCircleGradient(screenWidth - 48, 48, 52.0f,
                        (Color){120, 60, 200, (unsigned char)(40 + 24 * glowPulse)}, BLANK);
+
     BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
 
     //Draw Chat

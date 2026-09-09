@@ -9,6 +9,18 @@ This fork turns the world into a starlit void of floating islands. The sun is a 
 
 After updating, delete the `world` folder next to the executable and start Singleplayer so a new cosmic world generates.
 
+![Cosmic style reference](docs/cosmic_style_ref.png)
+
+## Cosmic Edition highlights
+
+- **Black hole sun**: rotating gold accretion disk, photon ring, violet halo, and real screen-space gravity lensing (post-FX bends the starfield around it).
+- **Living sky**: a galaxy band of stars, drifting nebulae, shooting stars, slow celestial rotation.
+- **Cosmic textures**: indigo void rock, teal crystal turf, glowing cyan water, gold / crystal / void-shard ores, warp-core blocks that emit light.
+- **Hands with fingers**: the explorer model gained hands whose fingers curl on swings and settle with idle motion (also visible in first person).
+- **Island worldgen v6**: cone-tapered islands, guaranteed starter island with launch pad, crystal arch, warp-core obelisks and a glass water basin; three new ores.
+- **Game feel**: coyote time, jump buffering, procedural crystal dig/place sounds, jump & teleport SFX, ambient void wind, UI clicks, void-rescue fade.
+- **Cosmic menus**: animated starfield title screen with drifting island silhouettes.
+
 ## Controls
 
 | Input                        | Action                |

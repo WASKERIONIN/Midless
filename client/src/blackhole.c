@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include "blackhole.h"
 
 #define BH_DISTANCE     200.0f
