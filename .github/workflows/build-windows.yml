@@ -31,83 +31,46 @@ jobs:
           zip
           p7zip
 
-    - name: Verify raylib installation
-      run: |
-        echo "Checking raylib headers and library..."
-        ls /mingw64/include/raylib.h
-        ls /mingw64/lib/libraylib.a 2>/dev/null || ls /mingw64/lib/libraylib* 2>/dev/null || echo "No static lib, checking shared..."
-        find /mingw64/lib -name "*raylib*" 2>/dev/null
-        find /mingw64/include -name "raylib*" -o -name "rlgl*" -o -name "raymath*" 2>/dev/null
-
-    - name: Build client (game.exe)
+    - name: Build with custom script
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
-        echo "=== Toolchain info ==="
-        which gcc
-        gcc --version | head -3
-        which mingw32-make
-        echo "=== Make dry run ==="
-        mingw32-make -n \
-          RAYLIB_PATH=/mingw64 \
-          RAYLIB_INCLUDE_DIR=/mingw64/include \
-          RAYLIB_LIB_DIR=/mingw64/lib \
-          2>&1 | head -20
-        echo "=== Actual build ==="
-        mingw32-make \
-          RAYLIB_PATH=/mingw64 \
-          RAYLIB_INCLUDE_DIR=/mingw64/include \
-          RAYLIB_LIB_DIR=/mingw64/lib \
-          -j$(nproc) 2>&1
-
-    - name: Build server (server.exe)
-      run: |
-        set -ex
-        export PATH="/mingw64/bin:$PATH"
-        mingw32-make BUILD_SERVER=TRUE \
-          RAYLIB_PATH=/mingw64 \
-          RAYLIB_INCLUDE_DIR=/mingw64/include \
-          RAYLIB_LIB_DIR=/mingw64/lib \
-          -j$(nproc) 2>&1
+        bash build_cosmic.sh 2>&1
 
     - name: Package release
       run: |
-        set -x
+        set -ex
         OUT="release/Midless-Cosmic-Windows-x64"
         mkdir -p "$OUT/textures" "$OUT/mods"
-        echo "=== Searching for build outputs ==="
-        find build/ -type f 2>/dev/null | head -30
-        FOUND_GAME=false
-        FOUND_SERVER=false
-        for f in build/client/game build/client/game.exe; do
-          if [ -f "$f" ]; then cp "$f" "$OUT/game.exe"; echo "COPIED $f -> game.exe"; FOUND_GAME=true; break; fi
-        done
-        for f in build/server/server build/server/server.exe; do
-          if [ -f "$f" ]; then cp "$f" "$OUT/server.exe"; echo "COPIED $f -> server.exe"; FOUND_SERVER=true; break; fi
-        done
-        # Copy raylib DLL for dynamic linking
+
+        cp build/client/game.exe "$OUT/game.exe"
+        cp build/server/server.exe "$OUT/server.exe"
+
+        # Copy raylib DLL
         for dll in /mingw64/bin/libraylib*.dll; do
-          if [ -f "$dll" ]; then cp "$dll" "$OUT/"; echo "COPIED DLL $dll"; fi
+          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "Copied DLL: $dll"
         done
-        cp build/client/textures/*.png "$OUT/textures/" 2>/dev/null || true
-        cp build/client/mods/*.lua "$OUT/mods/" 2>/dev/null || true
+
+        cp build/client/textures/*.png "$OUT/textures/"
+        cp build/client/mods/*.lua "$OUT/mods/"
+
         cat > "$OUT/README.txt" << 'README'
         === Midless: Cosmic Edition ===
-        
+
         A voxel game set among floating islands in a starlit void.
-        
+
         CONTROLS:
           WASD - Move | Space - Jump | Left Click - Break block
           Right Click - Place block | Mouse Wheel - Select block
           T - Chat | ESC - Menu | F3 - Debug | F5 - Camera view
-        
+
         Launch game.exe for singleplayer, server.exe for dedicated server.
         Choose "New World" to generate cosmic terrain.
         README
+
         echo "=== Package contents ==="
-        find "$OUT" -type f
-        echo "=== game.exe found: $FOUND_GAME, server.exe found: $FOUND_SERVER ==="
-        if [ "$FOUND_GAME" = "false" ]; then echo "ERROR: game.exe not built!"; exit 1; fi
+        find "$OUT" -type f -ls
+
         cd release
         7z a -tzip Midless-Cosmic-Windows-x64.zip Midless-Cosmic-Windows-x64/
         sha256sum Midless-Cosmic-Windows-x64.zip > SHA256SUMS
