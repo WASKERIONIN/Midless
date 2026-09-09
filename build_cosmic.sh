@@ -157,6 +157,7 @@ if [ -n "$FAILED_S" ]; then
 fi
 
 echo "=== Linking server ==="
+mkdir -p build/server
 LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
     -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1)
 LINK_RC_S=$?
