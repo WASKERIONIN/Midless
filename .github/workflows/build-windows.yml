@@ -68,18 +68,10 @@ jobs:
           Write-Host "  OK: $((Get-Item libs/external/glad.h).Length) bytes"
         } catch { Write-Host "  FAILED: $_"; throw }
         
-        Write-Host "Downloading enet headers..."
+        Write-Host "Downloading enet.h (single-file from zpl-c/enet)..."
         try {
-          New-Item -ItemType Directory -Force -Path "libs/enet" | Out-Null
-          $enetBase = "https://raw.githubusercontent.com/zpl-c/enet/master/include/enet"
-          foreach ($f in @("enet.h","types.h","protocol.h","list.h","callbacks.h","utility.h","win32.h","unix.h","time.h")) {
-            $url = "$enetBase/$f"
-            Write-Host "    $f..."
-            Invoke-WebRequest -Uri $url -OutFile "libs/enet/$f" -UseBasicParsing
-          }
-          Set-Content -Path "libs/enet.h" -Value '#include "enet/enet.h"'
-          Write-Host "  Enet headers:"
-          Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "    $($_.Name) ($($_.Length) bytes)" }
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/zpl-c/enet/master/include/enet.h" -OutFile "libs/enet.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/enet.h).Length) bytes"
         } catch { Write-Host "  FAILED: $_"; throw }
         
         Write-Host "=== All dependencies downloaded ==="
