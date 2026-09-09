@@ -107,6 +107,7 @@ local high1 = layer_at(40, 0.0115, 0.50, 116, 7, 28, y + 1)
 local low1  = layer_at(90, 0.0105, 0.46, 38,  6, 24, y + 1)
 local starter1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                  f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
+local inside1 = f.max(f.max(mid1, high1), f.max(low1, starter1))
 local surface = inside * (1 - inside1)
 
 -- stratified bodies: crystal turf over dirt over void rock over stone
@@ -171,7 +172,7 @@ wg.define_ore("void_shard", {
 
 wg.define_ore("gloom_amber", {
     block = 7, replaces = { 19, 1 },
-    min_y = 20, max_y = 130, size = 6, spacing = 18, chance = 0.45,
+    min_y = 20, max_y = 130, size = 4, spacing = 22, chance = 0.3,
     distribution = "clusters",
 })
 
