@@ -73,7 +73,8 @@ for src in $ALL_SRC; do
     COMPILE_OUTPUT=$($CC $CFLAGS $EXTRA_DEFS $INCLUDES -c "$src" -o "$obj" 2>&1) || {
         echo "FAILED: $src"
         echo "$COMPILE_OUTPUT"
-        echo "::error file=$src::Compilation failed"
+        FIRST_ERROR=$(echo "$COMPILE_OUTPUT" | grep "error:" | head -1)
+        echo "::error file=$src::$FIRST_ERROR"
         echo "=== $src ===" >> "$ERRORS_FILE"
         echo "$COMPILE_OUTPUT" >> "$ERRORS_FILE"
         FAILED="$FAILED $src"
@@ -120,7 +121,8 @@ for src in $SERVER_SRC $SHARED_SRC; do
     COMPILE_OUTPUT=$($CC $CFLAGS $DEFINES $INCLUDES -c "$src" -o "$obj" 2>&1) || {
         echo "FAILED: $src"
         echo "$COMPILE_OUTPUT"
-        echo "::error file=$src::Compilation failed"
+        FIRST_ERROR=$(echo "$COMPILE_OUTPUT" | grep "error:" | head -1)
+        echo "::error file=$src::$FIRST_ERROR"
         echo "=== $src ===" >> "$ERRORS_FILE"
         echo "$COMPILE_OUTPUT" >> "$ERRORS_FILE"
         FAILED_S="$FAILED_S $src"
