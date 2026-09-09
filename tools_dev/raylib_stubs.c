@@ -168,3 +168,21 @@ void Server_Send(void *peer, unsigned char *packet, int length) {
 void UnloadFileData(unsigned char *data) { free(data); }
 
 void UnloadFileText(char *text) { free(text); }
+
+const char *GetFileName(const char *filePath) {
+    static char buffer[4][1024];
+    static int index = 0;
+    char *out = buffer[index & 3];
+    index++;
+    const char *lastSlash = strrchr(filePath, '/');
+    const char *lastBack = strrchr(filePath, '\\');
+    const char *base = lastSlash > lastBack ? lastSlash + 1 : (lastBack ? lastBack + 1 : filePath);
+    snprintf(out, 1024, "%s", base);
+    return out;
+}
+
+const char *GetFileExtension(const char *fileName) {
+    const char *dot = strrchr(fileName, '.');
+    if (!dot || dot == fileName) return NULL;
+    return dot;
+}

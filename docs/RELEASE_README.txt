@@ -40,9 +40,10 @@ HOW TO PLAY:
   1. Extract this folder anywhere.
   2. Run game.exe
   3. Click Singleplayer
-  4. If you played an older build, delete the "world" folder next to
-     game.exe for a clean start (the game also regenerates it
-     automatically when the worldgen changes).
+  4. If you played an older build, the world upgrades automatically:
+     the game detects the old/legacy save and regenerates it as a fresh
+     cosmic world (your seed is kept). You can also delete the "world"
+     folder next to game.exe for a completely clean start.
 
 Falling into the void returns you to the starter island.
 The warp-core obelisks on the starter island are light sources - build
