@@ -87,7 +87,10 @@ static void Settings_ApplyFullscreenState(void) {
     } else if (!gameSettings.fullscreen && borderlessActive) {
         ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
         SetWindowSize(gameSettings.width, gameSettings.height);
-        CenterWindow();
+        /* raylib 4.5 has no CenterWindow(); center manually */
+        int monitor = GetCurrentMonitor();
+        SetWindowPosition((GetMonitorWidth(monitor) - gameSettings.width) / 2,
+                          (GetMonitorHeight(monitor) - gameSettings.height) / 2);
         borderlessActive = false;
     }
 }
