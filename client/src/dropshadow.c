@@ -65,9 +65,8 @@ void DropShadow_Draw(Vector3 position, float radius, float heightAboveGround) {
 }
 
 void DropShadow_DrawAll(void) {
-    /* player */
-    Vector3 playerFeet = { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f };
-    DropShadow_Draw(playerFeet, 0.55f, 0.0f);
+    /* v43.4: the player no longer gets a blob shadow (pointless noise in
+     * first person); only world entities keep their grounding shadow. */
 
     /* world entities */
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {

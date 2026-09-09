@@ -126,7 +126,7 @@ static void ComputeFaceAO(Chunk *chunk, int nx, int ny, int nz, BlockFace face,
         bool diag = SampleOccludes(chunk, pc[0], pc[1], pc[2]);
 
         int level = (side1 && side2) ? 0 : 3 - ((side1 ? 1 : 0) + (side2 ? 1 : 0) + (diag ? 1 : 0));
-        static const int shade[4] = {7, 10, 12, 15}; /* 0..15 multiplier */
+        static const int shade[4] = {6, 9, 12, 15}; /* 0..15 multiplier */
         ao[corner] = (unsigned char)shade[level];
     }
 }

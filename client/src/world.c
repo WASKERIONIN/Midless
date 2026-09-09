@@ -482,8 +482,9 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 }
 
 float World_GetSunlightStrength(void) {
-    /* No sun — nebula ambient with a slow pulse. Never drop to night-black. */
-    return 0.80f + 0.05f * sinf(world.time * 0.12f);
+    /* No sun — nebula ambient with a slow pulse. Never drop to night-black.
+     * v43.4: dialed back down after the overbright report. */
+    return 0.68f + 0.04f * sinf(world.time * 0.12f);
 }
 
 float World_GetBrightness(Vector3 position) {

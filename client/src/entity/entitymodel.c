@@ -68,8 +68,10 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     //rightarm
+    /* v43.4: the first-person hand is removed entirely (user request) - the
+     * held block alone represents the hand. Third-person bodies keep arms. */
     model.types[partI] = PART_TYPE_RIGHT_ARM;
-    model.firstPersonVisible[partI] = true;
+    model.firstPersonVisible[partI] = false;
     model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-2.8f,-9.0f,-2.0f};
     model.boxes[partI].max = (Vector3) {0.3f,1.0f,1.0f};
