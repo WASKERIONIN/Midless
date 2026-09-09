@@ -61,6 +61,8 @@ mkdir -p "$OBJ_DIR"
 ALL_SRC="$CLIENT_SRC $SERVER_CORE_SRC $SHARED_SRC"
 OBJS=""
 FAILED=""
+ERRORS_FILE="build_errors.txt"
+> "$ERRORS_FILE"
 for src in $ALL_SRC; do
     obj="$OBJ_DIR/$(echo $src | tr '/' '_').o"
     EXTRA_DEFS="$DEFINES"
@@ -68,17 +70,22 @@ for src in $ALL_SRC; do
         EXTRA_DEFS="$DEFINES -DMIDLESS_STB_DS_EXTERNAL"
     fi
     echo "--- Compiling: $src ---"
-    if ! $CC $CFLAGS $EXTRA_DEFS $INCLUDES -c "$src" -o "$obj" 2>&1; then
+    COMPILE_OUTPUT=$($CC $CFLAGS $EXTRA_DEFS $INCLUDES -c "$src" -o "$obj" 2>&1) || {
         echo "FAILED: $src"
+        echo "$COMPILE_OUTPUT"
+        echo "::error file=$src::Compilation failed"
+        echo "=== $src ===" >> "$ERRORS_FILE"
+        echo "$COMPILE_OUTPUT" >> "$ERRORS_FILE"
         FAILED="$FAILED $src"
-    else
-        OBJS="$OBJS $obj"
-    fi
+        continue
+    }
+    OBJS="$OBJS $obj"
 done
 
 if [ -n "$FAILED" ]; then
     echo "=== COMPILATION FAILURES ==="
     echo "Failed files:$FAILED"
+    cat "$ERRORS_FILE"
     exit 1
 fi
 
@@ -106,20 +113,26 @@ mkdir -p "$OBJ_DIR_S"
 
 OBJS_S=""
 FAILED_S=""
+> "$ERRORS_FILE"
 for src in $SERVER_SRC $SHARED_SRC; do
     obj="$OBJ_DIR_S/$(echo $src | tr '/' '_').o"
     echo "--- Compiling server: $src ---"
-    if ! $CC $CFLAGS $DEFINES $INCLUDES -c "$src" -o "$obj" 2>&1; then
+    COMPILE_OUTPUT=$($CC $CFLAGS $DEFINES $INCLUDES -c "$src" -o "$obj" 2>&1) || {
         echo "FAILED: $src"
+        echo "$COMPILE_OUTPUT"
+        echo "::error file=$src::Compilation failed"
+        echo "=== $src ===" >> "$ERRORS_FILE"
+        echo "$COMPILE_OUTPUT" >> "$ERRORS_FILE"
         FAILED_S="$FAILED_S $src"
-    else
-        OBJS_S="$OBJS_S $obj"
-    fi
+        continue
+    }
+    OBJS_S="$OBJS_S $obj"
 done
 
 if [ -n "$FAILED_S" ]; then
     echo "=== SERVER COMPILATION FAILURES ==="
     echo "Failed files:$FAILED_S"
+    cat "$ERRORS_FILE"
     exit 1
 fi
 
