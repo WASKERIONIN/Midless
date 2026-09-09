@@ -43,11 +43,29 @@ jobs:
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
+        # Test compile a single file first to see errors clearly
+        gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
+          -DPLATFORM_DESKTOP -DOS_WINDOWS \
+          -I./client/src -I./client/src/chunk -I./client/src/block \
+          -I./client/src/entity -I./client/src/gui -I./client/src/networking \
+          -I./server/src -I./server/src/world -I./server/src/world/chunk \
+          -I./server/src/scripting -I./libs -I./shared \
+          -I/mingw64/include -I/mingw64/include/external -I/mingw64/include/extras \
+          -c client/src/asteroid.c -o /dev/null 2>&1 || echo "ASTEROID.C FAILED"
+        gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
+          -DPLATFORM_DESKTOP -DOS_WINDOWS \
+          -I./client/src -I./client/src/chunk -I./client/src/block \
+          -I./client/src/entity -I./client/src/gui -I./client/src/networking \
+          -I./server/src -I./server/src/world -I./server/src/world/chunk \
+          -I./server/src/scripting -I./libs -I./shared \
+          -I/mingw64/include -I/mingw64/include/external -I/mingw64/include/extras \
+          -c client/src/starfield.c -o /dev/null 2>&1 || echo "STARFIELD.C FAILED"
+        # Full build
         mingw32-make \
           RAYLIB_PATH=/mingw64 \
           RAYLIB_INCLUDE_DIR=/mingw64/include \
           RAYLIB_LIB_DIR=/mingw64/lib \
-          -j$(nproc) 2>&1
+          -j1 2>&1
 
     - name: Build server (server.exe)
       run: |
