@@ -33,6 +33,7 @@
 #include "localserver.h"
 #include "particle.h"
 #include "asteroid.h"
+#include "settings.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -43,7 +44,7 @@ World world;
 void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
-    world.drawDistance = 8;
+    world.drawDistance = gameSettings.drawDistance > 0 ? gameSettings.drawDistance : 8;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));

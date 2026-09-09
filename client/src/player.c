@@ -39,7 +39,7 @@ void Player_Init(void) {
 
     Camera camera = { 0 };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 65.0f;
+    camera.fovy = 70.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
     player.camera = camera;
@@ -96,13 +96,13 @@ void Player_Teleport(Vector3 position) {
 }
 
 void Player_Draw(void) {
-    if (!player.hasEntityModel) return;
-
     float pitch = playerCameraAngle.y - PI / 2.0f;
 
-    for (int i = 0; i < player.entityModel.partCount; i++) {
-        EntityModelPart *part = &player.entityModel.parts[i];
-        if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
+    if (player.hasEntityModel) {
+        for (int i = 0; i < player.entityModel.partCount; i++) {
+            EntityModelPart *part = &player.entityModel.parts[i];
+            if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
+        }
     }
 
     Entity localEntity = {0};
@@ -117,9 +117,10 @@ void Player_Draw(void) {
         float swingProgress = EntityAnimation_GetSwingProgress(
             &player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
         Entity_DrawFirstPerson(&localEntity, player.camera, swingProgress);
-    } else {
-        Entity_Draw(&localEntity);
+        return;
     }
+    if (!player.hasEntityModel) return;
+    Entity_Draw(&localEntity);
 }
 
 void Player_CheckInputs() {

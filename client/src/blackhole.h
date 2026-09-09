@@ -5,6 +5,6 @@
 
 void BlackHole_Init(void);
 void BlackHole_Shutdown(void);
-void BlackHole_Draw(Vector3 cameraPosition);
+void BlackHole_Draw(Camera camera);
 
 #endif

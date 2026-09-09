@@ -6,6 +6,6 @@
 void Starfield_Init(void);
 void Starfield_Shutdown(void);
 void Starfield_Update(float deltaTime);
-void Starfield_Draw(Vector3 cameraPosition);
+void Starfield_Draw(Camera camera);
 
 #endif

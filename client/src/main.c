@@ -28,6 +28,8 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "blackhole.h"
+#include "settings.h"
+#include "postfx.h"
 
 
 void Game_RunLoop(void);
@@ -35,16 +37,12 @@ void Game_RunLoop(void);
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
 
-    int screenWidth = 1280;
-    int screenHeight = 720;
-
-    // Initialization
-    InitWindow(screenWidth, screenHeight, "Midless: Cosmic Edition");
-    SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
+    Settings_Load();
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT);
+    InitWindow(gameSettings.width, gameSettings.height, "Midless: Cosmic Edition");
+    Settings_ApplyWindow();
     SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);
-    SetTargetFPS(60); 
 
     #if defined(PLATFORM_WEB)
         char *chunkShaderVs = 
@@ -85,6 +83,7 @@ int main(void) {
     Player_Init();
     Starfield_Init();
     BlackHole_Init();
+    PostFx_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -108,6 +107,7 @@ int main(void) {
         UnloadTexture(texture);
         World_Shutdown();
         EntityModelDefinitions_Shutdown();
+        PostFx_Shutdown();
         BlackHole_Shutdown();
         Starfield_Shutdown();
         Chat_Shutdown();
@@ -119,6 +119,8 @@ int main(void) {
 }
 
 void Game_RunLoop(void) {
+    if (IsKeyPressed(KEY_F11)) Settings_ToggleFullscreen();
+
     Network_ProcessIncomingPackets();
 
     bool inWorld = currentScreen == SCREEN_GAME || currentScreen == SCREEN_PAUSE ||
@@ -131,13 +133,15 @@ void Game_RunLoop(void) {
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
 
     BeginDrawing();
-        ClearBackground((Color){ 10, 6, 24, 255 });
+        ClearBackground((Color){ 14, 4, 28, 255 });
 
         if (inWorld) {
+            PostFx_BeginScene();
+            ClearBackground((Color){ 14, 4, 28, 255 });
             BeginMode3D(player.camera);
                 Starfield_Update(GetFrameTime());
-                Starfield_Draw(player.camera.position);
-                BlackHole_Draw(player.camera.position);
+                Starfield_Draw(player.camera);
+                BlackHole_Draw(player.camera);
                 World_Draw(player.camera.position);
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {
@@ -154,6 +158,7 @@ void Game_RunLoop(void) {
             if (Player_GetCameraLiquidTint(&liquidTint)) {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
             }
+            PostFx_EndScene();
         }
 
         Screen_Draw();

@@ -103,12 +103,12 @@ void ChunkMesh_PrepareDrawing(Material material) {
     float sunlightStrength = World_GetSunlightStrength();
     rlSetUniform(rlGetLocationUniform(material.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
 
-    float fogEnd = world.drawDistance * 16.0f + 8.0f;
-    float fogStart = world.drawDistance * 16.0f * 0.55f + 8.0f;
+    float fogEnd = world.drawDistance * 16.0f + 28.0f;
+    float fogStart = fogEnd * 0.72f;
     float fogColor[3] = {
-        0.07f + 0.04f * sunlightStrength,
-        0.03f + 0.02f * sunlightStrength,
-        0.14f + 0.05f * sunlightStrength
+        0.38f + 0.08f * sunlightStrength,
+        0.10f + 0.03f * sunlightStrength,
+        0.52f + 0.08f * sunlightStrength
     };
     Color liquidTint;
     if (Player_GetCameraLiquidTint(&liquidTint)) {

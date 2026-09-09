@@ -1,11 +1,12 @@
 === Midless: Cosmic Edition ===
 
-Floating islands in a starlit void. The sun is a still black hole.
+Separate floating islands in a starlit void. The sun is a still black hole.
 Water lives only inside crystal basins so it cannot flood the world.
+F11 toggles fullscreen. Options also have resolution, like v42.
 
 CONTROLS:
   WASD          Move
-  Space         Jump (floaty cosmic gravity)
+  Space         Jump
   Left Click    Break block
   Right Click   Place block
   Mouse Wheel   Select block
@@ -13,6 +14,7 @@ CONTROLS:
   ESC           Menu
   F3            Debug
   F5            Camera view
+  F11           Fullscreen
 
 HOW TO PLAY:
   1. Extract this folder anywhere.

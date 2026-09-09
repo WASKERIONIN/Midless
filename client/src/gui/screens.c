@@ -23,6 +23,7 @@
 #include "clientws.h"
 #include "blockitemrenderer.h"
 #include "localserver.h"
+#include "settings.h"
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
@@ -39,6 +40,10 @@ const char* maxFPS = "60";
 void Screen_Init(Texture2D terrain, bool *exit) {
     exitGame = exit;
     BlockItemRenderer_Init(terrain);
+    maxFPSChoice = gameSettings.maxFpsChoice;
+    if (maxFPSChoice == 1) maxFPS = "120";
+    else if (maxFPSChoice == 2) maxFPS = "Unlimited";
+    else maxFPS = "60";
 
     //Set UI colors
     GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xc86bffff);
@@ -153,7 +158,7 @@ void Screen_DrawPause(void) {
 void Screen_DrawOptions(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
-    int offsetY = screenHeight / 2 - 75;
+    int offsetY = screenHeight / 2 - 130;
     int offsetX = screenWidth / 2 - 100;
 
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
@@ -172,6 +177,8 @@ void Screen_DrawOptions(void) {
             world.drawDistance = newDrawDistance;
             World_Reload();
         }
+        gameSettings.drawDistance = world.drawDistance;
+        Settings_Save();
 
         if (networkConnectedToServer) {
             Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
@@ -205,11 +212,26 @@ void Screen_DrawOptions(void) {
             maxFPS = "Unlimited";
             SetTargetFPS(0);
         }
+        gameSettings.maxFpsChoice = maxFPSChoice;
+        Settings_Save();
     }
 
     offsetY += 35;
 
-    //Back Button
+    const char *fullTxt = TextFormat("Fullscreen: %s  (F11)", gameSettings.fullscreen ? "ON" : "OFF");
+    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, fullTxt)) {
+        Settings_ToggleFullscreen();
+    }
+
+    offsetY += 35;
+
+    const char *resTxt = TextFormat("Resolution: %s", Settings_ResolutionLabel());
+    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, resTxt)) {
+        Settings_CycleResolution();
+    }
+
+    offsetY += 35;
+
     if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
