@@ -140,9 +140,9 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
 	LDLIBS = $(BUILD_WEB_RAYLIB_LIB) -pthread -sPTHREAD_POOL_SIZE=5 -sFORCE_FILESYSTEM -sALLOW_MEMORY_GROWTH -lwebsocket.js -sWEBSOCKET_SUBPROTOCOL:'binary'
 	BUILD_DEPENDENCIES += $(BUILD_WEB_RAYLIB_LIB)
 else
-	# If using system raylib (e.g. MSYS2 package), skip file dependency
-	# and rely on the linker finding -lraylib in LDFLAGS paths.
-	ifneq ($(findstring /mingw64,$(RAYLIB_LIB_DIR)),/mingw64)
+	# Use static raylib dependency only when the file exists.
+	# For system-installed raylib (MSYS2 etc.), the linker finds it via -lraylib.
+	ifneq ($(wildcard $(RAYLIB_LIB_DIR)/libraylib.a),)
 		BUILD_DEPENDENCIES += $(RAYLIB_LIB_DIR)/libraylib.a
 	endif
 	ifeq ($(PLATFORM_OS),LINUX)
