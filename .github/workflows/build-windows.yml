@@ -27,9 +27,25 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
           mingw-w64-x86_64-raylib
+          mingw-w64-x86_64-enet
           git
           zip
           p7zip
+
+    - name: Download single-file dependencies
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        # FastNoiseLite
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Auburn/FastNoiseLite/master/C/FastNoiseLite.h" -OutFile "libs/FastNoiseLite.h" -UseBasicParsing
+        # stb_ds
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nothings/stb/master/stb_ds.h" -OutFile "libs/stb_ds.h" -UseBasicParsing
+        # minilua
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/edubart/minilua/master/minilua.h" -OutFile "libs/minilua.h" -UseBasicParsing
+        # enet wrapper (MSYS2 installs to enet/enet.h, code uses enet.h)
+        Set-Content -Path "libs/enet.h" -Value '#include <enet/enet.h>'
+        Write-Host "Dependencies downloaded:"
+        Get-ChildItem libs/ | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
 
     - name: Build with custom script
       run: |

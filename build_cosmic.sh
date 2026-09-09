@@ -72,7 +72,7 @@ done
 
 # Link client
 $CC $OBJS -o build/client/game.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
     -Wl,--subsystem,windows
 
 echo "=== Client built: build/client/game.exe ==="
@@ -100,7 +100,7 @@ for src in $SERVER_SRC $SHARED_SRC; do
 done
 
 $CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32
+    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32
 
 echo "=== Server built: build/server/server.exe ==="
 ls -la build/server/server.exe
