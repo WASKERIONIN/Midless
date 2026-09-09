@@ -1,0 +1,175 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ "arena/01a08553-midless" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSYS2 + MinGW + Raylib
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-raylib
+          git
+          zip
+          p7zip
+
+    - name: Download single-file dependencies
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        
+        Write-Host "Downloading FastNoiseLite.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Auburn/FastNoiseLite/master/C/FastNoiseLite.h" -OutFile "libs/FastNoiseLite.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/FastNoiseLite.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading stb_ds.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nothings/stb/master/stb_ds.h" -OutFile "libs/stb_ds.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/stb_ds.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading minilua.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/edubart/minilua/master/minilua.h" -OutFile "libs/minilua.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/minilua.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading raygui.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raygui/4.0/src/raygui.h" -OutFile "libs/raygui.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/raygui.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading glad.h..."
+        New-Item -ItemType Directory -Force -Path "libs/external" | Out-Null
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raylib/4.5.0/src/external/glad.h" -OutFile "libs/external/glad.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/external/glad.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading enet.h (single-file from zpl-c/enet)..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/zpl-c/enet/master/include/enet.h" -OutFile "libs/enet.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/enet.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "=== All dependencies downloaded ==="
+        Get-ChildItem libs/ -Recurse -File | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+    - name: Build with custom script
+      run: |
+        set -ex
+        export PATH="/mingw64/bin:$PATH"
+        bash build_cosmic.sh 2>&1
+
+    - name: Package release
+      run: |
+        set -ex
+        OUT="release/Midless-Cosmic-Windows-x64"
+        mkdir -p "$OUT/textures" "$OUT/mods"
+
+        cp build/client/game.exe "$OUT/game.exe"
+        cp build/server/server.exe "$OUT/server.exe"
+
+        # Copy ALL required DLLs (raylib + MinGW runtime + GLFW + dependencies)
+        echo "=== Copying DLLs ==="
+        # Raylib DLL
+        for dll in /mingw64/bin/libraylib*.dll; do
+          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
+        done
+        # MinGW runtime DLLs (winpthread, gcc_s, stdc++, etc.)
+        for dll in /mingw64/bin/libwinpthread-1.dll /mingw64/bin/libgcc_s_seh-1.dll /mingw64/bin/libstdc++-6.dll; do
+          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
+        done
+        # GLFW and OpenGL-related DLLs
+        for dll in /mingw64/bin/glfw3.dll /mingw64/bin/libglfw3.dll /mingw64/bin/libglfw*.dll; do
+          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
+        done
+        # Any other DLLs that game.exe depends on (use objdump to find)
+        echo "=== Checking dependencies of game.exe ==="
+        objdump -p build/client/game.exe 2>/dev/null | grep "DLL Name" | while read _ _ name; do
+          for searchdir in /mingw64/bin /usr/bin; do
+            if [ -f "$searchdir/$name" ] && [ ! -f "$OUT/$name" ]; then
+              cp "$searchdir/$name" "$OUT/" && echo "  $name (from $searchdir)"
+            fi
+          done
+        done
+
+        cp build/client/textures/*.png "$OUT/textures/"
+        cp build/client/mods/*.lua "$OUT/mods/"
+
+        cat > "$OUT/README.txt" << 'README'
+        === Midless: Cosmic Edition ===
+
+        A voxel game set among floating islands in a starlit void.
+
+        CONTROLS:
+          WASD - Move | Space - Jump | Left Click - Break block
+          Right Click - Place block | Mouse Wheel - Select block
+          T - Chat | ESC - Menu | F3 - Debug | F5 - Camera view
+
+        Launch game.exe for singleplayer, server.exe for dedicated server.
+        Choose "New World" to generate cosmic terrain.
+        
+        NOTE: Delete the "world" folder if upgrading from a previous version.
+        README
+
+        echo "=== Package contents ==="
+        find "$OUT" -type f -ls
+
+        cd release
+        7z a -tzip Midless-Cosmic-Windows-x64.zip Midless-Cosmic-Windows-x64/
+        sha256sum Midless-Cosmic-Windows-x64.zip > SHA256SUMS
+        cat SHA256SUMS
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Midless-Cosmic-Windows-x64
+        path: release/Midless-Cosmic-Windows-x64.zip
+        if-no-files-found: error
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
+        gh release create "$TAG" \
+          --target "$GITHUB_SHA" \
+          --title "Midless: Cosmic Edition" \
+          --notes "## Midless: Cosmic Edition
+
+        Floating islands drifting through a starlit void.
+
+        - Space background with procedural starfield and nebula bands
+        - Floating islands with organic shapes and crystal pools
+        - Asteroids replacing clouds
+        - Cosmic shaders with violet nebula fog
+        - Water contained in crystal pools only
+        - Water wall bug fixed
+
+        Download, extract, run game.exe. Start a New World." \
+          release/Midless-Cosmic-Windows-x64.zip \
+          release/SHA256SUMS

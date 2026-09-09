@@ -31,7 +31,7 @@
 #include "entitymodel.h"
 #include "localserver.h"
 #include "particle.h"
-#include "cloud.h"
+#include "asteroid.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -50,11 +50,11 @@ void World_Init(void) {
 
     ChunkMeshGeneration_Init();
     Particle_Clear();
-    Cloud_Init();
+    Asteroid_Init();
 }
 
 void World_LoadMultiplayer(void) {
-    player.position = (Vector3) { 0, 80, 0 };
+    player.position = (Vector3) { 0, 85, 0 };
     Screen_Switch(SCREEN_GAME);
     world.loadChunks = true;
 }
@@ -83,7 +83,7 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
-    Cloud_Update(deltaTime);
+    Asteroid_Update(deltaTime);
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         Entity *entity = &world.entities[i];
@@ -272,7 +272,7 @@ void World_Clear(void) {
 }
 
 void World_Shutdown(void) {
-    Cloud_Shutdown();
+    Asteroid_Shutdown();
     World_Clear();
     world.material.maps[MATERIAL_MAP_DIFFUSE].texture.id = 0; // Texture owner releases it.
     UnloadMaterial(world.material);
@@ -373,7 +373,7 @@ void World_Draw(Vector3 camPosition) {
         Entity_Draw(&world.entities[i]);
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
-    Cloud_Draw(camPosition, World_GetSunlightStrength());
+    Asteroid_Draw(camPosition, World_GetSunlightStrength());
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
 

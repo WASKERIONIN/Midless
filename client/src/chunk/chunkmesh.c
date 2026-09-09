@@ -14,6 +14,10 @@
 #include "world.h"
 #include "player.h"
 
+/* Compatibility: cast vertex attribute offset to the type
+ * expected by whichever rlgl version is installed. */
+#define CHUNK_VATTR_OFFSET(n) ((void *)(uintptr_t)(n))
+
 static unsigned int cachedShaderId = 0;
 static int matModelViewLocation = -1;
 
@@ -105,10 +109,12 @@ void ChunkMesh_PrepareDrawing(Material material) {
 
     float fogEnd = world.drawDistance * 16.0f + 8.0f;
     float fogStart = world.drawDistance * 16.0f * 0.7f + 8.0f;
+    /* Cosmic nebula fog — deep violet that blends into the starfield
+     * background instead of the old flat-blue sky fog. */
     float fogColor[3] = {
-        (140.0f / 255.0f) * sunlightStrength,
-        (210.0f / 255.0f) * sunlightStrength,
-        (240.0f / 255.0f) * sunlightStrength
+        (20.0f / 255.0f) + 0.05f * sunlightStrength,
+        (10.0f / 255.0f) + 0.02f * sunlightStrength,
+        (40.0f / 255.0f) + 0.08f * sunlightStrength
     };
     Color liquidTint;
     if (Player_GetCameraLiquidTint(&liquidTint)) {
@@ -151,15 +157,15 @@ void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
         if (count > 65536) count = 65536;
         rlEnableVertexBuffer(mesh->vboId[0]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE,
-                             0, 0, (void *)(uintptr_t)(first * 3));
+                             0, 0, CHUNK_VATTR_OFFSET(first * 3));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
         rlEnableVertexBuffer(mesh->vboId[1]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, 0x1403,
-                             0, 0, (void *)(uintptr_t)(first * 2 * sizeof(unsigned short)));
+                             0, 0, CHUNK_VATTR_OFFSET(first * 2 * sizeof(unsigned short)));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
         rlEnableVertexBuffer(mesh->vboId[2]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE,
-                             0, 0, (void *)(uintptr_t)first);
+                             0, 0, CHUNK_VATTR_OFFSET(first));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
         rlEnableVertexBufferElement(mesh->vboId[3]);
         rlDrawVertexArrayElements((first / 4) * 6, (count / 4) * 6, 0);

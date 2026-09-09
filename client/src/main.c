@@ -26,6 +26,7 @@
 #include "chat.h"
 #include "localserver.h"
 #include "runtimepaths.h"
+#include "starfield.h"
 
 
 void Game_RunLoop(void);
@@ -81,6 +82,10 @@ int main(void) {
 
     //Player Initialization
     Player_Init();
+
+    // Cosmic background: initialise the starfield that replaces the
+    // old flat-blue sky.
+    Starfield_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -100,6 +105,7 @@ int main(void) {
         EntityModel_ResetDefinitions();
         ClientTextures_Reset();
         Screen_Shutdown();
+        Starfield_Shutdown();
         UnloadShader(shader);
         UnloadTexture(texture);
         World_Shutdown();
@@ -118,6 +124,7 @@ void Game_RunLoop(void) {
     // Update
     Player_Update();
     World_Update();
+    Starfield_Update(GetFrameTime());
     
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
     
@@ -125,9 +132,19 @@ void Game_RunLoop(void) {
     BeginDrawing();
 
         float sunlightStrength = World_GetSunlightStrength();
-        ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
+        /* Deep-space backdrop — very dark indigo that tints slightly
+         * with the (attenuated) sun so the "day" still reads as night
+         * in orbit.  The starfield is layered on top of this. */
+        ClearBackground((Color) {
+            (unsigned char)(8  + 12 * sunlightStrength),
+            (unsigned char)(4  +  6 * sunlightStrength),
+            (unsigned char)(20 + 20 * sunlightStrength),
+            255 });
 
         BeginMode3D(player.camera);
+            /* Stars must render before opaque geometry so depth tests
+             * let chunk faces occlude them naturally. */
+            Starfield_Draw(player.camera.position, sunlightStrength);
             World_Draw(player.camera.position);
             if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
             if (player.rayResult.hitblockId != -1) {
