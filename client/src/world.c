@@ -60,8 +60,8 @@ void World_LoadMultiplayer(void) {
     world.loadChunks = true;
 }
 
-void World_LoadSingleplayer(void) {
-    LocalServer_Start();
+bool World_LoadSingleplayer(void) {
+    return LocalServer_Start();
 }
 
 void World_UpdateChunksWithBudget(double budgetMs) {

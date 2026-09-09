@@ -680,11 +680,13 @@ bool Worldgen_Freeze(void) {
         bool match = saved && !strcmp(saved, expected);
         UnloadFileText(saved);
         if (!match) {
-            TraceLog(LOG_ERROR, "Worldgen definitions differ from world/worldgen.meta. Restore the "
-                                "world's mods or use a new world directory.");
-            return false;
+            TraceLog(LOG_WARNING, "Worldgen changed; regenerating the world folder.");
+            FilePathList files = LoadDirectoryFiles("world");
+            for (unsigned int i = 0; i < files.count; i++) RemoveFile(files.paths[i]);
+            UnloadDirectoryFiles(files);
         }
-    } else if (!SaveFileText("world/worldgen.meta", expected)) {
+    }
+    if (!SaveFileText("world/worldgen.meta", expected)) {
         TraceLog(LOG_ERROR, "Could not save world/worldgen.meta");
         return false;
     }

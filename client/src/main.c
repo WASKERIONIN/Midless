@@ -120,41 +120,42 @@ int main(void) {
 
 void Game_RunLoop(void) {
     Network_ProcessIncomingPackets();
-    
-    // Update
-    Player_Update();
-    World_Update();
-    
-    Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
-    
-    // Draw
-    BeginDrawing();
 
+    bool inWorld = currentScreen == SCREEN_GAME || currentScreen == SCREEN_PAUSE ||
+                   currentScreen == SCREEN_OPTIONS;
+    if (inWorld) {
+        Player_Update();
+        World_Update();
+    }
+
+    Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
+
+    BeginDrawing();
         ClearBackground((Color){ 10, 6, 24, 255 });
 
-        BeginMode3D(player.camera);
-            Starfield_Update(GetFrameTime());
-            Starfield_Draw(player.camera.position);
-            BlackHole_Draw(player.camera.position);
-            World_Draw(player.camera.position);
-            if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
-            if (player.rayResult.hitblockId != -1) {
-                const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
-                Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
-                blockSize = Vector3Scale(blockSize, 1.0f / 16);
-                selectionBoxPos = Vector3Add(selectionBoxPos,
-                    Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
-                DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
-            }
-                
-        EndMode3D();
+        if (inWorld) {
+            BeginMode3D(player.camera);
+                Starfield_Update(GetFrameTime());
+                Starfield_Draw(player.camera.position);
+                BlackHole_Draw(player.camera.position);
+                World_Draw(player.camera.position);
+                if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
+                if (player.rayResult.hitblockId != -1) {
+                    const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
+                    Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
+                    blockSize = Vector3Scale(blockSize, 1.0f / 16);
+                    selectionBoxPos = Vector3Add(selectionBoxPos,
+                        Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
+                    DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+                }
+            EndMode3D();
 
-        Color liquidTint;
-        if (Player_GetCameraLiquidTint(&liquidTint)) {
-            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
+            Color liquidTint;
+            if (Player_GetCameraLiquidTint(&liquidTint)) {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
+            }
         }
 
         Screen_Draw();
-
     EndDrawing();
 }

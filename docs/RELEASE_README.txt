@@ -18,8 +18,9 @@ HOW TO PLAY:
   1. Extract this folder anywhere.
   2. Run game.exe
   3. Click Singleplayer
-  4. IMPORTANT: if you played an older build, delete the "world"
-     folder next to game.exe so a new cosmic world can generate.
+  4. If you played an older build, the game regenerates the world
+     automatically. You can also delete the "world" folder next to
+     game.exe if you want a clean start.
 
 Falling into the void returns you to the starter island.
 

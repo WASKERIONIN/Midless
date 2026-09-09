@@ -72,9 +72,14 @@ jobs:
           done
         done
 
+        if [ -d client/textures ]; then
+          cp client/textures/*.png "$OUT/textures/"
+        fi
         cp build/client/textures/*.png "$OUT/textures/"
+        if [ -d client/textures ]; then
+          cp client/textures/*.png "$OUT/textures/"
+        fi
         cp mods/*.lua "$OUT/mods/"
-        cp build/client/mods/*.lua "$OUT/mods/" 2>/dev/null || true
         cp docs/RELEASE_README.txt "$OUT/README.txt"
 
         echo "=== Package contents ==="

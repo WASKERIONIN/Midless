@@ -13,9 +13,9 @@
 #include "entitymodel.h"
 #include "entity.h"
 
-#define COSMIC_SPAWN_X 32.0f
-#define COSMIC_SPAWN_Y 97.0f
-#define COSMIC_SPAWN_Z 24.0f
+#define COSMIC_SPAWN_X 8.0f
+#define COSMIC_SPAWN_Y 77.0f
+#define COSMIC_SPAWN_Z 8.0f
 #define COSMIC_VOID_Y  8.0f
 
 typedef enum PlayerCameraMode {

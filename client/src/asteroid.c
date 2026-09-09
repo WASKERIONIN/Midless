@@ -129,7 +129,7 @@ void Asteroid_Init(void) {
     for (int z = 0; z < AST_PATTERN_SIZE; z++) {
         for (int x = 0; x < AST_PATTERN_SIZE; x++) {
             float n = fnlGetNoise2D(&noise, (float)x, (float)z);
-            bool present = n > 0.22f;
+            bool present = n > 0.42f;
             pattern[z * AST_PATTERN_SIZE + x] = present ? 1 : 0;
             scale[z * AST_PATTERN_SIZE + x] =
                 present ? (unsigned char)(1 + ((int)((n - 0.22f) * 5.0f) % 3)) : 0;
@@ -194,7 +194,7 @@ void Asteroid_Draw(Vector3 cameraPosition, float sunlightStrength) {
     SetShaderValue(shader, GetShaderLocation(shader, "fogStart"), &fogStart, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, GetShaderLocation(shader, "fogEnd"), &fogEnd, SHADER_UNIFORM_FLOAT);
 
-    Matrix t = MatrixTranslate(baseX * AST_CELL_SIZE + windOffset, cameraPosition.y + 8.0f,
+    Matrix t = MatrixTranslate(baseX * AST_CELL_SIZE + windOffset, 148.0f,
                                baseZ * AST_CELL_SIZE);
     rlDisableBackfaceCulling();
     DrawMesh(mesh, material, t);

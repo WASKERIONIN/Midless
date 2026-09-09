@@ -22,10 +22,13 @@
 #include "client.h"
 #include "clientws.h"
 #include "blockitemrenderer.h"
+#include "localserver.h"
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
 bool screenShowDebug = false;
+static bool loadingStarted = false;
+static bool loadingFailed = false;
 int screenHeight;
 int screenWidth;
 bool *exitGame;
@@ -282,21 +285,50 @@ void Screen_DrawLogin(void) {
     
     //Singleplayer Button
     if (GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
+        loadingStarted = false;
+        loadingFailed = false;
         DisableCursor();
         Screen_Switch(SCREEN_LOADING);
     }
 
 }
 
-bool loadingNextFrame = false;
 void Screen_DrawLoading(void) {
-    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-    DrawText("Loading World", screenWidth / 2 - 80, screenHeight / 2, 20, WHITE);
-    if(loadingNextFrame) {
-        World_LoadSingleplayer();
-        loadingNextFrame = false;
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
+
+    if (!loadingStarted) {
+        loadingStarted = true;
+        loadingFailed = !World_LoadSingleplayer();
+        if (loadingFailed) EnableCursor();
     }
-    loadingNextFrame = true;
+
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        LocalServer_Stop();
+        loadingStarted = false;
+        loadingFailed = false;
+        EnableCursor();
+        Screen_Switch(SCREEN_LOGIN);
+        return;
+    }
+
+    if (loadingFailed) {
+        const char *err = "Could not start the world.";
+        const char *hint = "Delete the 'world' folder next to game.exe, then try again.";
+        DrawText(err, screenWidth / 2 - MeasureText(err, 20) / 2, screenHeight / 2 - 30, 20, WHITE);
+        DrawText(hint, screenWidth / 2 - MeasureText(hint, 16) / 2, screenHeight / 2 + 8, 16,
+                 (Color){180, 180, 200, 255});
+        if (GuiButton((Rectangle){screenWidth / 2 - 80, screenHeight / 2 + 50, 160, 30}, "Back")) {
+            loadingStarted = false;
+            loadingFailed = false;
+            EnableCursor();
+            Screen_Switch(SCREEN_LOGIN);
+        }
+        return;
+    }
+
+    DrawText("Loading World...", screenWidth / 2 - 90, screenHeight / 2, 20, WHITE);
+    DrawText("ESC to cancel", screenWidth / 2 - 70, screenHeight / 2 + 28, 16,
+             (Color){160, 160, 180, 255});
 }
 
 void Screen_Draw(void) {

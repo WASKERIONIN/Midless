@@ -17,6 +17,7 @@ typedef enum Screen {
     SCREEN_OPTIONS
 } Screen;
 
+extern Screen currentScreen;
 extern bool screenCursorEnabled;
 extern bool screenShowDebug;
 
