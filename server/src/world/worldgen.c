@@ -44,6 +44,7 @@ void Worldgen_Reset(int seed) {
     worldgen.material = worldgen.skyField = worldgen.ceiling = -1;
     worldgen.seed = seed;
     worldgen.seaLevel = 48;
+    worldgen.fillOceans = true;
     worldgen.minY = -128;
     worldgen.maxY = 256;
     worldgen.density = worldgen.caves = worldgen.temperature = worldgen.moisture = -1;
@@ -102,6 +103,11 @@ static bool IsTerrainSolid(TerrainColumn *column, int x, int y, int z) {
     Worldgen_EvalY(&column->eval, y);
     bool solid = worldgen.density < 0 ? y <= floorf(column->height)
                                       : Worldgen_Eval(&column->eval, worldgen.density) > 0;
+    /* Oceans: do not let cave noise carve dry pockets below sea level.
+     * Those pockets become vertical "water walls" where they meet the sea.
+     * Floating-island worlds disable fillOceans, so caves (and voids) stay open. */
+    if (worldgen.fillOceans && !solid && y < worldgen.seaLevel)
+        return true;
     return solid && (worldgen.caves < 0 || Worldgen_Eval(&column->eval, worldgen.caves) <= 0);
 }
 
@@ -369,7 +375,7 @@ void Worldgen_Generate(Chunk *chunk) {
                                     ? (y <= worldgen.seaLevel ? biome->underwater : biome->top)
                                 : depth <= biome->depth + 1 ? biome->filler
                                                             : biome->stone;
-                    else if (y >= worldgen.minY && y <= worldgen.seaLevel)
+                    else if (worldgen.fillOceans && y >= worldgen.minY && y <= worldgen.seaLevel)
                         block = 5;
                     chunk->data[WorldPositionToIndex(chunk, x, y, z)] = block;
                 }
@@ -499,6 +505,7 @@ static uint32_t CalculateDefinitionFingerprint(void) {
     HashInt(&h, worldgen.minY);
     HashInt(&h, worldgen.maxY);
     HashInt(&h, worldgen.seaLevel);
+    HashInt(&h, worldgen.fillOceans);
     HashInt(&h, worldgen.density);
     HashInt(&h, worldgen.caves);
     HashInt(&h, worldgen.temperature);

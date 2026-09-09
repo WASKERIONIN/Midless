@@ -9,6 +9,7 @@
 #define RAYGUI_SUPPORT_ICONS
 #include <pthread.h>
 #include <math.h>
+#include <string.h>
 #include "raylib.h"
 #include "raygui.h"
 #include "screens.h"
@@ -37,14 +38,14 @@ void Screen_Init(Texture2D terrain, bool *exit) {
     BlockItemRenderer_Init(terrain);
 
     //Set UI colors
-    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xfffcfcff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,      0x00000000); 
-    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,      0xffffffff); 
-    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,   0x010101ff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,     0xfafafa00); 
-    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,     0x000000ff); 
-    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xfcffffff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x00000000); 
+    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xc86bffff);
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,      0x140820aa);
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,      0xe8f6ffff);
+    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,   0x5ee7ffff);
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,     0x2ee6c744);
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,     0xffffffff);
+    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xffb347ff);
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x4b1d8f88);
     GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED,     0xffffffff); 
 
     GuiSetStyle(SLIDER, BORDER_COLOR_NORMAL,    0xfffcfcff); 
@@ -86,7 +87,7 @@ void Screen_DrawGame(void) {
             debugText = TextFormat("%2i FPS", GetFPS());
         }
     
-        const char* versionText = "Midless Pre-Alpha 1.4 dev";
+        const char* versionText = "Midless Cosmic Edition";
         DrawText(versionText, 9, 9, 20, BLACK);
         DrawText(versionText, 8, 8, 20, WHITE);
 
@@ -227,13 +228,16 @@ bool portEditMode = false;
 
 void Screen_DrawLogin(void) {
     if(IsCursorHidden()) EnableCursor();
-    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
 
     const char *title = "MIDLESS";
+    const char *subtitle = "COSMIC EDITION";
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
 
-    DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 100, 80, WHITE);
+    DrawText(title, offsetX - (MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
+    DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
+    DrawText(subtitle, offsetX - (MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
 
     //Name Input
     if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, nameInput, 16, loginEditMode)) {

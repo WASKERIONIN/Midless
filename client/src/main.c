@@ -26,6 +26,8 @@
 #include "chat.h"
 #include "localserver.h"
 #include "runtimepaths.h"
+#include "starfield.h"
+#include "blackhole.h"
 
 
 void Game_RunLoop(void);
@@ -37,7 +39,7 @@ int main(void) {
     int screenHeight = 720;
 
     // Initialization
-    InitWindow(screenWidth, screenHeight, "Midless");
+    InitWindow(screenWidth, screenHeight, "Midless: Cosmic Edition");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
     SetExitKey(0);
@@ -81,6 +83,8 @@ int main(void) {
 
     //Player Initialization
     Player_Init();
+    Starfield_Init();
+    BlackHole_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -104,6 +108,8 @@ int main(void) {
         UnloadTexture(texture);
         World_Shutdown();
         EntityModelDefinitions_Shutdown();
+        BlackHole_Shutdown();
+        Starfield_Shutdown();
         Chat_Shutdown();
 
         CloseWindow();
@@ -124,10 +130,12 @@ void Game_RunLoop(void) {
     // Draw
     BeginDrawing();
 
-        float sunlightStrength = World_GetSunlightStrength();
-        ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
+        ClearBackground((Color){ 10, 6, 24, 255 });
 
         BeginMode3D(player.camera);
+            Starfield_Update(GetFrameTime());
+            Starfield_Draw(player.camera.position);
+            BlackHole_Draw(player.camera.position);
             World_Draw(player.camera.position);
             if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
             if (player.rayResult.hitblockId != -1) {

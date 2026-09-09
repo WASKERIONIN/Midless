@@ -1,9 +1,9 @@
 #if !defined(MIDLESS_FNL_EXTERNAL)
 #define FNL_IMPL
 #endif
-#include "FastNoiseLite.h"
 #include "worldgenerator.h"
 #include "worldgen.h"
+#undef FNL_IMPL
 
 void ServerWorldGenerator_Init(int seed) {
     Worldgen_Reset(seed);

@@ -378,6 +378,7 @@ static int ConfigureWorldgen(lua_State *luaState) {
     worldgen.minY = minY;
     worldgen.maxY = maxY;
     worldgen.seaLevel = sea;
+    worldgen.fillOceans = fillOceans;
     worldgen.density = preset == 0 ? -1 : density;
     worldgen.caves = preset == 0 ? -1 : caves;
     worldgen.temperature = temp;

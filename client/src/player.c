@@ -45,7 +45,7 @@ void Player_Init(void) {
     player.camera = camera;
     
     player.velocity = (Vector3) {0, 0, 0};
-    player.position = (Vector3) { 0, 80, 0 };
+    player.position = (Vector3) { COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z };
     player.speed = 0.125f / 6;
     
     player.collisionBox.min = (Vector3) { 0.2f, 0, 0.2f };
@@ -200,7 +200,7 @@ void Player_CheckInputs() {
                 player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
                 if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
             } else if (player.canJump) {
-                player.velocity.y += 0.2f;
+                player.velocity.y += 0.24f;
                 player.canJump = false;
             }
         }
@@ -341,8 +341,12 @@ void Player_Update(void) {
             player.velocity.y = -WATER_MAX_FALL_SPEED;
         }
     } else {
-        player.velocity.y -= 0.012f * frameScale;
-        if (player.velocity.y <= -1) player.velocity.y = -1;
+        player.velocity.y -= 0.0085f * frameScale;
+        if (player.velocity.y <= -0.85f) player.velocity.y = -0.85f;
+    }
+
+    if (player.position.y < COSMIC_VOID_Y) {
+        Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
     }
     
     //Calculate velocity with delta time
