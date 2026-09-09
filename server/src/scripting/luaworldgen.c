@@ -357,6 +357,7 @@ static int ConfigureWorldgen(lua_State *luaState) {
     if (maxY < minY || maxY - minY > 1024)
         return luaL_error(luaState, "vertical generation span must be 0..1024 blocks");
     int sea = ReadInteger(luaState, 1, "sea_level", 48, -4096, 4096);
+    bool fillOceans = ReadBoolean(luaState, 1, "fill_oceans", true);
     int density = ReadField(luaState, 1, "density", -1, false);
     int caves = ReadField(luaState, 1, "caves", -1, false);
     int temp = ReadField(luaState, 1, "temperature", -1, true);
