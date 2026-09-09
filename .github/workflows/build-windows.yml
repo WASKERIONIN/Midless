@@ -35,27 +35,53 @@ jobs:
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
-        # FastNoiseLite
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Auburn/FastNoiseLite/master/C/FastNoiseLite.h" -OutFile "libs/FastNoiseLite.h" -UseBasicParsing
-        # stb_ds
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nothings/stb/master/stb_ds.h" -OutFile "libs/stb_ds.h" -UseBasicParsing
-        # minilua
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/edubart/minilua/master/minilua.h" -OutFile "libs/minilua.h" -UseBasicParsing
-        # raygui.h
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raygui/4.0/src/raygui.h" -OutFile "libs/raygui.h" -UseBasicParsing
-        # glad.h for rlgl.h
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        
+        Write-Host "Downloading FastNoiseLite.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Auburn/FastNoiseLite/master/C/FastNoiseLite.h" -OutFile "libs/FastNoiseLite.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/FastNoiseLite.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading stb_ds.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nothings/stb/master/stb_ds.h" -OutFile "libs/stb_ds.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/stb_ds.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading minilua.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/edubart/minilua/master/minilua.h" -OutFile "libs/minilua.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/minilua.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading raygui.h..."
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raygui/4.0/src/raygui.h" -OutFile "libs/raygui.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/raygui.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading glad.h..."
         New-Item -ItemType Directory -Force -Path "libs/external" | Out-Null
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raylib/4.5.0/src/external/glad.h" -OutFile "libs/external/glad.h" -UseBasicParsing
-        # Download zpl-c/enet headers as a zip archive
-        Invoke-WebRequest -Uri "https://github.com/zpl-c/enet/archive/refs/heads/master.zip" -OutFile "enet.zip" -UseBasicParsing
-        Expand-Archive -Path "enet.zip" -DestinationPath "libs/_enet_tmp" -Force
-        # Copy the include/enet/ directory into libs/enet/
-        $enetSrc = Get-ChildItem -Path "libs/_enet_tmp" -Directory | Select-Object -First 1
-        Copy-Item -Path "$($enetSrc.FullName)/include/enet" -Destination "libs/enet" -Recurse -Force
-        # Wrapper: code does #include "enet.h" (not "enet/enet.h")
-        Set-Content -Path "libs/enet.h" -Value '#include "enet/enet.h"'
-        Write-Host "Enet headers:"
-        Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "  $($_.Name)" }
+        try {
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raylib/4.5.0/src/external/glad.h" -OutFile "libs/external/glad.h" -UseBasicParsing
+          Write-Host "  OK: $((Get-Item libs/external/glad.h).Length) bytes"
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "Downloading enet headers..."
+        try {
+          Invoke-WebRequest -Uri "https://github.com/zpl-c/enet/archive/refs/heads/master.zip" -OutFile "enet.zip" -UseBasicParsing
+          Expand-Archive -Path "enet.zip" -DestinationPath "libs/_enet_tmp" -Force
+          $enetSrc = Get-ChildItem -Path "libs/_enet_tmp" -Directory | Select-Object -First 1
+          Write-Host "  Extracted to: $($enetSrc.FullName)"
+          Copy-Item -Path "$($enetSrc.FullName)/include/enet" -Destination "libs/enet" -Recurse -Force
+          Set-Content -Path "libs/enet.h" -Value '#include "enet/enet.h"'
+          Write-Host "  Enet headers:"
+          Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "    $($_.Name)" }
+        } catch { Write-Host "  FAILED: $_"; throw }
+        
+        Write-Host "=== All dependencies downloaded ==="
+        Get-ChildItem libs/ -Recurse -File | ForEach-Object { Write-Host "  $($_.FullName)" }
         Write-Host "Dependencies downloaded:"
         Get-ChildItem libs/ | ForEach-Object { Write-Host "  $($_.Name)" }
         # Download glad.h for rlgl.h (raylib's external/ dir)
