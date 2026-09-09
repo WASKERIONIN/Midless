@@ -28,8 +28,11 @@ typedef enum ModelFaceDirection {
 
 void EntityModel_DefineHumanoid(void) {
     EntityModelDefinition model = {0};
-    int boxCount = 16;
-    model.boxCount = 16;
+    /* v43.3: back to the first-release 6-part body. The separate finger boxes
+     * intersected the arm volume and broke the silhouette; fingers are now
+     * suggested by knuckle grooves painted on the palm face of the skin. */
+    int boxCount = 6;
+    model.boxCount = 6;
     model.boxes = MemAlloc(sizeof(BoundingBox[boxCount]));
     model.positions = MemAlloc(sizeof(Vector3[boxCount]));
     model.uvs = MemAlloc(sizeof(Rectangle[boxCount][6]));
@@ -117,56 +120,6 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){78,0,-6,6};
     partI++;
 
-    /* v43: hands. Fingers share the arm origin so they inherit the arm swing
-     * pivot exactly; the animation layer adds a per-finger curl on top.
-     * The four fingers stay inside the arm's width so the silhouette from
-     * the first release is preserved - only fingertips extend below it.
-     * The thumb is a small pad on the palm side (front face). */
-    for (int finger = 0; finger < 5; finger++) {
-        bool thumb = finger == 4;
-        float cellX = 8.0f + (finger % 4) * 8.0f;
-
-        //right hand finger
-        float rx0 = -2.75f + finger * 0.74f;
-        model.types[partI] = PART_TYPE_RIGHT_FINGERS;
-        model.firstPersonVisible[partI] = true;
-        model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
-        if (thumb) {
-            model.boxes[partI].min = (Vector3) {-0.45f,-10.7f,0.55f};
-            model.boxes[partI].max = (Vector3) {0.25f,-9.05f,1.05f};
-        } else {
-            model.boxes[partI].min = (Vector3) {rx0,-11.15f,-1.55f};
-            model.boxes[partI].max = (Vector3) {rx0 + 0.68f,-9.0f,0.25f};
-        }
-        model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_UP] = (Rectangle){cellX,60,6,2};
-        model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){cellX,64,6,2};
-        partI++;
-
-        //left hand finger (exact mirror of the right one across x = 0)
-        float lxMin = -(rx0 + 0.68f);
-        float lxMax = -rx0;
-        model.types[partI] = PART_TYPE_LEFT_FINGERS;
-        model.firstPersonVisible[partI] = false;
-        model.positions[partI] = (Vector3){3.5f,17.5f,0.0f};
-        if (thumb) {
-            model.boxes[partI].min = (Vector3) {-0.25f,-10.7f,0.55f};
-            model.boxes[partI].max = (Vector3) {0.45f,-9.05f,1.05f};
-        } else {
-            model.boxes[partI].min = (Vector3) {lxMin,-11.15f,-1.55f};
-            model.boxes[partI].max = (Vector3) {lxMax,-9.0f,0.25f};
-        }
-        model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){cellX,60,6,6};
-        model.uvs[partI][MODEL_FACE_UP] = (Rectangle){cellX,60,6,2};
-        model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){cellX,64,6,2};
-        partI++;
-    }
 
     model.defaultTexture = Resource_LoadTexture("humanoid.png");
 

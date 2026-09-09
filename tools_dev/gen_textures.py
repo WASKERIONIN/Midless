@@ -591,6 +591,20 @@ def build_humanoid(path):
         d.rectangle([x, 60, x + 5, 60], fill=lerp(SKIN, (255, 255, 255), 0.25))
         d.rectangle([x, 67, x + 5, 67], fill=SKIN_D)
 
+    # ---- v43.3: fill palm faces (arm DOWN UVs) and boot soles (leg DOWN UVs).
+    # These were fully transparent, punching holes through the hands/feet.
+    # Palms read as gloved hands: dark glove gradient + three knuckle grooves.
+    for px0 in (52, 76):
+        grad(px0, 30, 6, 6, (40, 36, 48), (26, 22, 34))
+        for k in range(3):
+            d.rectangle([px0 + 1 + k * 2, 31, px0 + 1 + k * 2, 34], fill=(18, 15, 24))
+        d.rectangle([px0, 30, px0 + 5, 30], fill=TEAL)
+    # boot soles: dark sole with a gold toe edge, matching the boots
+    for px0 in (78, 102):
+        d.rectangle([px0, 0, px0 + 5, 5], fill=(30, 26, 40))
+        d.rectangle([px0, 0, px0 + 5, 0], fill=GOLD2)
+        d.rectangle([px0, 5, px0 + 5, 5], fill=(20, 17, 28))
+
     img.save(path)
 
 

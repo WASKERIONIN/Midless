@@ -119,12 +119,11 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
     for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + pattern[i]);
 
     int offsetX = x * 15, offsetY = y * 15, offsetZ = z * 15;
-    for (int i = 0; i < 6; i++) {
-        int corner = pattern[i];
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[corner*3] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetY + source[corner*3+1] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[corner*3+2] * 15 / 16);
-        colors[colorsIndex[translucent]++] = color[corner];
+    for (int i = 0; i < 4; i++) {
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[i*3] * 15 / 16);
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetY + source[i*3+1] * 15 / 16);
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[i*3+2] * 15 / 16);
+        colors[colorsIndex[translucent]++] = color[i];
     }
     memcpy(&texcoords[textureIndex[translucent]], meshTemplate->texcoords[(int)face], 8 * sizeof(unsigned short));
     textureIndex[translucent] += 8;

@@ -72,19 +72,44 @@ void Settings_ApplyMaxFps(void) {
     }
 }
 
+/* v43.3: borderless fullscreen. raylib's ToggleFullscreen() hands the window
+ * size to the monitor as a video mode, which changes the user's desktop
+ * resolution; a borderless window at the monitor's current size never does. */
+static bool borderlessActive = false;
+
+static void Settings_ApplyFullscreenState(void) {
+    if (gameSettings.fullscreen && !borderlessActive) {
+        int monitor = GetCurrentMonitor();
+        SetWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
+        SetWindowPosition(0, 0);
+        SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+        borderlessActive = true;
+    } else if (!gameSettings.fullscreen && borderlessActive) {
+        ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
+        SetWindowSize(gameSettings.width, gameSettings.height);
+        CenterWindow();
+        borderlessActive = false;
+    }
+}
+
 void Settings_ApplyWindow(void) {
     if (gameSettings.width < 640) gameSettings.width = 1280;
     if (gameSettings.height < 480) gameSettings.height = 720;
-    SetWindowSize(gameSettings.width, gameSettings.height);
-    if (gameSettings.fullscreen && !IsWindowFullscreen()) ToggleFullscreen();
-    if (!gameSettings.fullscreen && IsWindowFullscreen()) ToggleFullscreen();
+    if (!borderlessActive) SetWindowSize(gameSettings.width, gameSettings.height);
+    Settings_ApplyFullscreenState();
     Settings_ApplyMaxFps();
 }
 
 void Settings_ToggleFullscreen(void) {
-    ToggleFullscreen();
-    gameSettings.fullscreen = IsWindowFullscreen();
-    if (!gameSettings.fullscreen) SetWindowSize(gameSettings.width, gameSettings.height);
+    if (!gameSettings.fullscreen) {
+        /* remember the windowed size we are leaving */
+        if (!borderlessActive) {
+            gameSettings.width = GetScreenWidth();
+            gameSettings.height = GetScreenHeight();
+        }
+    }
+    gameSettings.fullscreen = !gameSettings.fullscreen;
+    Settings_ApplyFullscreenState();
     Settings_Save();
 }
 
