@@ -32,31 +32,36 @@ jobs:
           zip
           p7zip
 
-    - name: Install raylib pre-built
+    - name: Download raylib (PowerShell)
+      shell: pwsh
       run: |
-        set -ex
-        cd /tmp
-        curl -L -o raylib.zip https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip
-        unzip -q raylib.zip
-        RL=/tmp/raylib-4.5.0_win64_mingw-w64/raylib
-        echo "Raylib contents:"
-        find "$RL" -maxdepth 3 -type f 2>/dev/null | head -30
-        # Find where the headers and library are
-        if [ -f "$RL/include/raylib.h" ]; then
-          echo "RAYLIB_INCLUDE_DIR=$RL/include" >> $GITHUB_ENV
-        elif [ -f "$RL/src/raylib.h" ]; then
-          echo "RAYLIB_INCLUDE_DIR=$RL/src" >> $GITHUB_ENV
-        else
-          echo "ERROR: Cannot find raylib.h" && exit 1
-        fi
-        if [ -f "$RL/lib/libraylib.a" ]; then
-          echo "RAYLIB_LIB_DIR=$RL/lib" >> $GITHUB_ENV
-        elif [ -f "$RL/src/libraylib.a" ]; then
-          echo "RAYLIB_LIB_DIR=$RL/src" >> $GITHUB_ENV
-        else
-          echo "ERROR: Cannot find libraylib.a" && exit 1
-        fi
-        echo "RAYLIB_PATH=$RL" >> $GITHUB_ENV
+        $ErrorActionPreference = "Stop"
+        $url = "https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip"
+        $out = "raylib.zip"
+        Write-Host "Downloading raylib from $url"
+        Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
+        Write-Host "Extracting..."
+        Expand-Archive -Path $out -DestinationPath "." -Force
+        $rl = "$PWD/raylib-4.5.0_win64_mingw-w64/raylib"
+        Get-ChildItem -Path $rl -Recurse -Depth 2 | Select-Object -First 30 | ForEach-Object { $_.FullName }
+        # Use Windows-style paths with forward slashes for MinGW
+        $rlWin = $rl -replace '\\','/'
+        if (Test-Path "$rl/include/raylib.h") {
+          $inc = "$rl/include" -replace '\\','/'
+        } else {
+          $inc = "$rl/src" -replace '\\','/'
+        }
+        if (Test-Path "$rl/lib/libraylib.a") {
+          $lib = "$rl/lib" -replace '\\','/'
+        } else {
+          $lib = "$rl/src" -replace '\\','/'
+        }
+        Write-Host "RAYLIB_PATH=$rlWin"
+        Write-Host "RAYLIB_INCLUDE_DIR=$inc"
+        Write-Host "RAYLIB_LIB_DIR=$lib"
+        "RAYLIB_PATH=$rlWin" >> $env:GITHUB_ENV
+        "RAYLIB_INCLUDE_DIR=$inc" >> $env:GITHUB_ENV
+        "RAYLIB_LIB_DIR=$lib" >> $env:GITHUB_ENV
 
     - name: Build client (game.exe)
       run: |
