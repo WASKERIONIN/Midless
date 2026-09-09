@@ -14,6 +14,10 @@
 #include "world.h"
 #include "player.h"
 
+/* Compatibility: cast vertex attribute offset to the type
+ * expected by whichever rlgl version is installed. */
+#define CHUNK_VATTR_OFFSET(n) ((void *)(uintptr_t)(n))
+
 static unsigned int cachedShaderId = 0;
 static int matModelViewLocation = -1;
 
@@ -153,15 +157,15 @@ void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
         if (count > 65536) count = 65536;
         rlEnableVertexBuffer(mesh->vboId[0]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE,
-                             0, 0, (void *)(uintptr_t)(first * 3));
+                             0, 0, CHUNK_VATTR_OFFSET(first * 3));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
         rlEnableVertexBuffer(mesh->vboId[1]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, 0x1403,
-                             0, 0, (void *)(uintptr_t)(first * 2 * sizeof(unsigned short)));
+                             0, 0, CHUNK_VATTR_OFFSET(first * 2 * sizeof(unsigned short)));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
         rlEnableVertexBuffer(mesh->vboId[2]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE,
-                             0, 0, (void *)(uintptr_t)first);
+                             0, 0, CHUNK_VATTR_OFFSET(first));
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
         rlEnableVertexBufferElement(mesh->vboId[3]);
         rlDrawVertexArrayElements((first / 4) * 6, (count / 4) * 6, 0);

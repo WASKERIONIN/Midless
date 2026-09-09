@@ -15,6 +15,11 @@
 #include "rlgl.h"
 #include "starfield.h"
 
+/* RL_POINTS may not be defined in all rlgl.h versions. */
+#ifndef RL_POINTS
+#define RL_POINTS 0x0000
+#endif
+
 #define STAR_COUNT      2400
 #define STAR_RADIUS     450.0f   /* far enough to always envelop chunks */
 #define NEBULA_BANDS    3

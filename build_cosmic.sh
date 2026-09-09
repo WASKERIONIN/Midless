@@ -4,7 +4,7 @@
 set -ex
 
 CC=gcc
-CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -s -Os"
+CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -s -Os"
 DEFINES="-DPLATFORM_DESKTOP -DOS_WINDOWS"
 
 RAYLIB_INC="/mingw64/include"

@@ -1,9 +1,12 @@
 #if !defined(MIDLESS_FNL_EXTERNAL)
 #define FNL_IMPL
 #endif
-#include "FastNoiseLite.h"
 #include "worldgenerator.h"
 #include "worldgen.h"
+/* FNL_IMPL must be defined before FastNoiseLite.h is first included
+ * (which happens transitively via worldgen.h).  Undefine it afterwards
+ * to prevent redefinition if any later header re-includes the file. */
+#undef FNL_IMPL
 
 void ServerWorldGenerator_Init(int seed) {
     Worldgen_Reset(seed);

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdint.h>
 #include "enet.h"
 #include "stb_ds.h"
 #include "client.h"

@@ -47,6 +47,8 @@ jobs:
         # Download glad.h for rlgl.h (raylib's external/ dir)
         New-Item -ItemType Directory -Force -Path "libs/external" | Out-Null
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raylib/4.5.0/src/external/glad.h" -OutFile "libs/external/glad.h" -UseBasicParsing
+        # raygui.h (single-file immediate-mode GUI)
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raygui/4.0/src/raygui.h" -OutFile "libs/raygui.h" -UseBasicParsing
         Write-Host "Dependencies downloaded:"
         Get-ChildItem libs/ -Recurse | ForEach-Object { Write-Host "  $($_.FullName) ($($_.Length) bytes)" }
 

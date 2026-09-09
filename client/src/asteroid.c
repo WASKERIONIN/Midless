@@ -155,11 +155,19 @@ void Asteroid_Init(void)
         }
 
 #if defined(PLATFORM_WEB)
-    const char *vs = #include "chunk/shaders/cloud_shader_gl100.vs";
-    const char *fs = #include "chunk/shaders/cloud_shader_gl100.fs";
+    const char *vs =
+        #include "chunk/shaders/cloud_shader_gl100.vs"
+    ;
+    const char *fs =
+        #include "chunk/shaders/cloud_shader_gl100.fs"
+    ;
 #else
-    const char *vs = #include "chunk/shaders/cloud_shader.vs";
-    const char *fs = #include "chunk/shaders/cloud_shader.fs";
+    const char *vs =
+        #include "chunk/shaders/cloud_shader.vs"
+    ;
+    const char *fs =
+        #include "chunk/shaders/cloud_shader.fs"
+    ;
 #endif
     shader    = LoadShaderFromMemory(vs, fs);
     material  = LoadMaterialDefault();
