@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdint.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"

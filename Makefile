@@ -153,7 +153,7 @@ else
 		endif
 		
 	else ifeq ($(PLATFORM_OS),WINDOWS)
-		LDLIBS = -static -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lwinmm -lws2_32
+		LDLIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lwinmm -lws2_32
 		
 		ifeq ($(SERVER_WEB_SUPPORT), TRUE)
 			CFLAGS += -I$(OPENSSL_INCLUDE_PATH) -L$(OPENSSL_LIB_PATH) -DMG_ENABLE_OPENSSL=1 -lssl -lcrypto -lbcrypt 
