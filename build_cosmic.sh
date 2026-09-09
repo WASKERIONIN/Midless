@@ -60,15 +60,27 @@ mkdir -p "$OBJ_DIR"
 
 ALL_SRC="$CLIENT_SRC $SERVER_CORE_SRC $SHARED_SRC"
 OBJS=""
+FAILED=""
 for src in $ALL_SRC; do
     obj="$OBJ_DIR/$(echo $src | tr '/' '_').o"
     EXTRA_DEFS="$DEFINES"
     if echo "$src" | grep -q "server/src/world/world.c"; then
         EXTRA_DEFS="$DEFINES -DMIDLESS_STB_DS_EXTERNAL"
     fi
-    $CC $CFLAGS $EXTRA_DEFS $INCLUDES -c "$src" -o "$obj"
-    OBJS="$OBJS $obj"
+    echo "--- Compiling: $src ---"
+    if ! $CC $CFLAGS $EXTRA_DEFS $INCLUDES -c "$src" -o "$obj" 2>&1; then
+        echo "FAILED: $src"
+        FAILED="$FAILED $src"
+    else
+        OBJS="$OBJS $obj"
+    fi
 done
+
+if [ -n "$FAILED" ]; then
+    echo "=== COMPILATION FAILURES ==="
+    echo "Failed files:$FAILED"
+    exit 1
+fi
 
 # Link client
 $CC $OBJS -o build/client/game.exe \
@@ -93,11 +105,23 @@ OBJ_DIR_S="build/obj_server"
 mkdir -p "$OBJ_DIR_S"
 
 OBJS_S=""
+FAILED_S=""
 for src in $SERVER_SRC $SHARED_SRC; do
     obj="$OBJ_DIR_S/$(echo $src | tr '/' '_').o"
-    $CC $CFLAGS $DEFINES $INCLUDES -c "$src" -o "$obj"
-    OBJS_S="$OBJS_S $obj"
+    echo "--- Compiling server: $src ---"
+    if ! $CC $CFLAGS $DEFINES $INCLUDES -c "$src" -o "$obj" 2>&1; then
+        echo "FAILED: $src"
+        FAILED_S="$FAILED_S $src"
+    else
+        OBJS_S="$OBJS_S $obj"
+    fi
 done
+
+if [ -n "$FAILED_S" ]; then
+    echo "=== SERVER COMPILATION FAILURES ==="
+    echo "Failed files:$FAILED_S"
+    exit 1
+fi
 
 $CC $OBJS_S -o build/server/server.exe \
     -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32
