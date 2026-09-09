@@ -22,6 +22,10 @@ for d in $ALL_CLIENT_DIRS; do
     INCLUDES="$INCLUDES -I$d"
 done
 INCLUDES="$INCLUDES -I$RAYLIB_INC -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting"
+# Add enet include path from cloned repo
+if [ -d "libs/enet_repo/include" ]; then
+    INCLUDES="$INCLUDES -Ilibs/enet_repo/include"
+fi
 
 # Collect all source files
 CLIENT_SRC=""
@@ -93,11 +97,9 @@ fi
 # Link client
 echo "=== Linking client ==="
 echo "Object files: $(echo $OBJS | wc -w)"
-echo "Libraries: -L$RAYLIB_LIB -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32"
 ls "$RAYLIB_LIB"/libraylib* 2>/dev/null || echo "No raylib libs found!"
-ls /mingw64/lib/libenet* 2>/dev/null || echo "No enet libs found!"
 $CC $OBJS -o build/client/game.exe \
-    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
     -Wl,--subsystem,windows 2>&1 || {
     echo "::error::Client linking failed - see errors above"
     exit 1
@@ -147,12 +149,9 @@ if [ -n "$FAILED_S" ]; then
 fi
 
 echo "=== Linking server ==="
-LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1) || {
-    echo "LINKER ERROR:"
-    echo "$LINK_OUTPUT_S"
+$CC $OBJS_S -o build/server/server.exe \
+    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1 || {
     echo "::error::Server linking failed"
-    echo "$LINK_OUTPUT_S" | head -20
     exit 1
 }
 
