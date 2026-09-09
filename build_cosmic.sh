@@ -104,6 +104,7 @@ echo "Object files: $(echo $OBJS | wc -w)"
 ls "$RAYLIB_LIB"/libraylib* 2>/dev/null || echo "No raylib libs found!"
 LINK_OUTPUT=$($CC $OBJS -o build/client/game.exe \
     -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    -static-libgcc -static-libstdc++ \
     -Wl,--subsystem,windows 2>&1)
 LINK_RC=$?
 echo "$LINK_OUTPUT"
@@ -159,7 +160,8 @@ fi
 echo "=== Linking server ==="
 mkdir -p build/server
 LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1)
+    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    -static-libgcc -static-libstdc++ 2>&1)
 LINK_RC_S=$?
 echo "$LINK_OUTPUT_S"
 if [ $LINK_RC_S -ne 0 ]; then
