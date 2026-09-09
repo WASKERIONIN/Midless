@@ -10,6 +10,7 @@ GameSettings gameSettings = {
     .fullscreen = false,
     .maxFpsChoice = 0,
     .drawDistance = 8,
+    .volume = 70,
 };
 
 static const int kResolutions[][2] = {
@@ -42,6 +43,10 @@ void Settings_Load(void) {
             if (value < 2) value = 2;
             if (value > 16) value = 16;
             gameSettings.drawDistance = value;
+        } else if (sscanf(line, "volume=%d", &value) == 1) {
+            if (value < 0) value = 0;
+            if (value > 100) value = 100;
+            gameSettings.volume = value;
         }
         line = end ? end + 1 : NULL;
     }
@@ -52,9 +57,9 @@ void Settings_Save(void) {
     BuildPath();
     char body[256];
     snprintf(body, sizeof(body),
-             "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\n",
+             "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n",
              gameSettings.width, gameSettings.height, gameSettings.fullscreen ? 1 : 0,
-             gameSettings.maxFpsChoice, gameSettings.drawDistance);
+             gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume);
     SaveFileText(settingsPath, body);
 }
 

@@ -6,13 +6,17 @@ F11 toggles fullscreen. Options also have resolution, like v42.
 
 CONTROLS:
   WASD          Move
-  Space         Jump
+  Space         Jump (fly up in fly mode)
+  Shift         Fly down
   Left Click    Break block
   Right Click   Place block
-  Mouse Wheel   Select block
-  T             Chat
-  ESC           Menu
-  F3            Debug
+  Mouse Wheel   Select block (starts on stone)
+  T             Chat  (arrows = history; hotkeys locked while typing)
+  /help /where /tp /time /giveme
+  ESC           Menu  (New World / Regenerate World in singleplayer)
+  M             Map
+  Tab           Fly mode
+  F3            Debug (includes birds)
   F5            Camera view
   F11           Fullscreen
 

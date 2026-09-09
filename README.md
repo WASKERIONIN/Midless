@@ -14,14 +14,18 @@ After updating, delete the `world` folder next to the executable and start Singl
 | Input                        | Action                |
 |-------------------------------|----------------------|
 | W A S D             | Move                           |
-| Space               | Jump                           |
+| Space               | Jump (fly up)                  |
+| Shift               | Fly down                       |
 | Left Click          | Break block                    |
 | Right Click         | Place block                    |
-| Mouse wheel         | Block Selection                |
-| T                   | Open Chat                      |
-| ESC                 | Open menu                      |
-| F3                  | Debug overlay                  |
+| Mouse wheel         | Block selection (starts on stone) |
+| T                   | Chat (`/help /where /tp /time /giveme`, arrow history) |
+| ESC                 | Menu (New World / Regenerate World) |
+| M                   | Map                            |
+| Tab                 | Fly mode                       |
+| F3                  | Debug overlay (includes birds) |
 | F5                  | Camera view                    |
+| F11                 | Fullscreen                     |
 
 Falling into the void returns you to the starter island.
 

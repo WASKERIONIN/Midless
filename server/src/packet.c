@@ -199,9 +199,58 @@ void ServerPacket_HandlePlayerPosition(void) {
     ServerPlayer_UpdatePositionRotation(serverPacketPlayer, position, rotation);
 }
 
+static bool ServerPacket_HandleCommand(Player *player, const char *message) {
+    if (!player || !message || message[0] != '/') return false;
+
+    if (strcmp(message, "/help") == 0) {
+        ServerPlayer_SendMessage(player, "Commands: /where, /tp x y z, /time day|night, /giveme id");
+        return true;
+    }
+    if (player->entityId >= 0 && player->entityId < WORLD_MAX_ENTITIES) {
+        Entity *entity = &serverWorld.entities[player->entityId];
+        if (strcmp(message, "/where") == 0) {
+            ServerPlayer_SendMessage(player, TextFormat("X: %i Y: %i Z: %i",
+                (int)entity->position.x, (int)entity->position.y, (int)entity->position.z));
+            return true;
+        }
+        float x, y, z;
+        if (sscanf(message, "/tp %f %f %f", &x, &y, &z) == 3) {
+            ServerPlayer_Teleport(player, (Vector3){x, y, z});
+            ServerPlayer_SendMessage(player, TextFormat("Teleported to %.1f %.1f %.1f", x, y, z));
+            return true;
+        }
+    }
+    if (strncmp(message, "/tp", 3) == 0) {
+        ServerPlayer_SendMessage(player, "Usage: /tp x y z");
+        return true;
+    }
+    if (strcmp(message, "/time day") == 0) {
+        serverWorld.time = 0;
+        ServerWorld_Broadcast(ServerPacket_CreateWorldTime(serverWorld.time));
+        ServerPlayer_SendMessage(player, "Time set to day");
+        return true;
+    }
+    if (strcmp(message, "/time night") == 0) {
+        serverWorld.time = WORLD_DAY_LENGTH_SECONDS * 0.5f;
+        ServerWorld_Broadcast(ServerPacket_CreateWorldTime(serverWorld.time));
+        ServerPlayer_SendMessage(player, "Time set to night");
+        return true;
+    }
+    if (strncmp(message, "/giveme", 7) == 0) {
+        ServerPlayer_SendMessage(player, "Usage: /giveme 1..255 (selects a block on the client)");
+        return true;
+    }
+    ServerPlayer_SendMessage(player, "Unknown command. Type /help");
+    return true;
+}
+
 void ServerPacket_HandleMessage(void) {
     char *message = ServerPacket_ReadString();
     if (LuaBindings_InvokeChatMessage(serverPacketPlayer->id, message)) {
+        MemFree(message);
+        return;
+    }
+    if (ServerPacket_HandleCommand(serverPacketPlayer, message)) {
         MemFree(message);
         return;
     }

@@ -9,6 +9,7 @@ typedef struct GameSettings {
     bool fullscreen;
     int maxFpsChoice;
     int drawDistance;
+    int volume;
 } GameSettings;
 
 extern GameSettings gameSettings;

@@ -14,6 +14,14 @@
 #include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
+#if defined(_WIN32)
+#include <process.h>
+#define MIDLESS_GETPID() _getpid()
+#else
+#include <unistd.h>
+#define MIDLESS_GETPID() getpid()
+#endif
 #include "raylib.h"
 #include "stb_ds.h"
 #include "world.h"

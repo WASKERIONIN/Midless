@@ -30,6 +30,9 @@
 #include "blackhole.h"
 #include "settings.h"
 #include "postfx.h"
+#include "soundfx.h"
+#include "mapview.h"
+#include "bird.h"
 
 
 void Game_RunLoop(void);
@@ -84,6 +87,10 @@ int main(void) {
     Starfield_Init();
     BlackHole_Init();
     PostFx_Init();
+    SoundFx_Init();
+    SoundFx_SetVolume(gameSettings.volume / 100.0f);
+    MapView_Init();
+    Bird_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -110,6 +117,9 @@ int main(void) {
         PostFx_Shutdown();
         BlackHole_Shutdown();
         Starfield_Shutdown();
+        Bird_Shutdown();
+        MapView_Shutdown();
+        SoundFx_Shutdown();
         Chat_Shutdown();
 
         CloseWindow();
@@ -128,6 +138,8 @@ void Game_RunLoop(void) {
     if (inWorld) {
         Player_Update();
         World_Update();
+        Bird_Update(GetFrameTime());
+        MapView_Update();
     }
 
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};

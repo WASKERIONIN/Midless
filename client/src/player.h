@@ -38,6 +38,7 @@ typedef struct Player{
     unsigned char entityType;
     unsigned char modelId;
     bool hasEntityModel;
+    bool flying;
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
     EntityAnimation animation;

@@ -24,6 +24,7 @@ extern bool screenShowDebug;
 void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Shutdown(void);
 void Screen_Switch(Screen screen);
+void Screen_BeginSingleplayer(void);
 
 void Screen_Draw(void);
 

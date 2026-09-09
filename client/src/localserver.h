@@ -6,5 +6,6 @@
 bool LocalServer_Start(void);
 void LocalServer_Stop(void);
 bool LocalServer_IsRunning(void);
+void LocalServer_WipeWorld(bool keepSeed);
 
 #endif

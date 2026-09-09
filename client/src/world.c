@@ -34,6 +34,8 @@
 #include "particle.h"
 #include "asteroid.h"
 #include "settings.h"
+#include "bird.h"
+#include "mapview.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -255,6 +257,8 @@ void World_Reload(void) {
 void World_Clear(void) {
     world.loadChunks = false;
     Particle_Clear();
+    Bird_Clear();
+    MapView_Reset();
     Player_ClearEntityModel();
 
     arrfree(world.generateChunksQueue);
