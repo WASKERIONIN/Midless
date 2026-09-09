@@ -13,6 +13,11 @@
 #include "entitymodel.h"
 #include "entity.h"
 
+#define COSMIC_SPAWN_X 8.0f
+#define COSMIC_SPAWN_Y 77.0f
+#define COSMIC_SPAWN_Z 8.0f
+#define COSMIC_VOID_Y  8.0f
+
 typedef enum PlayerCameraMode {
     PLAYER_CAMERA_FIRST_PERSON,
     PLAYER_CAMERA_THIRD_PERSON_BEHIND,
@@ -33,6 +38,7 @@ typedef struct Player{
     unsigned char entityType;
     unsigned char modelId;
     bool hasEntityModel;
+    bool flying;
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
     EntityAnimation animation;

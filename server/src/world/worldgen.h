@@ -2,6 +2,7 @@
 #define MIDLESS_WORLDGEN_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "FastNoiseLite.h"
 #include "chunk/chunk.h"
 
@@ -167,6 +168,7 @@ typedef struct WGConfig {
     int skyField;
     int ceiling;
     int seaLevel;
+    bool fillOceans;
     int minY;
     int maxY;
     int density;

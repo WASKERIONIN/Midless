@@ -20,6 +20,8 @@
 #include "packet.h"
 #include "particle.h"
 #include "entity.h"
+#include "mapview.h"
+#include "soundfx.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 #define THIRD_PERSON_DISTANCE 4.0f
@@ -39,19 +41,20 @@ void Player_Init(void) {
 
     Camera camera = { 0 };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 65.0f;
+    camera.fovy = 70.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     
     player.camera = camera;
     
     player.velocity = (Vector3) {0, 0, 0};
-    player.position = (Vector3) { 0, 80, 0 };
+    player.position = (Vector3) { COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z };
     player.speed = 0.125f / 6;
     
     player.collisionBox.min = (Vector3) { 0.2f, 0, 0.2f };
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
-    player.blockSelected = 15;
+    player.blockSelected = 1;
+    player.flying = false;
     lastSentHeldBlock = -1;
     player.entityType = 0;
     player.modelId = 0;
@@ -96,13 +99,13 @@ void Player_Teleport(Vector3 position) {
 }
 
 void Player_Draw(void) {
-    if (!player.hasEntityModel) return;
-
     float pitch = playerCameraAngle.y - PI / 2.0f;
 
-    for (int i = 0; i < player.entityModel.partCount; i++) {
-        EntityModelPart *part = &player.entityModel.parts[i];
-        if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
+    if (player.hasEntityModel) {
+        for (int i = 0; i < player.entityModel.partCount; i++) {
+            EntityModelPart *part = &player.entityModel.parts[i];
+            if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
+        }
     }
 
     Entity localEntity = {0};
@@ -117,18 +120,22 @@ void Player_Draw(void) {
         float swingProgress = EntityAnimation_GetSwingProgress(
             &player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
         Entity_DrawFirstPerson(&localEntity, player.camera, swingProgress);
-    } else {
-        Entity_Draw(&localEntity);
+        return;
     }
+    if (!player.hasEntityModel) return;
+    Entity_Draw(&localEntity);
 }
 
 void Player_CheckInputs() {
-    if (IsKeyPressed(KEY_F3)) {
-        screenShowDebug = !screenShowDebug;
-    }
-
-    if (IsKeyPressed(KEY_F5)) {
-        player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
+    if (!chatOpen) {
+        if (IsKeyPressed(KEY_F3)) screenShowDebug = !screenShowDebug;
+        if (IsKeyPressed(KEY_F5))
+            player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
+        if (IsKeyPressed(KEY_M) && currentScreen == SCREEN_GAME) MapView_Toggle();
+        if (IsKeyPressed(KEY_TAB) && currentScreen == SCREEN_GAME) {
+            player.flying = !player.flying;
+            player.velocity.y = 0;
+        }
     }
     
     if (IsKeyPressed(KEY_ESCAPE)) {
@@ -195,12 +202,16 @@ void Player_CheckInputs() {
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
-        if (IsKeyDown(KEY_SPACE)) {
+        if (player.flying) {
+            player.velocity.y = 0;
+            if (IsKeyDown(KEY_SPACE)) player.velocity.y = 0.22f;
+            if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) player.velocity.y = -0.22f;
+        } else if (IsKeyDown(KEY_SPACE)) {
             if (player.liquidSubmersion > 0.0f) {
                 player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
                 if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
             } else if (player.canJump) {
-                player.velocity.y += 0.2f;
+                player.velocity.y += 0.24f;
                 player.canJump = false;
             }
         }
@@ -246,6 +257,7 @@ void Player_CheckInputs() {
                 Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
+                SoundFx_PlayDig();
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
@@ -320,6 +332,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockId)
     }
 
     Network_Send(Packet_CreateSetBlock(blockId, pos));
+    SoundFx_PlayPlace();
     return true;
 }
 
@@ -335,14 +348,20 @@ void Player_Update(void) {
     float frameScale = GetFrameTime() * 60.0f;
     player.liquidSubmersion = Player_GetLiquidSubmersion();
 
-    if (player.liquidSubmersion > 0.0f) {
+    if (player.flying) {
+        /* Tab fly: no gravity */
+    } else if (player.liquidSubmersion > 0.0f) {
         player.velocity.y -= WATER_GRAVITY * frameScale;
         if (player.velocity.y < -WATER_MAX_FALL_SPEED) {
             player.velocity.y = -WATER_MAX_FALL_SPEED;
         }
     } else {
-        player.velocity.y -= 0.012f * frameScale;
-        if (player.velocity.y <= -1) player.velocity.y = -1;
+        player.velocity.y -= 0.0085f * frameScale;
+        if (player.velocity.y <= -0.85f) player.velocity.y = -0.85f;
+    }
+
+    if (player.position.y < COSMIC_VOID_Y) {
+        Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
     }
     
     //Calculate velocity with delta time

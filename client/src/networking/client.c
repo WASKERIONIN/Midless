@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "enet.h"
 #include "stb_ds.h"
 #include "client.h"
@@ -111,7 +113,9 @@ void Client_Do(int *state) {
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
+#ifdef ENET_EVENT_TYPE_DISCONNECT_TIMEOUT
                 case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+#endif
                     puts("disconnected.");
                     Network_Disconnect();
                     disconnected = true;

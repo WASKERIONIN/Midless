@@ -26,6 +26,13 @@
 #include "chat.h"
 #include "localserver.h"
 #include "runtimepaths.h"
+#include "starfield.h"
+#include "blackhole.h"
+#include "settings.h"
+#include "postfx.h"
+#include "soundfx.h"
+#include "mapview.h"
+#include "bird.h"
 
 
 void Game_RunLoop(void);
@@ -33,16 +40,12 @@ void Game_RunLoop(void);
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
 
-    int screenWidth = 1280;
-    int screenHeight = 720;
-
-    // Initialization
-    InitWindow(screenWidth, screenHeight, "Midless");
-    SetWindowState(FLAG_WINDOW_RESIZABLE);
-    SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
+    Settings_Load();
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT);
+    InitWindow(gameSettings.width, gameSettings.height, "Midless: Cosmic Edition");
+    Settings_ApplyWindow();
     SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);
-    SetTargetFPS(60); 
 
     #if defined(PLATFORM_WEB)
         char *chunkShaderVs = 
@@ -81,6 +84,13 @@ int main(void) {
 
     //Player Initialization
     Player_Init();
+    Starfield_Init();
+    BlackHole_Init();
+    PostFx_Init();
+    SoundFx_Init();
+    SoundFx_SetVolume(gameSettings.volume / 100.0f);
+    MapView_Init();
+    Bird_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -104,6 +114,12 @@ int main(void) {
         UnloadTexture(texture);
         World_Shutdown();
         EntityModelDefinitions_Shutdown();
+        PostFx_Shutdown();
+        BlackHole_Shutdown();
+        Starfield_Shutdown();
+        Bird_Shutdown();
+        MapView_Shutdown();
+        SoundFx_Shutdown();
         Chat_Shutdown();
 
         CloseWindow();
@@ -113,40 +129,50 @@ int main(void) {
 }
 
 void Game_RunLoop(void) {
+    if (IsKeyPressed(KEY_F11)) Settings_ToggleFullscreen();
+
     Network_ProcessIncomingPackets();
-    
-    // Update
-    Player_Update();
-    World_Update();
-    
+
+    bool inWorld = currentScreen == SCREEN_GAME || currentScreen == SCREEN_PAUSE ||
+                   currentScreen == SCREEN_OPTIONS;
+    if (inWorld) {
+        Player_Update();
+        World_Update();
+        Bird_Update(GetFrameTime());
+        MapView_Update();
+    }
+
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
-    
-    // Draw
+
     BeginDrawing();
+        ClearBackground((Color){ 14, 4, 28, 255 });
 
-        float sunlightStrength = World_GetSunlightStrength();
-        ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
+        if (inWorld) {
+            PostFx_BeginScene();
+            ClearBackground((Color){ 14, 4, 28, 255 });
+            BeginMode3D(player.camera);
+                Starfield_Update(GetFrameTime());
+                Starfield_Draw(player.camera);
+                BlackHole_Draw(player.camera);
+                World_Draw(player.camera.position);
+                if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
+                if (player.rayResult.hitblockId != -1) {
+                    const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
+                    Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
+                    blockSize = Vector3Scale(blockSize, 1.0f / 16);
+                    selectionBoxPos = Vector3Add(selectionBoxPos,
+                        Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
+                    DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+                }
+            EndMode3D();
 
-        BeginMode3D(player.camera);
-            World_Draw(player.camera.position);
-            if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
-            if (player.rayResult.hitblockId != -1) {
-                const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
-                Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
-                blockSize = Vector3Scale(blockSize, 1.0f / 16);
-                selectionBoxPos = Vector3Add(selectionBoxPos,
-                    Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
-                DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+            Color liquidTint;
+            if (Player_GetCameraLiquidTint(&liquidTint)) {
+                DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
             }
-                
-        EndMode3D();
-
-        Color liquidTint;
-        if (Player_GetCameraLiquidTint(&liquidTint)) {
-            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
+            PostFx_EndScene();
         }
 
         Screen_Draw();
-
     EndDrawing();
 }

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <pthread.h>
 #define ENET_IMPLEMENTATION
 #include "enet.h"
@@ -93,7 +94,9 @@ void Server_Do(int *state) {
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
+#ifdef ENET_EVENT_TYPE_DISCONNECT_TIMEOUT
                 case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+#endif
                     ServerNetwork_Disconnect(event.peer->data);
                     break;
                     

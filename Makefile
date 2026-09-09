@@ -1,5 +1,7 @@
 RAYLIB_PATH = C:/raylib/raylib
 COMPILER_PATH ?= C:/mingw64/bin
+RAYLIB_LIB_DIR ?= $(RAYLIB_PATH)/src
+RAYLIB_INCLUDE_DIR ?= $(RAYLIB_PATH)/src
 
 # PLATFORM_WEB properties
 BUILD_WEB_SHELL       ?= shell.html
@@ -118,8 +120,8 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
 	CFLAGS += -pthread
 endif
 
-INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
-LDFLAGS = -L. -L$(RAYLIB_PATH)/src -L./libs
+INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting -I$(RAYLIB_INCLUDE_DIR) -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
+LDFLAGS = -L. -L$(RAYLIB_LIB_DIR) -L$(RAYLIB_PATH)/src -L./libs
 
 ifeq ($(SERVER_WEB_SUPPORT), TRUE)
 	CDIRECTIVES += -DSERVER_WEB_SUPPORT
@@ -144,7 +146,7 @@ else
 		endif
 		
 	else ifeq ($(PLATFORM_OS),WINDOWS)
-		LDLIBS = -static -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lwinmm -lws2_32
+		LDLIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lwinmm -lws2_32
 		
 		ifeq ($(SERVER_WEB_SUPPORT), TRUE)
 			CFLAGS += -I$(OPENSSL_INCLUDE_PATH) -L$(OPENSSL_LIB_PATH) -DMG_ENABLE_OPENSSL=1 -lssl -lcrypto -lbcrypt 

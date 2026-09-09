@@ -33,7 +33,7 @@ void World_InvalidateBlockDefinitions(bool relight);
 //Load multiplayer world.
 void World_LoadMultiplayer(void);
 //Load singleplayer world.
-void World_LoadSingleplayer(void);
+bool World_LoadSingleplayer(void);
 //Update World
 void World_Update(void);
 //Build Chunks mesh in queue

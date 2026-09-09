@@ -168,28 +168,30 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
         (-190.0f + swing.twist * 35.0f) * DEG2RAD
     };
 
-    Matrix item = MatrixMultiply(MatrixScale(0.35f, 0.35f, 0.35f),
-        MatrixRotateXYZ((Vector3){-swing.arc * 0.8f, 30.0f * DEG2RAD, -swing.twist * 0.6f}));
-    item.m12 = 0.40f - swing.arc * 0.18f;
-    item.m13 = -0.30f + swing.arc * 0.08f;
-    item.m14 = -0.65f - swing.arc * 0.12f;
-    if (BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, cameraTransform),
-                                Entity_GetBrightness(entity->position))) return;
-
     EntityModel *model = &entity->model;
-    Entity_ApplyBrightness(entity);
-    for (int i = 0; i < model->partCount; i++) {
-        EntityModelPart *part = &model->parts[i];
-        if (!part->visibleInFirstPerson) continue;
+    if (model->partCount > 0) {
+        Entity_ApplyBrightness(entity);
+        for (int i = 0; i < model->partCount; i++) {
+            EntityModelPart *part = &model->parts[i];
+            if (!part->visibleInFirstPerson) continue;
 
-        Matrix drawMatrix = MatrixRotateXYZ(rotation);
-        drawMatrix.m12 = 0.35f - swing.arc * 0.10f;
-        drawMatrix.m13 = -0.42f;
-        drawMatrix.m14 = -0.25f;
-        drawMatrix = MatrixMultiply(drawMatrix, cameraTransform);
-        DrawMesh(part->mesh, model->material, drawMatrix);
-
+            Matrix drawMatrix = MatrixRotateXYZ(rotation);
+            drawMatrix.m12 = 0.35f - swing.arc * 0.10f;
+            drawMatrix.m13 = -0.42f;
+            drawMatrix.m14 = -0.25f;
+            drawMatrix = MatrixMultiply(drawMatrix, cameraTransform);
+            DrawMesh(part->mesh, model->material, drawMatrix);
+        }
     }
+
+    /* v42: smaller cube, dropped below the palm so air shows between hand and block, slow spin. */
+    Matrix item = MatrixMultiply(MatrixScale(0.22f, 0.22f, 0.22f),
+        MatrixRotateXYZ((Vector3){-swing.arc * 0.6f, (float)GetTime() * 0.8f, -swing.twist * 0.4f}));
+    item.m12 = 0.40f - swing.arc * 0.14f;
+    item.m13 = -0.58f + swing.arc * 0.06f;
+    item.m14 = -0.72f - swing.arc * 0.10f;
+    BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, cameraTransform),
+                             Entity_GetBrightness(entity->position));
 }
 
 void Entity_Destroy(Entity *entity) {

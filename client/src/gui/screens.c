@@ -9,6 +9,7 @@
 #define RAYGUI_SUPPORT_ICONS
 #include <pthread.h>
 #include <math.h>
+#include <string.h>
 #include "raylib.h"
 #include "raygui.h"
 #include "screens.h"
@@ -21,10 +22,17 @@
 #include "client.h"
 #include "clientws.h"
 #include "blockitemrenderer.h"
+#include "localserver.h"
+#include "settings.h"
+#include "mapview.h"
+#include "bird.h"
+#include "soundfx.h"
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
 bool screenShowDebug = false;
+static bool loadingStarted = false;
+static bool loadingFailed = false;
 int screenHeight;
 int screenWidth;
 bool *exitGame;
@@ -35,16 +43,20 @@ const char* maxFPS = "60";
 void Screen_Init(Texture2D terrain, bool *exit) {
     exitGame = exit;
     BlockItemRenderer_Init(terrain);
+    maxFPSChoice = gameSettings.maxFpsChoice;
+    if (maxFPSChoice == 1) maxFPS = "120";
+    else if (maxFPSChoice == 2) maxFPS = "Unlimited";
+    else maxFPS = "60";
 
     //Set UI colors
-    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xfffcfcff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,      0x00000000); 
-    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,      0xffffffff); 
-    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,   0x010101ff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,     0xfafafa00); 
-    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,     0x000000ff); 
-    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xfcffffff); 
-    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x00000000); 
+    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xc86bffff);
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,      0x140820aa);
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,      0xe8f6ffff);
+    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,   0x5ee7ffff);
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,     0x2ee6c744);
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,     0xffffffff);
+    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xffb347ff);
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x4b1d8f88);
     GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED,     0xffffffff); 
 
     GuiSetStyle(SLIDER, BORDER_COLOR_NORMAL,    0xfffcfcff); 
@@ -86,7 +98,7 @@ void Screen_DrawGame(void) {
             debugText = TextFormat("%2i FPS", GetFPS());
         }
     
-        const char* versionText = "Midless Pre-Alpha 1.4 dev";
+        const char* versionText = "Midless Cosmic Edition";
         DrawText(versionText, 9, 9, 20, BLACK);
         DrawText(versionText, 8, 8, 20, WHITE);
 
@@ -94,6 +106,19 @@ void Screen_DrawGame(void) {
         DrawText(coordText, 9, 49, 20, BLACK);
         DrawText(debugText, 8, 28, 20, WHITE);
         DrawText(coordText, 8, 48, 20, WHITE);
+
+        int birds = 0, fly = 0, sit = 0, peck = 0;
+        Bird_GetStats(&birds, &fly, &sit, &peck);
+        const char *birdText = TextFormat("Birds: %i fly:%i sit:%i peck:%i", birds, fly, sit, peck);
+        DrawText(birdText, 9, 69, 20, BLACK);
+        DrawText(birdText, 8, 68, 20, WHITE);
+    }
+
+    if (player.flying) {
+        const char *flyText = "FLY MODE  Tab to walk  Space/Shift up/down";
+        int flyX = screenWidth / 2 - MeasureText(flyText, 16) / 2;
+        DrawText(flyText, flyX + 1, 9, 16, BLACK);
+        DrawText(flyText, flyX, 8, 16, (Color){94, 231, 255, 255});
     }
 
     //Draw crosshair
@@ -106,12 +131,20 @@ void Screen_DrawGame(void) {
 
     //Draw Chat
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
+    MapView_Draw();
+}
+
+void Screen_BeginSingleplayer(void) {
+    loadingStarted = false;
+    loadingFailed = false;
+    DisableCursor();
+    Screen_Switch(SCREEN_LOADING);
 }
 
 void Screen_DrawPause(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
-    int offsetY = screenHeight / 2 - 75;
+    int offsetY = screenHeight / 2 - 120;
     int offsetX = screenWidth / 2 - 100;
 
     int index = 0;
@@ -127,6 +160,28 @@ void Screen_DrawPause(void) {
     //Options Button
     if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
         Screen_Switch(SCREEN_OPTIONS);
+    }
+
+    if (LocalServer_IsRunning()) {
+        if (GuiButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "New World")) {
+            LocalServer_Stop();
+            LocalServer_WipeWorld(false);
+            player.flying = false;
+            player.blockSelected = 1;
+            Bird_Clear();
+            MapView_Reset();
+            Screen_BeginSingleplayer();
+            return;
+        }
+        if (GuiButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "Regenerate World")) {
+            LocalServer_Stop();
+            LocalServer_WipeWorld(true);
+            player.flying = false;
+            Bird_Clear();
+            MapView_Reset();
+            Screen_BeginSingleplayer();
+            return;
+        }
     }
 
     //Main Menu Button
@@ -149,13 +204,15 @@ void Screen_DrawPause(void) {
 void Screen_DrawOptions(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
-    int offsetY = screenHeight / 2 - 75;
+    int offsetY = screenHeight / 2 - 130;
     int offsetX = screenWidth / 2 - 100;
 
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
-    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", world.drawDistance, 2, 16);
+    float drawDistanceValue = (float)world.drawDistance;
+    GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", &drawDistanceValue, 2, 16);
+    int newDrawDistance = (int)(drawDistanceValue + 0.5f);
     Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY + 15 - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
@@ -168,6 +225,8 @@ void Screen_DrawOptions(void) {
             world.drawDistance = newDrawDistance;
             World_Reload();
         }
+        gameSettings.drawDistance = world.drawDistance;
+        Settings_Save();
 
         if (networkConnectedToServer) {
             Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
@@ -201,11 +260,42 @@ void Screen_DrawOptions(void) {
             maxFPS = "Unlimited";
             SetTargetFPS(0);
         }
+        gameSettings.maxFpsChoice = maxFPSChoice;
+        Settings_Save();
     }
 
     offsetY += 35;
 
-    //Back Button
+    const char *fullTxt = TextFormat("Fullscreen: %s  (F11)", gameSettings.fullscreen ? "ON" : "OFF");
+    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, fullTxt)) {
+        Settings_ToggleFullscreen();
+    }
+
+    offsetY += 35;
+
+    const char *resTxt = TextFormat("Resolution: %s", Settings_ResolutionLabel());
+    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, resTxt)) {
+        Settings_CycleResolution();
+    }
+
+    offsetY += 35;
+
+    float vol = SoundFx_GetVolume();
+    GuiSlider((Rectangle){offsetX, offsetY, 200, 30}, "", "", &vol, 0.0f, 1.0f);
+    const char *volTxt = TextFormat("Volume: %i%%", (int)(vol * 100.0f + 0.5f));
+    Vector2 volSize = MeasureTextEx(GetFontDefault(), volTxt, 10.0f, 1);
+    DrawTextEx(GetFontDefault(), volTxt,
+               (Vector2){offsetX + 100 - volSize.x / 2 + 1, offsetY + 15 - volSize.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), volTxt,
+               (Vector2){offsetX + 100 - volSize.x / 2, offsetY + 15 - volSize.y / 2}, 10.0f, 1, WHITE);
+    if (fabsf(vol - SoundFx_GetVolume()) > 0.001f) {
+        SoundFx_SetVolume(vol);
+        gameSettings.volume = (int)(vol * 100.0f + 0.5f);
+        Settings_Save();
+    }
+
+    offsetY += 35;
+
     if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
@@ -227,13 +317,16 @@ bool portEditMode = false;
 
 void Screen_DrawLogin(void) {
     if(IsCursorHidden()) EnableCursor();
-    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
 
     const char *title = "MIDLESS";
+    const char *subtitle = "COSMIC EDITION";
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
 
-    DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 100, 80, WHITE);
+    DrawText(title, offsetX - (MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
+    DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
+    DrawText(subtitle, offsetX - (MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
 
     //Name Input
     if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, nameInput, 16, loginEditMode)) {
@@ -278,21 +371,47 @@ void Screen_DrawLogin(void) {
     
     //Singleplayer Button
     if (GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
-        DisableCursor();
-        Screen_Switch(SCREEN_LOADING);
+        Screen_BeginSingleplayer();
     }
 
 }
 
-bool loadingNextFrame = false;
 void Screen_DrawLoading(void) {
-    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-    DrawText("Loading World", screenWidth / 2 - 80, screenHeight / 2, 20, WHITE);
-    if(loadingNextFrame) {
-        World_LoadSingleplayer();
-        loadingNextFrame = false;
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
+
+    if (!loadingStarted) {
+        loadingStarted = true;
+        loadingFailed = !World_LoadSingleplayer();
+        if (loadingFailed) EnableCursor();
     }
-    loadingNextFrame = true;
+
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        LocalServer_Stop();
+        loadingStarted = false;
+        loadingFailed = false;
+        EnableCursor();
+        Screen_Switch(SCREEN_LOGIN);
+        return;
+    }
+
+    if (loadingFailed) {
+        const char *err = "Could not start the world.";
+        const char *hint = "Delete the 'world' folder next to game.exe, then try again.";
+        DrawText(err, screenWidth / 2 - MeasureText(err, 20) / 2, screenHeight / 2 - 30, 20, WHITE);
+        DrawText(hint, screenWidth / 2 - MeasureText(hint, 16) / 2, screenHeight / 2 + 8, 16,
+                 (Color){180, 180, 200, 255});
+        if (GuiButton((Rectangle){screenWidth / 2 - 80, screenHeight / 2 + 50, 160, 30}, "Back")) {
+            loadingStarted = false;
+            loadingFailed = false;
+            EnableCursor();
+            Screen_Switch(SCREEN_LOGIN);
+        }
+        return;
+    }
+
+    DrawText("Loading World...", screenWidth / 2 - 90, screenHeight / 2, 20, WHITE);
+    DrawText("ESC to cancel", screenWidth / 2 - 70, screenHeight / 2 + 28, 16,
+             (Color){160, 160, 180, 255});
 }
 
 void Screen_Draw(void) {

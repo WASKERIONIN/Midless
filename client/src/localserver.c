@@ -6,6 +6,9 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <stdio.h>
+#include <string.h>
 #include "localserver.h"
 #include "../../server/src/world/world.h"
 #include "../../server/src/player.h"
@@ -104,6 +107,20 @@ bool LocalServer_Start(void) {
     localServerThreadCreated = true;
     Network_Connect();
     return true;
+}
+
+void LocalServer_WipeWorld(bool keepSeed) {
+    DIR *dir = opendir("world");
+    if (!dir) return;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+        if (keepSeed && strcmp(entry->d_name, "seed.dat") == 0) continue;
+        char path[512];
+        snprintf(path, sizeof(path), "world/%s", entry->d_name);
+        remove(path);
+    }
+    closedir(dir);
 }
 
 void LocalServer_Stop(void) {

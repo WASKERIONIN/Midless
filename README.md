@@ -1,19 +1,33 @@
 ![Image](https://i.imgur.com/4Ku3xak.png)
 [![Chat](https://img.shields.io/discord/908871478576033832?label=%20chat%20on%20discord)](https://discord.gg/tZthSbpUcV)
 
+# Midless: Cosmic Edition
+
 Midless is a free and open-source voxel game made in C.
+
+This fork turns the world into a starlit void of floating islands. The sun is a still black hole. Water exists only inside crystal basins so it cannot flood the map (the old “water wall” is gone). Clouds are asteroids.
+
+After updating, delete the `world` folder next to the executable and start Singleplayer so a new cosmic world generates.
 
 ## Controls
 
 | Input                        | Action                |
 |-------------------------------|----------------------|
 | W A S D             | Move                           |
-| Space               | Jump                           |
+| Space               | Jump (fly up)                  |
+| Shift               | Fly down                       |
 | Left Click          | Break block                    |
 | Right Click         | Place block                    |
-| Mouse wheel         | Block Selection                |
-| T                   | Open Chat                      |
-| ESC                 | Open menu                      |
+| Mouse wheel         | Block selection (starts on stone) |
+| T                   | Chat (`/help /where /tp /time /giveme`, arrow history) |
+| ESC                 | Menu (New World / Regenerate World) |
+| M                   | Map                            |
+| Tab                 | Fly mode                       |
+| F3                  | Debug overlay (includes birds) |
+| F5                  | Camera view                    |
+| F11                 | Fullscreen                     |
+
+Falling into the void returns you to the starter island.
 
 ## Dependencies
 
@@ -34,7 +48,7 @@ Midless is a free and open-source voxel game made in C.
 1. [Download and Build Raylib](https://github.com/raysan5/raylib/wiki/Working-on-Windows)
 2. Place single-files dependencies inside /libs
 4. Edit the makefile's properties if needed
-3. Run mingw32-make inside the Midless folder where the MakeFile is located. 
+3. Run mingw32-make inside the Midless folder where the MakeFile is located.
 
 Make arguments:
 ```
@@ -47,6 +61,7 @@ DEBUG=TRUE              - Debug build
 PLATFORM=PLATFORM_WEB   - Build for the web (Client only)
 ```
 
+Windows CI builds (MSYS2 + Raylib) run from `.github/workflows/build-windows.yml` and publish a zip under Releases.
 
 ## License
 

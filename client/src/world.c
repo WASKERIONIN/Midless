@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include <pthread.h>
 #include <time.h>
 #include "raylib.h"
@@ -31,7 +32,10 @@
 #include "entitymodel.h"
 #include "localserver.h"
 #include "particle.h"
-#include "cloud.h"
+#include "asteroid.h"
+#include "settings.h"
+#include "bird.h"
+#include "mapview.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -42,7 +46,7 @@ World world;
 void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
-    world.drawDistance = 8;
+    world.drawDistance = gameSettings.drawDistance > 0 ? gameSettings.drawDistance : 8;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
@@ -50,17 +54,17 @@ void World_Init(void) {
 
     ChunkMeshGeneration_Init();
     Particle_Clear();
-    Cloud_Init();
+    Asteroid_Init();
 }
 
 void World_LoadMultiplayer(void) {
-    player.position = (Vector3) { 0, 80, 0 };
+    player.position = (Vector3) { COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z };
     Screen_Switch(SCREEN_GAME);
     world.loadChunks = true;
 }
 
-void World_LoadSingleplayer(void) {
-    LocalServer_Start();
+bool World_LoadSingleplayer(void) {
+    return LocalServer_Start();
 }
 
 void World_UpdateChunksWithBudget(double budgetMs) {
@@ -83,7 +87,7 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
-    Cloud_Update(deltaTime);
+    Asteroid_Update(deltaTime);
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         Entity *entity = &world.entities[i];
@@ -253,6 +257,8 @@ void World_Reload(void) {
 void World_Clear(void) {
     world.loadChunks = false;
     Particle_Clear();
+    Bird_Clear();
+    MapView_Reset();
     Player_ClearEntityModel();
 
     arrfree(world.generateChunksQueue);
@@ -272,7 +278,7 @@ void World_Clear(void) {
 }
 
 void World_Shutdown(void) {
-    Cloud_Shutdown();
+    Asteroid_Shutdown();
     World_Clear();
     world.material.maps[MATERIAL_MAP_DIFFUSE].texture.id = 0; // Texture owner releases it.
     UnloadMaterial(world.material);
@@ -373,7 +379,7 @@ void World_Draw(Vector3 camPosition) {
         Entity_Draw(&world.entities[i]);
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
-    Cloud_Draw(camPosition, World_GetSunlightStrength());
+    Asteroid_Draw(camPosition, World_GetSunlightStrength());
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
 
@@ -472,7 +478,8 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 }
 
 float World_GetSunlightStrength(void) {
-    return fmax(abs((int)(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f)) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
+    /* No sun — nebula ambient with a slow pulse. Never drop to night-black. */
+    return 0.70f + 0.08f * sinf(world.time * 0.12f);
 }
 
 float World_GetBrightness(Vector3 position) {
