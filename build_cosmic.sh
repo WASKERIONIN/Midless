@@ -91,9 +91,16 @@ if [ -n "$FAILED" ]; then
 fi
 
 # Link client
-$CC $OBJS -o build/client/game.exe \
+echo "=== Linking client ==="
+LINK_OUTPUT=$($CC $OBJS -o build/client/game.exe \
     -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
-    -Wl,--subsystem,windows
+    -Wl,--subsystem,windows 2>&1) || {
+    echo "LINKER ERROR:"
+    echo "$LINK_OUTPUT"
+    echo "::error::Client linking failed"
+    echo "$LINK_OUTPUT" | head -20
+    exit 1
+}
 
 echo "=== Client built: build/client/game.exe ==="
 ls -la build/client/game.exe
@@ -138,8 +145,15 @@ if [ -n "$FAILED_S" ]; then
     exit 1
 fi
 
-$CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32
+echo "=== Linking server ==="
+LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
+    -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1) || {
+    echo "LINKER ERROR:"
+    echo "$LINK_OUTPUT_S"
+    echo "::error::Server linking failed"
+    echo "$LINK_OUTPUT_S" | head -20
+    exit 1
+}
 
 echo "=== Server built: build/server/server.exe ==="
 ls -la build/server/server.exe
