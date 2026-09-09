@@ -32,9 +32,17 @@ for d in $CLIENT_DIRS; do
 done
 
 SERVER_CORE_SRC=""
+EXCLUDE_SERVER="server/src/main.c server/src/server.c server/src/serverwss.c"
 for d in $SERVER_CORE_DIRS; do
     for f in $d/*.c; do
-        [ -f "$f" ] && SERVER_CORE_SRC="$SERVER_CORE_SRC $f"
+        [ -f "$f" ] || continue
+        SKIP=false
+        for ex in $EXCLUDE_SERVER; do
+            if echo "$f" | grep -q "$ex"; then SKIP=true; break; fi
+        done
+        if [ "$SKIP" = "false" ]; then
+            SERVER_CORE_SRC="$SERVER_CORE_SRC $f"
+        fi
     done
 done
 
