@@ -18,18 +18,29 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MSYS2 + MinGW + Raylib
+    - name: Setup MSYS2 + MinGW
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
-        update: true
+        update: false
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
-          mingw-w64-x86_64-raylib
           git
           zip
           p7zip
+
+    - name: Build raylib 4.5 from source (pinned API)
+      shell: msys2 {0}
+      run: |
+        set -ex
+        cd /d/a
+        if [ ! -f /d/a/raylib45/src/libraylib.a ]; then
+          git clone --depth 1 --branch 4.5.0 https://github.com/raysan5/raylib.git raylib45
+          cd raylib45/src
+          mingw32-make PLATFORM=PLATFORM_DESKTOP -j4 > build.log 2>&1 || { tail -50 build.log; exit 1; }
+        fi
+        ls -la /d/a/raylib45/src/libraylib.a
 
     - name: Download single-file dependencies
       shell: pwsh
@@ -50,6 +61,7 @@ jobs:
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
+        export RAYLIB_SRC="/d/a/raylib45/src"
         bash build_cosmic.sh 2>&1
 
     - name: Package release
@@ -61,24 +73,23 @@ jobs:
         cp build/client/game.exe "$OUT/game.exe"
         cp build/server/server.exe "$OUT/server.exe"
 
-        for dll in /mingw64/bin/libraylib*.dll /mingw64/bin/libwinpthread-1.dll /mingw64/bin/libgcc_s_seh-1.dll /mingw64/bin/libstdc++-6.dll /mingw64/bin/glfw3.dll /mingw64/bin/libglfw3.dll; do
-          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
-        done
+        # static-ish binary; bundle runtime DLLs if any are needed
         objdump -p build/client/game.exe 2>/dev/null | grep "DLL Name" | while read _ _ name; do
-          for searchdir in /mingw64/bin /usr/bin; do
+          for searchdir in /mingw64/bin /d/a/raylib45/src /usr/bin; do
             if [ -f "$searchdir/$name" ] && [ ! -f "$OUT/$name" ]; then
               cp "$searchdir/$name" "$OUT/" && echo "  $name"
             fi
           done
+        done
+        # usually needed: winpthread
+        for dll in /mingw64/bin/libwinpthread-1.dll /mingw64/bin/libgcc_s_seh-1.dll; do
+          [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
         done
 
         if [ -d client/textures ]; then
           cp client/textures/*.png "$OUT/textures/"
         fi
         cp build/client/textures/*.png "$OUT/textures/"
-        if [ -d client/textures ]; then
-          cp client/textures/*.png "$OUT/textures/"
-        fi
         cp mods/*.lua "$OUT/mods/"
         cp docs/RELEASE_README.txt "$OUT/README.txt"
 
@@ -106,17 +117,16 @@ jobs:
         gh release create "$TAG" \
           --target "$GITHUB_SHA" \
           --title "Midless: Cosmic Edition" \
-          --notes "## Midless: Cosmic Edition
+          --notes "## Midless: Cosmic Edition v43
 
-        Floating islands drifting through a starlit void. The sun is a still black hole.
+        Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
-        - Space background with starfield and magenta/teal nebula
-        - Smooth floating islands (no ocean, no water walls)
-        - Water only inside glass crystal basins
-        - Asteroids instead of clouds
-        - Static black hole with a gold accretion ring
-        - Cosmic shaders and recolored terrain atlas
-        - Void rescue back to the starter island
+        - Black hole with rotating accretion disk, photon ring and gravity lensing
+        - Galaxy band, nebulae and shooting stars
+        - Cosmic texture set: void rock, crystal turf, glowing water, new ores
+        - Explorer hands with animated fingers
+        - New worldgen: cone islands, starter island with launch pad, obelisks and crystal arch
+        - Coyote time, jump buffering, procedural sounds, ambient void wind
 
         Extract, run game.exe, click Singleplayer.
         Delete the old \`world\` folder if you played a previous version." \

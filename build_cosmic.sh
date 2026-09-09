@@ -4,11 +4,11 @@
 set -x
 
 CC=gcc
-CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -s -Os"
+CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -Wno-unused-result -O2"
 DEFINES="-DPLATFORM_DESKTOP -DOS_WINDOWS"
 
-RAYLIB_INC="/mingw64/include"
-RAYLIB_LIB="/mingw64/lib"
+RAYLIB_INC="${RAYLIB_SRC:-/d/a/raylib45/src}"
+RAYLIB_LIB="${RAYLIB_SRC:-/d/a/raylib45/src}"
 
 CLIENT_DIRS="./client/src ./client/src/chunk ./client/src/block ./client/src/entity ./client/src/gui ./client/src/networking"
 SERVER_CORE_DIRS="./server/src ./server/src/world ./server/src/world/chunk ./server/src/scripting"
@@ -91,7 +91,7 @@ fi
 
 echo "=== Linking client ==="
 LINK_OUTPUT=$($CC $OBJS -o build/client/game.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    "$RAYLIB_LIB/libraylib.a" -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lm \
     -static-libgcc -static-libstdc++ \
     -Wl,--subsystem,windows 2>&1)
 LINK_RC=$?
@@ -147,7 +147,7 @@ fi
 echo "=== Linking server ==="
 mkdir -p build/server
 LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
+    "$RAYLIB_LIB/libraylib.a" -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lm \
     -static-libgcc -static-libstdc++ 2>&1)
 LINK_RC_S=$?
 echo "$LINK_OUTPUT_S"
