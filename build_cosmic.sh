@@ -94,12 +94,16 @@ fi
 echo "=== Linking client ==="
 echo "Object files: $(echo $OBJS | wc -w)"
 ls "$RAYLIB_LIB"/libraylib* 2>/dev/null || echo "No raylib libs found!"
-$CC $OBJS -o build/client/game.exe \
+LINK_OUTPUT=$($CC $OBJS -o build/client/game.exe \
     -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
-    -Wl,--subsystem,windows 2>&1 || {
-    echo "::error::Client linking failed - see errors above"
+    -Wl,--subsystem,windows 2>&1)
+LINK_RC=$?
+echo "$LINK_OUTPUT"
+if [ $LINK_RC -ne 0 ]; then
+    FIRST_ERR=$(echo "$LINK_OUTPUT" | grep -E "undefined|cannot find|multiple" | head -3)
+    echo "::error::Linker: $FIRST_ERR"
     exit 1
-}
+fi
 
 echo "=== Client built: build/client/game.exe ==="
 ls -la build/client/game.exe
@@ -145,11 +149,15 @@ if [ -n "$FAILED_S" ]; then
 fi
 
 echo "=== Linking server ==="
-$CC $OBJS_S -o build/server/server.exe \
-    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1 || {
-    echo "::error::Server linking failed"
+LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
+    -L"$RAYLIB_LIB" -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 2>&1)
+LINK_RC_S=$?
+echo "$LINK_OUTPUT_S"
+if [ $LINK_RC_S -ne 0 ]; then
+    FIRST_ERR_S=$(echo "$LINK_OUTPUT_S" | grep -E "undefined|cannot find|multiple" | head -3)
+    echo "::error::Server linker: $FIRST_ERR_S"
     exit 1
-}
+fi
 
 echo "=== Server built: build/server/server.exe ==="
 ls -la build/server/server.exe
