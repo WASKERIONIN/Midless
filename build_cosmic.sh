@@ -162,8 +162,8 @@ LINK_OUTPUT_S=$($CC $OBJS_S -o build/server/server.exe \
 LINK_RC_S=$?
 echo "$LINK_OUTPUT_S"
 if [ $LINK_RC_S -ne 0 ]; then
-    FIRST_ERR_S=$(echo "$LINK_OUTPUT_S" | grep -E "undefined|cannot find|multiple" | head -3)
-    echo "::error::Server linker: $FIRST_ERR_S"
+    ERRORS=$(echo "$LINK_OUTPUT_S" | head -5)
+    echo "::error::Server linker failed: $ERRORS"
     exit 1
 fi
 
