@@ -102,6 +102,11 @@ static bool IsTerrainSolid(TerrainColumn *column, int x, int y, int z) {
     Worldgen_EvalY(&column->eval, y);
     bool solid = worldgen.density < 0 ? y <= floorf(column->height)
                                       : Worldgen_Eval(&column->eval, worldgen.density) > 0;
+    /* Below sea level, cave noise must not carve dry pockets: water would
+     * fill them and produce vertical "water wall" seams where the pocket
+     * meets open ocean.  Force terrain solid below the waterline. */
+    if (!solid && y < worldgen.seaLevel)
+        return true;
     return solid && (worldgen.caves < 0 || Worldgen_Eval(&column->eval, worldgen.caves) <= 0);
 }
 

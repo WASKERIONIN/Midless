@@ -1,0 +1,133 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ "arena/01a08553-midless" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSYS2 + MinGW + Raylib
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          mingw-w64-x86_64-raylib
+          mingw-w64-x86_64-pkg-config
+          git
+          zip
+          p7zip
+
+    - name: Build client (game.exe)
+      run: |
+        export RAYLIB_PATH=/mingw64
+        export PATH="/mingw64/bin:$PATH"
+        mingw32-make -j$(nproc)
+      continue-on-error: false
+
+    - name: Build server (server.exe)
+      run: |
+        export RAYLIB_PATH=/mingw64
+        export PATH="/mingw64/bin:$PATH"
+        mingw32-make BUILD_SERVER=TRUE -j$(nproc)
+      continue-on-error: false
+
+    - name: Package release
+      run: |
+        set -ex
+        OUT="release/Midless-Cosmic-Windows-x64"
+        mkdir -p "$OUT/textures" "$OUT/mods"
+
+        # Copy executables (MinGW may or may not append .exe)
+        for f in build/client/game build/client/game.exe; do
+          [ -f "$f" ] && cp "$f" "$OUT/game.exe" && break
+        done
+        for f in build/server/server build/server/server.exe; do
+          [ -f "$f" ] && cp "$f" "$OUT/server.exe" && break
+        done
+
+        # Copy textures
+        cp build/client/textures/*.png "$OUT/textures/"
+
+        # Copy mods
+        cp build/client/mods/*.lua "$OUT/mods/"
+
+        # Write README
+        cat > "$OUT/README.txt" << 'README'
+        === Midless: Cosmic Edition ===
+
+        A voxel game set among floating islands in a starlit void.
+
+        CONTROLS:
+          WASD        - Move
+          Space       - Jump
+          Left Click  - Break block
+          Right Click - Place block
+          Mouse Wheel - Select block
+          T           - Chat
+          ESC         - Menu
+          F3          - Debug overlay
+          F5          - Toggle camera (first/third person)
+
+        GETTING STARTED:
+          Launch game.exe for singleplayer.
+          Launch server.exe for a dedicated server.
+          On first launch, choose "New World" to generate cosmic terrain.
+
+        WORLD:
+          Floating islands drift through nebulae.
+          Crystal pools hold water on island surfaces.
+          Asteroids orbit overhead instead of clouds.
+          Stars and nebula bands fill the sky.
+        README
+
+        cd release
+        7z a -tzip Midless-Cosmic-Windows-x64.zip Midless-Cosmic-Windows-x64/
+        sha256sum Midless-Cosmic-Windows-x64.zip > SHA256SUMS
+        cat SHA256SUMS
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Midless-Cosmic-Windows-x64
+        path: release/Midless-Cosmic-Windows-x64.zip
+        if-no-files-found: error
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      shell: bash
+      run: |
+        TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
+        gh release create "$TAG" \
+          --target "$GITHUB_SHA" \
+          --title "Midless: Cosmic Edition" \
+          --notes "## Midless: Cosmic Edition
+
+        Floating islands drifting through a starlit void.
+
+        - **Space background** with procedural starfield and nebula bands
+        - **Floating islands** generated with organic shapes and crystal pools
+        - **Asteroids** replacing clouds, drifting overhead
+        - **Cosmic shaders** with violet nebula fog and rim glow
+        - **Water containment** — crystal pools only, no spreading oceans
+        - **Water wall bug fixed** — caves no longer carve below sea level
+
+        Download the zip, extract, and run game.exe.
+        **Important:** Start a New World to see the cosmic terrain." \
+          release/Midless-Cosmic-Windows-x64.zip \
+          release/SHA256SUMS

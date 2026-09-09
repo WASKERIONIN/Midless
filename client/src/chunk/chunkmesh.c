@@ -105,10 +105,12 @@ void ChunkMesh_PrepareDrawing(Material material) {
 
     float fogEnd = world.drawDistance * 16.0f + 8.0f;
     float fogStart = world.drawDistance * 16.0f * 0.7f + 8.0f;
+    /* Cosmic nebula fog — deep violet that blends into the starfield
+     * background instead of the old flat-blue sky fog. */
     float fogColor[3] = {
-        (140.0f / 255.0f) * sunlightStrength,
-        (210.0f / 255.0f) * sunlightStrength,
-        (240.0f / 255.0f) * sunlightStrength
+        (20.0f / 255.0f) + 0.05f * sunlightStrength,
+        (10.0f / 255.0f) + 0.02f * sunlightStrength,
+        (40.0f / 255.0f) + 0.08f * sunlightStrength
     };
     Color liquidTint;
     if (Player_GetCameraLiquidTint(&liquidTint)) {
