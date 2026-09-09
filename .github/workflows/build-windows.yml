@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MSYS2 + MinGW
+    - name: Setup MSYS2 + MinGW + Raylib
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -26,110 +26,66 @@ jobs:
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
-          mingw-w64-x86_64-pkg-config
-          mingw-w64-x86_64-curl
+          mingw-w64-x86_64-raylib
           git
           zip
           p7zip
 
-    - name: Download raylib (PowerShell)
-      shell: pwsh
+    - name: Verify raylib installation
       run: |
-        $ErrorActionPreference = "Stop"
-        $url = "https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip"
-        $out = "raylib.zip"
-        Write-Host "Downloading raylib from $url"
-        Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing
-        Write-Host "Extracting..."
-        Expand-Archive -Path $out -DestinationPath "." -Force
-        $rl = "$PWD/raylib-4.5.0_win64_mingw-w64/raylib"
-        Get-ChildItem -Path $rl -Recurse -Depth 2 | Select-Object -First 30 | ForEach-Object { $_.FullName }
-        # Use Windows-style paths with forward slashes for MinGW
-        $rlWin = $rl -replace '\\','/'
-        if (Test-Path "$rl/include/raylib.h") {
-          $inc = "$rl/include" -replace '\\','/'
-        } else {
-          $inc = "$rl/src" -replace '\\','/'
-        }
-        if (Test-Path "$rl/lib/libraylib.a") {
-          $lib = "$rl/lib" -replace '\\','/'
-        } else {
-          $lib = "$rl/src" -replace '\\','/'
-        }
-        Write-Host "RAYLIB_PATH=$rlWin"
-        Write-Host "RAYLIB_INCLUDE_DIR=$inc"
-        Write-Host "RAYLIB_LIB_DIR=$lib"
-        "RAYLIB_PATH=$rlWin" >> $env:GITHUB_ENV
-        "RAYLIB_INCLUDE_DIR=$inc" >> $env:GITHUB_ENV
-        "RAYLIB_LIB_DIR=$lib" >> $env:GITHUB_ENV
+        echo "Checking raylib headers and library..."
+        ls /mingw64/include/raylib.h
+        ls /mingw64/lib/libraylib.a 2>/dev/null || ls /mingw64/lib/libraylib* 2>/dev/null || echo "No static lib, checking shared..."
+        find /mingw64/lib -name "*raylib*" 2>/dev/null
+        find /mingw64/include -name "raylib*" -o -name "rlgl*" -o -name "raymath*" 2>/dev/null
 
     - name: Build client (game.exe)
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
-        echo "RAYLIB_PATH=$RAYLIB_PATH"
-        echo "RAYLIB_INCLUDE_DIR=$RAYLIB_INCLUDE_DIR"
-        echo "RAYLIB_LIB_DIR=$RAYLIB_LIB_DIR"
-        ls "$RAYLIB_INCLUDE_DIR"/raylib.h
-        ls "$RAYLIB_LIB_DIR"/libraylib.a
-        mingw32-make RAYLIB_PATH="$RAYLIB_PATH" RAYLIB_INCLUDE_DIR="$RAYLIB_INCLUDE_DIR" RAYLIB_LIB_DIR="$RAYLIB_LIB_DIR" -j$(nproc) 2>&1 | tail -80
+        mingw32-make \
+          RAYLIB_PATH=/mingw64 \
+          RAYLIB_INCLUDE_DIR=/mingw64/include \
+          RAYLIB_LIB_DIR=/mingw64/lib \
+          -j$(nproc) 2>&1
 
     - name: Build server (server.exe)
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
-        mingw32-make BUILD_SERVER=TRUE RAYLIB_PATH="$RAYLIB_PATH" RAYLIB_INCLUDE_DIR="$RAYLIB_INCLUDE_DIR" RAYLIB_LIB_DIR="$RAYLIB_LIB_DIR" -j$(nproc) 2>&1 | tail -30
+        mingw32-make BUILD_SERVER=TRUE \
+          RAYLIB_PATH=/mingw64 \
+          RAYLIB_INCLUDE_DIR=/mingw64/include \
+          RAYLIB_LIB_DIR=/mingw64/lib \
+          -j$(nproc) 2>&1
 
     - name: Package release
       run: |
         set -ex
         OUT="release/Midless-Cosmic-Windows-x64"
         mkdir -p "$OUT/textures" "$OUT/mods"
-
-        # Copy executables
-        find build/ -name "game*" -o -name "server*" | head -20
+        find build/ -name "game*" -o -name "server*" 2>/dev/null | head -20
         for f in build/client/game build/client/game.exe; do
           [ -f "$f" ] && cp "$f" "$OUT/game.exe" && break
         done
         for f in build/server/server build/server/server.exe; do
           [ -f "$f" ] && cp "$f" "$OUT/server.exe" && break
         done
-
-        # Copy textures
         cp build/client/textures/*.png "$OUT/textures/"
-
-        # Copy mods
         cp build/client/mods/*.lua "$OUT/mods/"
-
-        # Write README
         cat > "$OUT/README.txt" << 'README'
         === Midless: Cosmic Edition ===
-
+        
         A voxel game set among floating islands in a starlit void.
-
+        
         CONTROLS:
-          WASD        - Move
-          Space       - Jump
-          Left Click  - Break block
-          Right Click - Place block
-          Mouse Wheel - Select block
-          T           - Chat
-          ESC         - Menu
-          F3          - Debug overlay
-          F5          - Toggle camera (first/third person)
-
-        GETTING STARTED:
-          Launch game.exe for singleplayer.
-          Launch server.exe for a dedicated server.
-          On first launch, choose "New World" to generate cosmic terrain.
-
-        WORLD:
-          Floating islands drift through nebulae.
-          Crystal pools hold water on island surfaces.
-          Asteroids orbit overhead instead of clouds.
-          Stars and nebula bands fill the sky.
+          WASD - Move | Space - Jump | Left Click - Break block
+          Right Click - Place block | Mouse Wheel - Select block
+          T - Chat | ESC - Menu | F3 - Debug | F5 - Camera view
+        
+        Launch game.exe for singleplayer, server.exe for dedicated server.
+        Choose "New World" to generate cosmic terrain.
         README
-
         cd release
         7z a -tzip Midless-Cosmic-Windows-x64.zip Midless-Cosmic-Windows-x64/
         sha256sum Midless-Cosmic-Windows-x64.zip > SHA256SUMS
@@ -155,14 +111,13 @@ jobs:
 
         Floating islands drifting through a starlit void.
 
-        - **Space background** with procedural starfield and nebula bands
-        - **Floating islands** generated with organic shapes and crystal pools
-        - **Asteroids** replacing clouds, drifting overhead
-        - **Cosmic shaders** with violet nebula fog and rim glow
-        - **Water containment** — crystal pools only, no spreading oceans
-        - **Water wall bug fixed** — caves no longer carve below sea level
+        - Space background with procedural starfield and nebula bands
+        - Floating islands with organic shapes and crystal pools
+        - Asteroids replacing clouds
+        - Cosmic shaders with violet nebula fog
+        - Water contained in crystal pools only
+        - Water wall bug fixed
 
-        Download the zip, extract, and run game.exe.
-        **Important:** Start a New World to see the cosmic terrain." \
+        Download, extract, run game.exe. Start a New World." \
           release/Midless-Cosmic-Windows-x64.zip \
           release/SHA256SUMS
