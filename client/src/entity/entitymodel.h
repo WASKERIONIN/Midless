@@ -18,7 +18,11 @@ typedef enum PartType{
     PART_TYPE_RIGHT_ARM,
     PART_TYPE_LEFT_ARM,
     PART_TYPE_RIGHT_LEG,
-    PART_TYPE_LEFT_LEG
+    PART_TYPE_LEFT_LEG,
+    /* v43: cosmetic finger groups. They inherit their arm's rotation and add
+       a curl on top. Network roles never use these values. */
+    PART_TYPE_RIGHT_FINGERS,
+    PART_TYPE_LEFT_FINGERS
 } PartType;
 
 typedef struct EntityModelDefinition {

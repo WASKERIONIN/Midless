@@ -37,6 +37,15 @@ double playerLastPositionPacketTime;
 Player player;
 static int lastSentHeldBlock;
 
+/* v43 game feel: coyote time, jump buffering, and a void-rescue fade */
+#define PLAYER_COYOTE_SECONDS 0.12
+#define PLAYER_JUMP_BUFFER_SECONDS 0.16
+static double lastGroundedTime = -100.0;
+static double jumpPressedTime = -100.0;
+static float respawnFade = 0.0f;
+
+float Player_GetRespawnFade(void) { return respawnFade; }
+
 void Player_Init(void) {
 
     Camera camera = { 0 };
@@ -128,6 +137,7 @@ void Player_Draw(void) {
 
 void Player_CheckInputs() {
     if (!chatOpen) {
+        if (IsKeyPressed(KEY_SPACE)) jumpPressedTime = GetTime();
         if (IsKeyPressed(KEY_F3)) screenShowDebug = !screenShowDebug;
         if (IsKeyPressed(KEY_F5))
             player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
@@ -206,13 +216,18 @@ void Player_CheckInputs() {
             player.velocity.y = 0;
             if (IsKeyDown(KEY_SPACE)) player.velocity.y = 0.22f;
             if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) player.velocity.y = -0.22f;
-        } else if (IsKeyDown(KEY_SPACE)) {
+        } else if (IsKeyDown(KEY_SPACE) || GetTime() - jumpPressedTime < PLAYER_JUMP_BUFFER_SECONDS) {
             if (player.liquidSubmersion > 0.0f) {
-                player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
-                if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
-            } else if (player.canJump) {
-                player.velocity.y += 0.24f;
+                if (IsKeyDown(KEY_SPACE)) {
+                    player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
+                    if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
+                }
+            } else if (player.canJump || GetTime() - lastGroundedTime < PLAYER_COYOTE_SECONDS) {
+                player.velocity.y += 0.26f;
                 player.canJump = false;
+                lastGroundedTime = -100.0;
+                jumpPressedTime = -100.0;
+                SoundFx_PlayJump();
             }
         }
         Vector3 moveDir = { 0 };
@@ -362,7 +377,11 @@ void Player_Update(void) {
 
     if (player.position.y < COSMIC_VOID_Y) {
         Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
+        respawnFade = 1.0f;
+        SoundFx_PlayTeleport();
+        Chat_AddLine("The void lets you go. Returned to the starter island.");
     }
+    if (respawnFade > 0.0f) respawnFade = fmaxf(0.0f, respawnFade - GetFrameTime() * 1.3f);
     
     //Calculate velocity with delta time
     Vector3 velXdt = Vector3Scale(player.velocity, frameScale);
@@ -374,7 +393,10 @@ void Player_Update(void) {
         player.position.y += velXdt.y / steps;
         if (Player_TestCollision((Vector3){ 0 })) {
             player.position.y -= velXdt.y / steps;
-            if (player.velocity.y <= 0) player.canJump = true;
+            if (player.velocity.y <= 0) {
+                player.canJump = true;
+                lastGroundedTime = GetTime();
+            }
             player.velocity.y = 0;
             break;
         } else {

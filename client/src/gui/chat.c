@@ -68,7 +68,19 @@ static void Remember(const char *line) {
 static bool HandleCommand(const char *message) {
     if (message[0] != '/') return false;
     if (strcmp(message, "/help") == 0) {
-        Chat_AddLine("Commands: /where, /tp x y z, /time day|night, /giveme id");
+        Chat_AddLine("Commands: /where /tp x y z /spawn /fly");
+        Chat_AddLine("          /time day|night /giveme id");
+        return true;
+    }
+    if (strcmp(message, "/fly") == 0) {
+        player.flying = !player.flying;
+        player.velocity.y = 0;
+        Chat_AddLine(player.flying ? "Fly mode ON (Tab to walk)" : "Fly mode OFF");
+        return true;
+    }
+    if (strcmp(message, "/spawn") == 0) {
+        Player_Teleport((Vector3){ 8.0f, 78.0f, 8.0f });
+        Chat_AddLine("Returned to the starter island.");
         return true;
     }
     if (strcmp(message, "/where") == 0) {

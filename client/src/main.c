@@ -138,8 +138,10 @@ void Game_RunLoop(void) {
     if (inWorld) {
         Player_Update();
         World_Update();
+        BlackHole_Update(GetFrameTime());
         Bird_Update(GetFrameTime());
         MapView_Update();
+        SoundFx_Update();
     }
 
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
@@ -170,7 +172,7 @@ void Game_RunLoop(void) {
             if (Player_GetCameraLiquidTint(&liquidTint)) {
                 DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
             }
-            PostFx_EndScene();
+            PostFx_EndScene(player.camera);
         }
 
         Screen_Draw();

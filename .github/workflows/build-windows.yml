@@ -2,7 +2,7 @@ name: Build Windows Release
 
 on:
   push:
-    branches: [ "arena/01a08664-midless" ]
+    branches: [ "arena/01a0872c-midless" ]
   workflow_dispatch:
 
 permissions:

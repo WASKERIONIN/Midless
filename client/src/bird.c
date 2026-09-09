@@ -39,8 +39,14 @@ static void SpawnOne(Bird *b, unsigned int salt) {
     b->state = BIRD_SIT;
     b->timer = 1.0f + (salt % 5);
     unsigned int c = salt * 17u;
-    b->color = (Color){(unsigned char)(80 + c % 100), (unsigned char)(40 + (c / 3) % 80),
-                       (unsigned char)(140 + c % 80), 255};
+    /* void finches: teal, violet and magenta plumage */
+    int roll = (int)(c % 3);
+    if (roll == 0) b->color = (Color){(unsigned char)(52 + c % 40), (unsigned char)(200 + c % 55),
+                                      (unsigned char)(170 + c % 60), 255};
+    else if (roll == 1) b->color = (Color){(unsigned char)(140 + c % 60), (unsigned char)(70 + c % 40),
+                                           (unsigned char)(220 + c % 35), 255};
+    else b->color = (Color){(unsigned char)(230 + c % 25), (unsigned char)(90 + c % 50),
+                            (unsigned char)(210 + c % 45), 255};
 }
 
 void Bird_Init(void) {

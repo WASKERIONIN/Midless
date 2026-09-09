@@ -18,16 +18,21 @@ static double lastBuild = -1;
 static Color ColorForBlock(int id) {
     switch (id) {
         case 0: return (Color){12, 6, 28, 255};
-        case 1: return (Color){110, 110, 120, 255};
-        case 2: return (Color){120, 80, 45, 255};
-        case 3: return (Color){70, 160, 70, 255};
-        case 4: return (Color){150, 100, 50, 255};
-        case 5: return (Color){40, 140, 220, 255};
-        case 6: return (Color){210, 190, 90, 255};
-        case 10: return (Color){90, 60, 30, 255};
-        case 11: return (Color){40, 130, 50, 255};
-        case 14: return (Color){180, 230, 255, 255};
-        default: return (Color){90, 70, 130, 255};
+        case 1: return (Color){64, 54, 96, 255};
+        case 2: return (Color){70, 50, 92, 255};
+        case 3: return (Color){44, 178, 132, 255};
+        case 4: return (Color){94, 62, 118, 255};
+        case 5: return (Color){40, 160, 230, 255};
+        case 6: return (Color){255, 190, 84, 255};
+        case 7: return (Color){148, 64, 255, 255};
+        case 10: return (Color){70, 46, 96, 255};
+        case 11: return (Color){28, 150, 142, 255};
+        case 14: return (Color){64, 214, 255, 255};
+        case 19: return (Color){40, 30, 66, 255};
+        case 20: return (Color){150, 232, 250, 255};
+        case 21: return (Color){255, 160, 60, 255};
+        case 22: return (Color){255, 220, 120, 255};
+        default: return (Color){96, 74, 140, 255};
     }
 }
 

@@ -57,6 +57,7 @@ void Player_Draw(void);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);
+float Player_GetRespawnFade(void);
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockId);
 

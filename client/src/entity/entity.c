@@ -106,10 +106,27 @@ static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
                      1.0f - leftAttackWeight)
     );
 
+    /* v43: finger groups inherit the arm rotation and add a soft curl so the
+     * hands read as hands - relaxed grip while idle, tighter while swinging. */
+    float time = (float)GetTime();
+    float rightCurl = 0.16f + rightSwing.arc * 0.55f + sinf(time * 1.1f) * 0.05f;
+    float leftCurl = 0.16f + leftSwing.arc * 0.55f + cosf(time * 0.9f) * 0.05f;
+    float walkCurl = entity->animation.walkAmount * 0.10f * sinf(time * 5.0f);
+
     for (int i = 0; i < entity->model.partCount; i++) {
         EntityModelPart *part = &entity->model.parts[i];
         if (part->type == PART_TYPE_RIGHT_ARM) part->rotation = rightArmRotation;
-        if (part->type == PART_TYPE_LEFT_ARM) part->rotation = leftArmRotation;
+        else if (part->type == PART_TYPE_LEFT_ARM) part->rotation = leftArmRotation;
+        else if (part->type == PART_TYPE_RIGHT_FINGERS) {
+            int fingerIndex = i % 5;
+            part->rotation = Vector3Add(rightArmRotation,
+                (Vector3){ rightCurl + walkCurl + fingerIndex * 0.02f, 0.0f, 0.0f });
+        }
+        else if (part->type == PART_TYPE_LEFT_FINGERS) {
+            int fingerIndex = i % 5;
+            part->rotation = Vector3Add(leftArmRotation,
+                (Vector3){ leftCurl - walkCurl - fingerIndex * 0.02f, 0.0f, 0.0f });
+        }
         if (part->type == PART_TYPE_RIGHT_LEG) part->rotation.x = legRotation;
         if (part->type == PART_TYPE_LEFT_LEG) part->rotation.x = -legRotation;
     }
@@ -175,10 +192,22 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
             EntityModelPart *part = &model->parts[i];
             if (!part->visibleInFirstPerson) continue;
 
-            Matrix drawMatrix = MatrixRotateXYZ(rotation);
-            drawMatrix.m12 = 0.35f - swing.arc * 0.10f;
-            drawMatrix.m13 = -0.42f;
-            drawMatrix.m14 = -0.25f;
+            /* v43: the visible hand is now an arm plus a finger group; fingers
+             * wrap while swinging and settle with a micro idle motion. */
+            Vector3 partRotation = rotation;
+            Vector3 partOffset = { 0.35f - swing.arc * 0.10f, -0.42f, -0.25f };
+            if (part->type == PART_TYPE_RIGHT_FINGERS) {
+                int fingerIndex = i % 5;
+                float idleCurl = sinf((float)GetTime() * 1.2f + fingerIndex * 0.8f) * 0.035f;
+                partRotation.x -= 0.38f + swing.arc * 0.42f + idleCurl;
+                partRotation.z += 0.05f;
+                partOffset.y -= 0.015f;
+            }
+
+            Matrix drawMatrix = MatrixRotateXYZ(partRotation);
+            drawMatrix.m12 = partOffset.x;
+            drawMatrix.m13 = partOffset.y;
+            drawMatrix.m14 = partOffset.z;
             drawMatrix = MatrixMultiply(drawMatrix, cameraTransform);
             DrawMesh(part->mesh, model->material, drawMatrix);
         }

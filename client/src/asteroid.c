@@ -20,6 +20,7 @@ static Mesh mesh;
 static Material material;
 static Shader shader;
 static float windOffset;
+static float beltTime;
 static int meshBaseX, meshBaseZ;
 static bool meshBuilt;
 
@@ -78,16 +79,16 @@ static void AddAsteroid(float *v, float *n, unsigned char *c, int *cnt, int loca
     p[4] = (Vector3){cx, cy, cz + size * (1.0f + Jitter(patX, patZ, 5) * 0.35f)};
     p[5] = (Vector3){cx, cy, cz - size * (1.0f + Jitter(patX, patZ, 6) * 0.35f)};
 
-    unsigned char r = (unsigned char)(62 + (patX * 13 + patZ * 7) % 40);
-    unsigned char g = (unsigned char)(48 + (patX * 5 + patZ * 17) % 28);
-    unsigned char b = (unsigned char)(88 + (patX * 11 + patZ * 3) % 50);
+    unsigned char r = (unsigned char)(66 + (patX * 13 + patZ * 7) % 26);
+    unsigned char g = (unsigned char)(56 + (patX * 5 + patZ * 17) % 20);
+    unsigned char b = (unsigned char)(104 + (patX * 11 + patZ * 3) % 44);
 
-    AddTri(v, n, c, cnt, p[0], p[2], p[4], (unsigned char)(r + 25), (unsigned char)(g + 18), (unsigned char)(b + 20));
-    AddTri(v, n, c, cnt, p[0], p[4], p[3], (unsigned char)(r + 18), (unsigned char)(g + 10), b);
+    AddTri(v, n, c, cnt, p[0], p[2], p[4], (unsigned char)(r + 30), (unsigned char)(g + 26), (unsigned char)(b + 26));
+    AddTri(v, n, c, cnt, p[0], p[4], p[3], (unsigned char)(r + 20), (unsigned char)(g + 16), b);
     AddTri(v, n, c, cnt, p[0], p[3], p[5], (unsigned char)(r + 12), g, b);
-    AddTri(v, n, c, cnt, p[0], p[5], p[2], (unsigned char)(r + 20), (unsigned char)(g + 8), (unsigned char)(b + 10));
-    AddTri(v, n, c, cnt, p[1], p[4], p[2], (unsigned char)(r - 10), (unsigned char)(g - 8), (unsigned char)(b - 6));
-    AddTri(v, n, c, cnt, p[1], p[3], p[4], (unsigned char)(r - 14), (unsigned char)(g - 10), (unsigned char)(b - 8));
+    AddTri(v, n, c, cnt, p[0], p[5], p[2], (unsigned char)(r + 24), (unsigned char)(g + 14), (unsigned char)(b + 12));
+    AddTri(v, n, c, cnt, p[1], p[4], p[2], (unsigned char)(r - 12), (unsigned char)(g - 10), (unsigned char)(b - 8));
+    AddTri(v, n, c, cnt, p[1], p[3], p[4], (unsigned char)(r - 16), (unsigned char)(g - 12), (unsigned char)(b - 10));
     AddTri(v, n, c, cnt, p[1], p[5], p[3], (unsigned char)(r - 8), (unsigned char)(g - 6), b);
     AddTri(v, n, c, cnt, p[1], p[2], p[5], (unsigned char)(r - 6), g, (unsigned char)(b - 4));
 }
@@ -165,16 +166,19 @@ void Asteroid_Shutdown(void) {
     meshBuilt = false;
 }
 
-void Asteroid_Update(float dt) { windOffset += AST_SPEED * dt; }
+void Asteroid_Update(float dt) {
+    windOffset += AST_SPEED * dt;
+    beltTime += dt;
+}
 
 void Asteroid_Draw(Vector3 cameraPosition, float sunlightStrength) {
     int baseX = (int)floorf((cameraPosition.x - windOffset) / AST_CELL_SIZE);
     int baseZ = (int)floorf(cameraPosition.z / AST_CELL_SIZE);
     if (baseX != meshBaseX || baseZ != meshBaseZ) RebuildMesh(baseX, baseZ);
 
-    unsigned char br = (unsigned char)(100.0f + 110.0f * sunlightStrength);
+    unsigned char br = (unsigned char)(105.0f + 115.0f * sunlightStrength);
     material.maps[MATERIAL_MAP_DIFFUSE].color =
-        (Color){br, (unsigned char)(br * 0.82f), (unsigned char)fminf(255.0f, br * 1.2f), 255};
+        (Color){br, (unsigned char)(br * 0.88f), (unsigned char)fminf(255.0f, br * 1.22f), 255};
 
     float fogEnd = AST_RADIUS * AST_CELL_SIZE;
     float fogStart = fogEnd * 0.55f;
@@ -194,7 +198,8 @@ void Asteroid_Draw(Vector3 cameraPosition, float sunlightStrength) {
     SetShaderValue(shader, GetShaderLocation(shader, "fogStart"), &fogStart, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, GetShaderLocation(shader, "fogEnd"), &fogEnd, SHADER_UNIFORM_FLOAT);
 
-    Matrix t = MatrixTranslate(baseX * AST_CELL_SIZE + windOffset, 148.0f,
+    Matrix t = MatrixTranslate(baseX * AST_CELL_SIZE + windOffset,
+                               148.0f + sinf(beltTime * 0.16f) * 2.2f,
                                baseZ * AST_CELL_SIZE);
     rlDisableBackfaceCulling();
     DrawMesh(mesh, material, t);

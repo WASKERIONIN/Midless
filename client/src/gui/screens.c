@@ -40,6 +40,92 @@ Color uiColBg;
 int maxFPSChoice = 0;
 const char* maxFPS = "60";
 
+/* v43: animated cosmic menu backdrop */
+#define MENU_STAR_COUNT 150
+typedef struct MenuStar {
+    float x, y;
+    float size;
+    float phase;
+    float speed;
+    Color color;
+} MenuStar;
+static MenuStar menuStars[MENU_STAR_COUNT];
+static bool menuStarsReady = false;
+
+static void InitMenuStars(void) {
+    for (int i = 0; i < MENU_STAR_COUNT; i++) {
+        menuStars[i].x = (float)(GetRandomValue(0, 10000)) / 10000.0f;
+        menuStars[i].y = (float)(GetRandomValue(0, 10000)) / 10000.0f;
+        menuStars[i].size = 1.0f + (float)GetRandomValue(0, 220) / 100.0f;
+        menuStars[i].phase = (float)GetRandomValue(0, 628) / 100.0f;
+        menuStars[i].speed = 0.6f + (float)GetRandomValue(0, 24) / 10.0f;
+        int roll = GetRandomValue(0, 99);
+        if (roll < 55) menuStars[i].color = (Color){255, 240, 220, 255};
+        else if (roll < 82) menuStars[i].color = (Color){168, 216, 255, 255};
+        else menuStars[i].color = (Color){236, 150, 255, 255};
+    }
+    menuStarsReady = true;
+}
+
+static void DrawMenuBackground(void) {
+    if (!menuStarsReady) InitMenuStars();
+    float w = (float)screenWidth, h = (float)screenHeight;
+    float t = (float)GetTime();
+
+    /* vertical indigo gradient with a magenta horizon glow */
+    DrawRectangleGradientV(0, 0, screenWidth, screenHeight, (Color){10, 4, 26, 255}, (Color){38, 10, 66, 255});
+    DrawCircleGradient((int)(w * 0.5f + sinf(t * 0.11f) * w * 0.06f),
+                       (int)(h * 1.06f), (int)(h * 0.75f),
+                       (Color){150, 40, 200, 46}, BLANK);
+    DrawCircleGradient((int)(w * 0.16f), (int)(h * 0.22f), (int)(h * 0.42f),
+                       (Color){40, 190, 210, 26}, BLANK);
+    DrawCircleGradient((int)(w * 0.84f), (int)(h * 0.30f), (int)(h * 0.38f),
+                       (Color){210, 60, 235, 30}, BLANK);
+
+    /* twinkling stars (positions wrap with the window size) */
+    for (int i = 0; i < MENU_STAR_COUNT; i++) {
+        MenuStar *s = &menuStars[i];
+        float twinkle = 0.45f + 0.55f * sinf(t * s->speed + s->phase);
+        unsigned char a = (unsigned char)(225 * twinkle);
+        float x = s->x * w, y = s->y * h;
+        DrawCircleV((Vector2){x, y}, s->size * 0.5f,
+                    (Color){s->color.r, s->color.g, s->color.b, a});
+        if (s->size > 2.6f) {
+            DrawRectangle((int)(x - s->size * 1.8f), (int)y, (int)(s->size * 3.6f), 1,
+                          (Color){s->color.r, s->color.g, s->color.b, (unsigned char)(a / 4)});
+            DrawRectangle((int)x, (int)(y - s->size * 1.8f), 1, (int)(s->size * 3.6f),
+                          (Color){s->color.r, s->color.g, s->color.b, (unsigned char)(a / 4)});
+        }
+    }
+
+    /* a couple of far island silhouettes drifting by */
+    for (int k = 0; k < 3; k++) {
+        float drift = fmodf(t * (4.0f + k * 2.5f) + k * 500.0f, w + 260.0f) - 130.0f;
+        float iy = h * (0.32f + 0.16f * k) + sinf(t * 0.4f + k * 2.1f) * 6.0f;
+        float iw = 74.0f - k * 14.0f, ih = 30.0f - k * 5.0f;
+        Color rock = (Color){22, 14, 40, 235};
+        Color rim = (Color){80, 220, 190, 90};
+        DrawTriangle((Vector2){drift - iw / 2, iy}, (Vector2){drift + iw / 2, iy},
+                     (Vector2){drift, iy + ih}, rock);
+        DrawLineEx((Vector2){drift - iw / 2, iy}, (Vector2){drift + iw / 2, iy}, 2.0f, rim);
+        DrawCircleV((Vector2){drift, iy - 1}, 2.0f, (Color){94, 231, 255, 120});
+    }
+}
+
+/* button wrapper with UI click blip */
+static bool MenuButton(Rectangle bounds, const char *text) {
+    bool clicked = GuiButton(bounds, text);
+    if (clicked) SoundFx_PlayClick();
+    return clicked;
+}
+
+static void DrawPanel(Rectangle bounds) {
+    DrawRectangleRec(bounds, (Color){12, 5, 28, 168});
+    DrawRectangleLinesEx(bounds, 1.0f, (Color){94, 231, 255, 90});
+    DrawRectangleLinesEx((Rectangle){bounds.x - 1, bounds.y - 1, bounds.width + 2, bounds.height + 2},
+                         1.0f, (Color){200, 60, 255, 50});
+}
+
 void Screen_Init(Texture2D terrain, bool *exit) {
     exitGame = exit;
     BlockItemRenderer_Init(terrain);
@@ -109,9 +195,9 @@ void Screen_DrawGame(void) {
 
         int birds = 0, fly = 0, sit = 0, peck = 0;
         Bird_GetStats(&birds, &fly, &sit, &peck);
-        const char *birdText = TextFormat("Birds: %i fly:%i sit:%i peck:%i", birds, fly, sit, peck);
+        const char *birdText = TextFormat("Finches: %i fly:%i sit:%i peck:%i", birds, fly, sit, peck);
         DrawText(birdText, 9, 69, 20, BLACK);
-        DrawText(birdText, 8, 68, 20, WHITE);
+        DrawText(birdText, 8, 68, 20, (Color){168, 216, 255, 255});
     }
 
     if (player.flying) {
@@ -126,12 +212,22 @@ void Screen_DrawGame(void) {
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2,  4, 6, uiColBg);
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8,  4, 6, uiColBg);
 
-    // Draw the selected block.
+    // Draw the selected block over a soft glow.
+    float glowPulse = 0.5f + 0.5f * sinf((float)GetTime() * 2.0f);
+    DrawCircleGradient(screenWidth - 48, 48, 52.0f,
+                       (Color){120, 60, 200, (unsigned char)(40 + 24 * glowPulse)}, BLANK);
     BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
 
     //Draw Chat
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
     MapView_Draw();
+
+    // void rescue fade
+    float fade = Player_GetRespawnFade();
+    if (fade > 0.0f) {
+        DrawRectangle(0, 0, screenWidth, screenHeight,
+                      (Color){8, 3, 20, (unsigned char)(fade * 255.0f)});
+    }
 }
 
 void Screen_BeginSingleplayer(void) {
@@ -142,15 +238,16 @@ void Screen_BeginSingleplayer(void) {
 }
 
 void Screen_DrawPause(void) {
-    DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 2, 14, 120});
 
     int offsetY = screenHeight / 2 - 120;
     int offsetX = screenWidth / 2 - 100;
+    DrawPanel((Rectangle){offsetX - 14, offsetY - 14, 228, (float)(5 * 35 + 26)});
 
     int index = 0;
 
     //Continue Button
-    if (GuiButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
+    if (MenuButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
         screenCursorEnabled = false;
@@ -158,12 +255,12 @@ void Screen_DrawPause(void) {
     }
 
     //Options Button
-    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
+    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
         Screen_Switch(SCREEN_OPTIONS);
     }
 
     if (LocalServer_IsRunning()) {
-        if (GuiButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "New World")) {
+        if (MenuButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "New World")) {
             LocalServer_Stop();
             LocalServer_WipeWorld(false);
             player.flying = false;
@@ -173,7 +270,7 @@ void Screen_DrawPause(void) {
             Screen_BeginSingleplayer();
             return;
         }
-        if (GuiButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "Regenerate World")) {
+        if (MenuButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "Regenerate World")) {
             LocalServer_Stop();
             LocalServer_WipeWorld(true);
             player.flying = false;
@@ -185,7 +282,7 @@ void Screen_DrawPause(void) {
     }
 
     //Main Menu Button
-    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
+    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
         if (networkConnectedToServer) {
             Network_Disconnect();
         } else {
@@ -196,16 +293,17 @@ void Screen_DrawPause(void) {
     }
 
     //Quit Button
-    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
+    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
         *exitGame = true;
     }
 }
 
 void Screen_DrawOptions(void) {
-    DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
+    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 2, 14, 120});
 
     int offsetY = screenHeight / 2 - 130;
     int offsetX = screenWidth / 2 - 100;
+    DrawPanel((Rectangle){offsetX - 14, offsetY - 14, 228, (float)(8 * 35 + 20)});
 
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
@@ -239,7 +337,7 @@ void Screen_DrawOptions(void) {
     const char* debugStateTxt = "OFF";
     if (screenShowDebug) debugStateTxt = "ON";
     const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
-    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
+    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
         screenShowDebug = !screenShowDebug;
     }
 
@@ -247,7 +345,7 @@ void Screen_DrawOptions(void) {
 
     //Draw Max FPS
     const char* maxFPSTxt = TextFormat("Max FPS: %s", maxFPS);
-    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
+    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
         maxFPSChoice++;
         if (maxFPSChoice == 3) maxFPSChoice = 0;
         if (maxFPSChoice == 0) {
@@ -267,14 +365,14 @@ void Screen_DrawOptions(void) {
     offsetY += 35;
 
     const char *fullTxt = TextFormat("Fullscreen: %s  (F11)", gameSettings.fullscreen ? "ON" : "OFF");
-    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, fullTxt)) {
+    if (MenuButton((Rectangle){offsetX, offsetY, 200, 30}, fullTxt)) {
         Settings_ToggleFullscreen();
     }
 
     offsetY += 35;
 
     const char *resTxt = TextFormat("Resolution: %s", Settings_ResolutionLabel());
-    if (GuiButton((Rectangle){offsetX, offsetY, 200, 30}, resTxt)) {
+    if (MenuButton((Rectangle){offsetX, offsetY, 200, 30}, resTxt)) {
         Settings_CycleResolution();
     }
 
@@ -296,7 +394,7 @@ void Screen_DrawOptions(void) {
 
     offsetY += 35;
 
-    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
+    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
 
@@ -317,16 +415,31 @@ bool portEditMode = false;
 
 void Screen_DrawLogin(void) {
     if(IsCursorHidden()) EnableCursor();
-    DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
+    DrawMenuBackground();
 
     const char *title = "MIDLESS";
     const char *subtitle = "COSMIC EDITION";
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
+    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 1.6f);
 
+    DrawPanel((Rectangle){(float)offsetX - 94, (float)offsetY - 22, 188, 130});
+
+    /* glow layering under the title */
+    for (int layer = 3; layer >= 1; layer--) {
+        Color glow = (Color){150, 40, 220, (unsigned char)(26 * layer + 8 * pulse * layer)};
+        DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120 + layer, 80, glow);
+    }
     DrawText(title, offsetX - (MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
     DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
     DrawText(subtitle, offsetX - (MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
+
+    const char *hint = "WASD move - Space jump - Tab fly - M map - T chat - F5 camera";
+    DrawText(hint, offsetX - MeasureText(hint, 12) / 2, screenHeight - 26, 12,
+             (Color){150, 160, 200, 200});
+    const char *tag = "floating islands - starlit void - the sun is a black hole";
+    DrawText(tag, offsetX - MeasureText(tag, 12) / 2, screenHeight - 44, 12,
+             (Color){190, 120, 230, 180});
 
     //Name Input
     if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, nameInput, 16, loginEditMode)) {
@@ -344,7 +457,7 @@ void Screen_DrawLogin(void) {
     }
 
     //Login button
-    if (GuiButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
+    if (MenuButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
         DisableCursor();
         Screen_Switch(SCREEN_JOINING);
         networkThreadState = 0;
@@ -370,7 +483,7 @@ void Screen_DrawLogin(void) {
     }
     
     //Singleplayer Button
-    if (GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
+    if (MenuButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
         Screen_BeginSingleplayer();
     }
 
@@ -400,7 +513,7 @@ void Screen_DrawLoading(void) {
         DrawText(err, screenWidth / 2 - MeasureText(err, 20) / 2, screenHeight / 2 - 30, 20, WHITE);
         DrawText(hint, screenWidth / 2 - MeasureText(hint, 16) / 2, screenHeight / 2 + 8, 16,
                  (Color){180, 180, 200, 255});
-        if (GuiButton((Rectangle){screenWidth / 2 - 80, screenHeight / 2 + 50, 160, 30}, "Back")) {
+        if (MenuButton((Rectangle){screenWidth / 2 - 80, screenHeight / 2 + 50, 160, 30}, "Back")) {
             loadingStarted = false;
             loadingFailed = false;
             EnableCursor();

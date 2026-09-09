@@ -78,7 +78,8 @@ void Block_BuildDefinition(void) {
 
     Block_Define(1, "stone", 1, 1, 1);
     Block_Define(2, "dirt", 2, 2, 2);
-    Block_Define(3, "grass", 0, 2, 3);
+    /* v43: crystal turf — teal glowing grass (atlas tile 18), dirt sides. */
+    Block_Define(3, "grass", 18, 2, 3);
     Block_Define(4, "wood", 4, 4, 4);
     
     Block_Define(5, "water", 14, 14, 14);

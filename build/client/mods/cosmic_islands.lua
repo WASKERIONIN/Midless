@@ -1,166 +1,218 @@
--- cosmic_islands.lua
--- Floating islands in a starlit void. Water exists only inside crystal basins.
--- Islands are padded inside their cells so they never clip at chunk/cell seams.
+-- Midless: Cosmic Edition worldgen (v6)
+-- Floating islands adrift in a starlit void, cone-tapered like hanging
+-- gardens. Water exists only inside glass basins. The starter island carries
+-- a launch pad, four warp-core obelisks and a glowing crystal basin.
 
 local wg = midless.worldgen
 local f = wg.field
 local x, y, z = f.x(), f.y(), f.z()
-local ox, oy, oz = f.origin_x(), f.origin_y(), f.origin_z()
 
-local function noise3(px, py, pz, octaves, gain, lacunarity, fractal)
-    return f.noise3d({
-        type = "opensimplex2s", fractal = fractal or "fbm", frequency = 0.01,
-        octaves = octaves, gain = gain, lacunarity = lacunarity,
-        x = px, y = py, z = pz,
+---------------------------------------------------------------- blocks ----
+-- 19 void_rock: deep indigo rock that makes up island cores
+midless.define_block(19, {
+    name = "Void Rock",
+    textures = { all = 21 },
+})
+
+-- 20 crystal: translucent cosmic crystal (buildable glass-like block)
+midless.define_block(20, {
+    name = "Cosmic Crystal",
+    textures = { all = 22 },
+    render = block.render.TRANSPARENT,
+    collider = block.collider.SOLID,
+})
+
+-- 21 launch_pad: dark star-forged pad with a glowing teal sigil
+midless.define_block(21, {
+    name = "Launch Pad",
+    textures = { top = 19, sides = 23, bottom = 21 },
+})
+
+-- 22 warp_core: humming gold/violet core that emits light
+midless.define_block(22, {
+    name = "Warp Core",
+    textures = { all = 20 },
+    light = block.light.EMIT,
+})
+
+------------------------------------------------------------- utilities ----
+local function layer(seed, freq, thresh, base_y, amp, thick)
+    local n = f.noise2d({
+        type = "opensimplex2s", fractal = "fbm", frequency = freq,
+        octaves = 4, gain = 0.52, lacunarity = 2.1, seed_offset = seed,
     })
+    local mask = n - thresh
+    local h = f.noise2d({
+        type = "opensimplex2s", fractal = "fbm", frequency = freq * 2.3,
+        octaves = 2, seed_offset = seed + 9,
+    })
+    local surface = base_y + h * amp
+    -- cones: thickness grows where the island mask is strongest, so islands
+    -- taper into hanging points, like the reference art
+    local thickness = 4 + f.max(mask, 0) * thick
+    local warp = f.noise3d({
+        type = "opensimplex2s", fractal = "fbm", frequency = 0.055,
+        octaves = 2, seed_offset = seed + 21,
+        x = x, y = y, z = z,
+    })
+    local depth = surface - y
+    return f.lt(0, mask) * f.lt(-0.4, depth) * f.lt(depth, thickness + warp * 2.5)
 end
 
-local CELL_XZ = 80
-local CELL_Y = 64
-
-local function cell_hash(cx, cy, cz, salt)
-    return f.random({
-        seed = f.trunc(cx * 73856093 + cy * 19349663 + cz * 83492791) % 2048,
-        salt = salt, seed_scale = 1024, salt_scale = 1024,
+local function layer_at(seed, freq, thresh, base_y, amp, thick, yy)
+    local n = f.noise2d({
+        type = "opensimplex2s", fractal = "fbm", frequency = freq,
+        octaves = 4, gain = 0.52, lacunarity = 2.1, seed_offset = seed,
     })
+    local mask = n - thresh
+    local h = f.noise2d({
+        type = "opensimplex2s", fractal = "fbm", frequency = freq * 2.3,
+        octaves = 2, seed_offset = seed + 9,
+    })
+    local surface = base_y + h * amp
+    local thickness = 4 + f.max(mask, 0) * thick
+    local warp = f.noise3d({
+        type = "opensimplex2s", fractal = "fbm", frequency = 0.055,
+        octaves = 2, seed_offset = seed + 21,
+        x = x, y = yy, z = z,
+    })
+    local depth = surface - yy
+    return f.lt(0, mask) * f.lt(-0.4, depth) * f.lt(depth, thickness + warp * 2.5)
 end
 
-local cx = f.floor(x / CELL_XZ)
-local cy = f.floor(y / CELL_Y)
-local cz = f.floor(z / CELL_XZ)
+local function column(cx, cz, y0, y1)
+    return f.eq(x, cx) * f.eq(z, cz) * f.lt(y0 - 0.5, y) * f.lt(y, y1 + 0.5)
+end
 
--- Starter island lives in cell (0, 1, 0): x 0..80, y 64..128, z 0..80.
--- Centre (24, 88, 24), radius 18 — covers spawn (24, 97, 24) with margin.
-local is_starter = f.eq(cx, 0) * f.eq(cy, 1) * f.eq(cz, 0)
+--------------------------------------------------------------- islands ----
+-- three belts of drifting islands
+local mid  = layer(1,  0.0088, 0.37, 74,  8, 46)
+local high = layer(40, 0.0115, 0.50, 116, 7, 28)
+local low  = layer(90, 0.0105, 0.46, 38,  6, 24)
 
-local jitter_x = f.select(is_starter, 24, 22 + (cell_hash(cx, cy, cz, 1) % 36))
-local jitter_y = f.select(is_starter, 24, 22 + (cell_hash(cx, cy, cz, 2) % 30))
-local jitter_z = f.select(is_starter, 24, 22 + (cell_hash(cx, cy, cz, 3) % 36))
+-- the guaranteed starter island: a rounded cone slab centred on (8, 8)
+local sd = f.max(f.abs(x - 8), f.abs(z - 8))
+local wobble = f.noise2d({
+    type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
+    octaves = 2, seed_offset = 7,
+})
+local starter_bottom = 66 + sd * 0.9 + wobble * 1.2
+local starter = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
+                f.lt(y, 76) * f.lt(starter_bottom, y)
 
-local ix = cx * CELL_XZ + jitter_x
-local iy = cy * CELL_Y + jitter_y
-local iz = cz * CELL_XZ + jitter_z
+local inside = f.max(f.max(mid, high), f.max(low, starter))
 
-local base_radius = f.select(is_starter, 18, 10 + (cell_hash(cx, cy, cz, 4) % 7))
+local mid1  = layer_at(1,  0.0088, 0.37, 74,  8, 46, y + 1)
+local high1 = layer_at(40, 0.0115, 0.50, 116, 7, 28, y + 1)
+local low1  = layer_at(90, 0.0105, 0.46, 38,  6, 24, y + 1)
+local starter1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
+                 f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
+local surface = inside * (1 - inside1)
 
-local dx = (x - ix) / base_radius
-local dz = (z - iz) / base_radius
-local hdist2 = dx * dx + dz * dz
+-- stratified bodies: crystal turf over dirt over void rock over stone
+local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))
+local material = f.select(inside, body, 0)
 
-local warp = noise3(x * 0.07, y * 0.07, z * 0.07, 2, 0.55, 2) * 2.4
+------------------------------------------- starter island decorations ----
+-- launch pad: 5x5 dark pads at y=76 framing the spawn point
+local pad = f.lt(f.max(f.abs(x - 8), f.abs(z - 8)), 2.5) * f.eq(y, 76)
 
-local upper_dy = (y + warp - iy) / (base_radius * 0.40)
-local inside_upper = f.select(f.lt(y, iy), 0, f.lt(hdist2 + upper_dy * upper_dy, 1))
+-- crystal basin east of the pad, centred on (13, 8)
+local bm = f.max(f.abs(x - 13), f.abs(z - 8))
+local basinRing = f.lt(2.5, bm) * f.lt(bm, 3.5)
+local basinIn = f.lt(bm, 2.6)
+local basinWall = basinRing * f.eq(y, 76)
+local basinWallTop = basinRing * f.eq(y, 77)
+local basinWater = basinIn * f.eq(y, 76)
+local basinFloor = basinIn * f.eq(y, 75)
 
-local lower_dy = (y + warp - iy) / (base_radius * 1.15)
-local inside_lower = f.select(f.lt(iy, y), 0, f.lt(hdist2 + lower_dy * lower_dy, 1))
+-- warp-core obelisks on the pad corners: crystal body, glowing core cap
+local obelisk = column(6, 6, 77, 78) + column(10, 6, 77, 78) +
+                column(6, 10, 77, 78) + column(10, 10, 77, 78)
+local cores = column(6, 6, 79, 79) + column(10, 6, 79, 79) +
+              column(6, 10, 79, 79) + column(10, 10, 79, 79)
+-- a welcoming crystal arch over the pad
+local arch = (column(5, 8, 77, 80) + column(11, 8, 77, 80)) +
+             (column(6, 8, 80, 80) + column(7, 8, 81, 81) +
+              column(8, 8, 81, 81) + column(9, 8, 81, 81) + column(10, 8, 80, 80))
 
-local inside_island = f.max(inside_upper, inside_lower)
-
-local y1 = y + 1
-local upper_dy1 = (y1 + warp - iy) / (base_radius * 0.40)
-local inside_upper_y1 = f.select(f.lt(y1, iy), 0, f.lt(hdist2 + upper_dy1 * upper_dy1, 1))
-local lower_dy1 = (y1 + warp - iy) / (base_radius * 1.15)
-local inside_lower_y1 = f.select(f.lt(iy, y1), 0, f.lt(hdist2 + lower_dy1 * lower_dy1, 1))
-local inside_y1 = f.max(inside_upper_y1, inside_lower_y1)
-local surface = f.eq(inside_island, 1) * f.eq(inside_y1, 0)
-
-local depth = f.max(0, iy - y)
-local body = f.select(surface, 3, f.select(f.lt(3, depth), 1, 2))
-local tip = f.lt(y, iy - base_radius * 0.85)
-local island_block = f.select(tip, 6, body)
-
--- No oceans. Air outside islands. Water is added later as crystal-basin structures.
-local material = f.select(inside_island, island_block, 0)
-local solid = inside_island
+material = f.select(basinFloor, 14, material)
+material = f.select(basinWater, 5, material)
+material = f.select(basinWall, 14, material)
+material = f.select(basinWallTop, 14, material)
+material = f.select(obelisk, 20, material)
+material = f.select(cores, 22, material)
+material = f.select(arch, 20, material)
+material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 3,
-    min_y = 0, max_y = 256, bounded = true,
-    sea_level = -1,
-    fill_oceans = false,
-    material = material,
-    density = solid,
-    skylight = solid,
+    id = "midless:cosmic", version = 6,
+    min_y = 0, max_y = 160, bounded = true,
+    sea_level = -1, fill_oceans = false,
+    material = material, density = inside, skylight = inside,
 })
 
-local function random_at(px, py, pz, salt)
-    return f.random({
-        seed = f.trunc(px * 1135 + py * 1307 + pz * 1479) % 2048,
-        salt = salt, seed_scale = 1024, salt_scale = 1024,
-    })
-end
-local function random_here(salt) return random_at(x, y, z, salt) end
-local function random_origin(salt) return random_at(ox, oy, oz, salt) end
+-- turf keeps a skin of dirt, void rock holds the cones together
+wg.define_rule({ match = 3, when = f.lt(256, f.local_index()), offset_y = -1, block = 2 })
+wg.define_rule({ match = 2, when = f.lt(256, f.local_index()), offset_y = -1, block = 19 })
 
-wg.define_rule({
-    match = 3, when = f.lt(256, f.local_index()), offset_y = -1, block = 2,
+------------------------------------------------------------------ ores ----
+wg.define_ore("cosmic_gold", {
+    block = 5, replaces = { 1, 19 },
+    min_y = 4, max_y = 70, size = 4, spacing = 12, chance = 0.5,
+    distribution = "clusters",
 })
 
-local flower = random_here(6) % 80
-wg.define_rule({ match = 3, when = f.eq(flower, 0), offset_y = 1, block = 12, descending = true })
-wg.define_rule({ match = 3, when = f.eq(flower, 1), offset_y = 1, block = 13, descending = true })
-
-wg.define_ore("midless:iron_vein", {
-    block = 7, min_y = 0, max_y = 256, size = 3, spacing = 24, chance = 0.35,
-    distribution = "clusters", replaces = {1},
-})
-wg.define_ore("midless:gold_vein", {
-    block = 9, min_y = 0, max_y = 256, size = 2, spacing = 32, chance = 0.18,
-    distribution = "clusters", replaces = {1},
-})
-wg.define_ore("midless:coal_vein", {
-    block = 8, min_y = 0, max_y = 256, size = 3, spacing = 20, chance = 0.4,
-    distribution = "clusters", replaces = {1},
+wg.define_ore("void_shard", {
+    block = 6, replaces = { 19, 1 },
+    min_y = 10, max_y = 120, size = 5, spacing = 16, chance = 0.6,
+    distribution = "clusters",
 })
 
--- Crystal basin: stone floor + glass walls. Water cannot spill into the void.
+wg.define_ore("gloom_amber", {
+    block = 7, replaces = { 19, 1 },
+    min_y = 20, max_y = 130, size = 6, spacing = 18, chance = 0.45,
+    distribution = "clusters",
+})
+
+----------------------------------------------------------- structures ----
 local basin = {}
 local function add(bx, by, bz, id)
     basin[#basin + 1] = { x = bx, y = by, z = bz, block = id }
 end
-local r = 3
-for dz = -r, r do
-    for dx = -r, r do
-        add(dx, -1, dz, 1)
-        local edge = (math.abs(dx) == r) or (math.abs(dz) == r)
+for dz = -3, 3 do
+    for dx = -3, 3 do
+        add(dx, -1, dz, 14)  -- glass floor: peer through into the void
+        local edge = (math.abs(dx) == 3) or (math.abs(dz) == 3)
         if edge then
             add(dx, 0, dz, 14)
             add(dx, 1, dz, 14)
         else
-            add(dx, 0, dz, 5)
+            add(dx, 0, dz, 5)  -- still, glowing water
         end
     end
 end
 
 wg.define_structure("midless:crystal_basin", {
-    spacing = 48, chance = 0.55, min_y = 48, max_y = 220,
-    max_slope = 2, rotate = false, air_only = false,
-    foundation = 1, foundation_depth = 4,
+    spacing = 44, chance = 0.55, min_y = 20, max_y = 150,
+    max_slope = 4, rotate = false, air_only = false,
+    foundation = 19, foundation_depth = 4,
     blocks = basin,
 })
 
-local crystal = {}
-local function addc(bx, by, bz, id)
-    crystal[#crystal + 1] = { x = bx, y = by, z = bz, block = id }
-end
-addc(0, 0, 0, 14)
-addc(0, 1, 0, 14)
-addc(0, 2, 0, 14)
-addc(1, 0, 0, 14)
-addc(-1, 0, 0, 14)
-addc(0, 0, 1, 14)
-addc(0, 0, -1, 14)
-addc(0, 3, 0, 14)
-
 wg.define_structure("midless:crystal_spire", {
-    spacing = 40, chance = 0.28, min_y = 48, max_y = 220,
-    max_slope = 3, rotate = true, air_only = true,
-    blocks = crystal,
+    spacing = 30, chance = 0.4, min_y = 20, max_y = 150,
+    max_slope = 5, rotate = true, air_only = true,
+    blocks = {
+        { x = 0, y = 0, z = 0, block = 20 },
+        { x = 0, y = 1, z = 0, block = 20 },
+        { x = 0, y = 2, z = 0, block = 20 },
+        { x = 0, y = 3, z = 0, block = 22 },  -- lit core cap
+    },
 })
 
 wg.define_structure("midless:cosmic_tree", {
-    spacing = 28, chance = 0.45, min_y = 48, max_y = 220,
-    max_slope = 2, rotate = true, air_only = true,
+    spacing = 28, chance = 0.28, min_y = 20, max_y = 150,
+    max_slope = 4, rotate = true, air_only = true,
     tree = { height = 5, radius = 2, trunk = 10, leaves = 11 },
 })
