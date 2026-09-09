@@ -41,31 +41,58 @@ jobs:
 
     - name: Build client (game.exe)
       run: |
-        set -ex
         export PATH="/mingw64/bin:$PATH"
-        # Test compile a single file first to see errors clearly
+        LOG=/tmp/build.log
+        exec > >(tee -a "$LOG") 2>&1
+        set -x
+
+        echo "=== Testing asteroid.c ==="
         gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
           -DPLATFORM_DESKTOP -DOS_WINDOWS \
           -I./client/src -I./client/src/chunk -I./client/src/block \
           -I./client/src/entity -I./client/src/gui -I./client/src/networking \
           -I./server/src -I./server/src/world -I./server/src/world/chunk \
           -I./server/src/scripting -I./libs -I./shared \
-          -I/mingw64/include -I/mingw64/include/external -I/mingw64/include/extras \
-          -c client/src/asteroid.c -o /dev/null 2>&1 || echo "ASTEROID.C FAILED"
+          -I/mingw64/include \
+          -c client/src/asteroid.c -o /tmp/asteroid.o || true
+        echo "EXIT:$?"
+
+        echo "=== Testing starfield.c ==="
         gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
           -DPLATFORM_DESKTOP -DOS_WINDOWS \
           -I./client/src -I./client/src/chunk -I./client/src/block \
           -I./client/src/entity -I./client/src/gui -I./client/src/networking \
           -I./server/src -I./server/src/world -I./server/src/world/chunk \
           -I./server/src/scripting -I./libs -I./shared \
-          -I/mingw64/include -I/mingw64/include/external -I/mingw64/include/extras \
-          -c client/src/starfield.c -o /dev/null 2>&1 || echo "STARFIELD.C FAILED"
-        # Full build
+          -I/mingw64/include \
+          -c client/src/starfield.c -o /tmp/starfield.o || true
+        echo "EXIT:$?"
+
+        echo "=== Testing main.c ==="
+        gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
+          -DPLATFORM_DESKTOP -DOS_WINDOWS \
+          -I./client/src -I./client/src/chunk -I./client/src/block \
+          -I./client/src/entity -I./client/src/gui -I./client/src/networking \
+          -I./server/src -I./server/src/world -I./server/src/world/chunk \
+          -I./server/src/scripting -I./libs -I./shared \
+          -I/mingw64/include \
+          -c client/src/main.c -o /tmp/main.o || true
+        echo "EXIT:$?"
+
+        echo "=== Full build ==="
         mingw32-make \
           RAYLIB_PATH=/mingw64 \
           RAYLIB_INCLUDE_DIR=/mingw64/include \
           RAYLIB_LIB_DIR=/mingw64/lib \
-          -j1 2>&1
+          -j1 || true
+
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: /tmp/build.log
+        if-no-files-found: warn
 
     - name: Build server (server.exe)
       run: |
