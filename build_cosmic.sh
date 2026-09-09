@@ -1,7 +1,7 @@
 #!/bin/bash
 # build_cosmic.sh - Direct build script for Midless Cosmic Edition
 # Designed for MSYS2 MINGW64 environment
-set -ex
+set -x
 
 CC=gcc
 CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -s -Os"
@@ -92,13 +92,14 @@ fi
 
 # Link client
 echo "=== Linking client ==="
-LINK_OUTPUT=$($CC $OBJS -o build/client/game.exe \
+echo "Object files: $(echo $OBJS | wc -w)"
+echo "Libraries: -L$RAYLIB_LIB -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32"
+ls "$RAYLIB_LIB"/libraylib* 2>/dev/null || echo "No raylib libs found!"
+ls /mingw64/lib/libenet* 2>/dev/null || echo "No enet libs found!"
+$CC $OBJS -o build/client/game.exe \
     -L"$RAYLIB_LIB" -lraylib -lenet -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 \
-    -Wl,--subsystem,windows 2>&1) || {
-    echo "LINKER ERROR:"
-    echo "$LINK_OUTPUT"
-    echo "::error::Client linking failed"
-    echo "$LINK_OUTPUT" | head -20
+    -Wl,--subsystem,windows 2>&1 || {
+    echo "::error::Client linking failed - see errors above"
     exit 1
 }
 
