@@ -42,11 +42,8 @@ jobs:
     - name: Build client (game.exe)
       run: |
         export PATH="/mingw64/bin:$PATH"
-        LOG=/tmp/build.log
-        exec > >(tee -a "$LOG") 2>&1
-        set -x
-
-        echo "=== Testing asteroid.c ==="
+        LOG=build.log
+        echo "=== Testing asteroid.c ===" > "$LOG"
         gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
           -DPLATFORM_DESKTOP -DOS_WINDOWS \
           -I./client/src -I./client/src/chunk -I./client/src/block \
@@ -54,10 +51,8 @@ jobs:
           -I./server/src -I./server/src/world -I./server/src/world/chunk \
           -I./server/src/scripting -I./libs -I./shared \
           -I/mingw64/include \
-          -c client/src/asteroid.c -o /tmp/asteroid.o || true
-        echo "EXIT:$?"
-
-        echo "=== Testing starfield.c ==="
+          -c client/src/asteroid.c -o /tmp/asteroid.o >> "$LOG" 2>&1 || true
+        echo "=== Testing starfield.c ===" >> "$LOG"
         gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
           -DPLATFORM_DESKTOP -DOS_WINDOWS \
           -I./client/src -I./client/src/chunk -I./client/src/block \
@@ -65,10 +60,8 @@ jobs:
           -I./server/src -I./server/src/world -I./server/src/world/chunk \
           -I./server/src/scripting -I./libs -I./shared \
           -I/mingw64/include \
-          -c client/src/starfield.c -o /tmp/starfield.o || true
-        echo "EXIT:$?"
-
-        echo "=== Testing main.c ==="
+          -c client/src/starfield.c -o /tmp/starfield.o >> "$LOG" 2>&1 || true
+        echo "=== Testing main.c ===" >> "$LOG"
         gcc -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces \
           -DPLATFORM_DESKTOP -DOS_WINDOWS \
           -I./client/src -I./client/src/chunk -I./client/src/block \
@@ -76,48 +69,48 @@ jobs:
           -I./server/src -I./server/src/world -I./server/src/world/chunk \
           -I./server/src/scripting -I./libs -I./shared \
           -I/mingw64/include \
-          -c client/src/main.c -o /tmp/main.o || true
-        echo "EXIT:$?"
-
-        echo "=== Full build ==="
+          -c client/src/main.c -o /tmp/main.o >> "$LOG" 2>&1 || true
+        echo "=== Full build ===" >> "$LOG"
         mingw32-make \
           RAYLIB_PATH=/mingw64 \
           RAYLIB_INCLUDE_DIR=/mingw64/include \
           RAYLIB_LIB_DIR=/mingw64/lib \
-          -j1 || true
+          -j1 >> "$LOG" 2>&1 || true
+        cat "$LOG"
 
     - name: Upload build log
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: build-log
-        path: /tmp/build.log
+        path: build.log
         if-no-files-found: warn
 
     - name: Build server (server.exe)
       run: |
-        set -ex
         export PATH="/mingw64/bin:$PATH"
         mingw32-make BUILD_SERVER=TRUE \
           RAYLIB_PATH=/mingw64 \
           RAYLIB_INCLUDE_DIR=/mingw64/include \
           RAYLIB_LIB_DIR=/mingw64/lib \
-          -j$(nproc) 2>&1
+          -j$(nproc) 2>&1 >> build.log || true
+        tail -30 build.log
 
     - name: Package release
       run: |
-        set -ex
+        set -x
         OUT="release/Midless-Cosmic-Windows-x64"
         mkdir -p "$OUT/textures" "$OUT/mods"
-        find build/ -name "game*" -o -name "server*" 2>/dev/null | head -20
+        echo "=== Searching for build outputs ==="
+        find build/ -type f 2>/dev/null | head -30
         for f in build/client/game build/client/game.exe; do
-          [ -f "$f" ] && cp "$f" "$OUT/game.exe" && break
+          [ -f "$f" ] && cp "$f" "$OUT/game.exe" && echo "Copied $f -> game.exe" && break
         done
         for f in build/server/server build/server/server.exe; do
-          [ -f "$f" ] && cp "$f" "$OUT/server.exe" && break
+          [ -f "$f" ] && cp "$f" "$OUT/server.exe" && echo "Copied $f -> server.exe" && break
         done
-        cp build/client/textures/*.png "$OUT/textures/"
-        cp build/client/mods/*.lua "$OUT/mods/"
+        cp build/client/textures/*.png "$OUT/textures/" 2>/dev/null || true
+        cp build/client/mods/*.lua "$OUT/mods/" 2>/dev/null || true
         cat > "$OUT/README.txt" << 'README'
         === Midless: Cosmic Edition ===
         
