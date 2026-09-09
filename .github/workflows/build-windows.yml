@@ -27,30 +27,34 @@ jobs:
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
           mingw-w64-x86_64-pkg-config
+          mingw-w64-x86_64-curl
           git
           zip
           p7zip
-          wget
 
     - name: Install raylib pre-built
       run: |
         set -ex
         cd /tmp
-        wget -q https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip
-        unzip -q raylib-4.5.0_win64_mingw-w64.zip
+        curl -L -o raylib.zip https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip
+        unzip -q raylib.zip
         RL=/tmp/raylib-4.5.0_win64_mingw-w64/raylib
         echo "Raylib contents:"
-        find "$RL" -maxdepth 2 -type f | head -30
+        find "$RL" -maxdepth 3 -type f 2>/dev/null | head -30
         # Find where the headers and library are
         if [ -f "$RL/include/raylib.h" ]; then
           echo "RAYLIB_INCLUDE_DIR=$RL/include" >> $GITHUB_ENV
-        else
+        elif [ -f "$RL/src/raylib.h" ]; then
           echo "RAYLIB_INCLUDE_DIR=$RL/src" >> $GITHUB_ENV
+        else
+          echo "ERROR: Cannot find raylib.h" && exit 1
         fi
         if [ -f "$RL/lib/libraylib.a" ]; then
           echo "RAYLIB_LIB_DIR=$RL/lib" >> $GITHUB_ENV
-        else
+        elif [ -f "$RL/src/libraylib.a" ]; then
           echo "RAYLIB_LIB_DIR=$RL/src" >> $GITHUB_ENV
+        else
+          echo "ERROR: Cannot find libraylib.a" && exit 1
         fi
         echo "RAYLIB_PATH=$RL" >> $GITHUB_ENV
 
