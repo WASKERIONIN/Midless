@@ -682,7 +682,7 @@ bool Worldgen_Freeze(void) {
         if (!match) {
             TraceLog(LOG_WARNING, "Worldgen changed; regenerating the world folder.");
             FilePathList files = LoadDirectoryFiles("world");
-            for (unsigned int i = 0; i < files.count; i++) RemoveFile(files.paths[i]);
+            for (unsigned int i = 0; i < files.count; i++) remove(files.paths[i]);
             UnloadDirectoryFiles(files);
         }
     }
