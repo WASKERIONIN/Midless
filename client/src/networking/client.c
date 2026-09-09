@@ -113,7 +113,9 @@ void Client_Do(int *state) {
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
+#ifdef ENET_EVENT_TYPE_DISCONNECT_TIMEOUT
                 case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+#endif
                     puts("disconnected.");
                     Network_Disconnect();
                     disconnected = true;
