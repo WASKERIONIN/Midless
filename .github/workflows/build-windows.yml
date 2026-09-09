@@ -70,14 +70,16 @@ jobs:
         
         Write-Host "Downloading enet headers..."
         try {
-          Invoke-WebRequest -Uri "https://github.com/zpl-c/enet/archive/refs/heads/master.zip" -OutFile "enet.zip" -UseBasicParsing
-          Expand-Archive -Path "enet.zip" -DestinationPath "libs/_enet_tmp" -Force
-          $enetSrc = Get-ChildItem -Path "libs/_enet_tmp" -Directory | Select-Object -First 1
-          Write-Host "  Extracted to: $($enetSrc.FullName)"
-          Copy-Item -Path "$($enetSrc.FullName)/include/enet" -Destination "libs/enet" -Recurse -Force
+          New-Item -ItemType Directory -Force -Path "libs/enet" | Out-Null
+          $enetBase = "https://raw.githubusercontent.com/zpl-c/enet/master/include/enet"
+          foreach ($f in @("enet.h","types.h","protocol.h","list.h","callbacks.h","utility.h","win32.h","unix.h","time.h")) {
+            $url = "$enetBase/$f"
+            Write-Host "    $f..."
+            Invoke-WebRequest -Uri $url -OutFile "libs/enet/$f" -UseBasicParsing
+          }
           Set-Content -Path "libs/enet.h" -Value '#include "enet/enet.h"'
           Write-Host "  Enet headers:"
-          Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "    $($_.Name)" }
+          Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "    $($_.Name) ($($_.Length) bytes)" }
         } catch { Write-Host "  FAILED: $_"; throw }
         
         Write-Host "=== All dependencies downloaded ==="
