@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "enet.h"
 #include "stb_ds.h"
 #include "client.h"

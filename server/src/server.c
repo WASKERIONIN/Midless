@@ -94,7 +94,9 @@ void Server_Do(int *state) {
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
+#ifdef ENET_EVENT_TYPE_DISCONNECT_TIMEOUT
                 case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+#endif
                     ServerNetwork_Disconnect(event.peer->data);
                     break;
                     
