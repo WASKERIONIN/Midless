@@ -46,11 +46,14 @@ jobs:
         # glad.h for rlgl.h
         New-Item -ItemType Directory -Force -Path "libs/external" | Out-Null
         Invoke-WebRequest -Uri "https://raw.githubusercontent.com/raysan5/raylib/4.5.0/src/external/glad.h" -OutFile "libs/external/glad.h" -UseBasicParsing
-        # Clone zpl-c/enet for the enet headers (the code uses #include "enet.h"
-        # but zpl-c/enet puts them under enet/enet.h)
-        git clone --depth 1 https://github.com/zpl-c/enet.git libs/enet_repo
-        # Wrapper: code does #include "enet.h", redirect to zpl-c/enet's header
-        Set-Content -Path "libs/enet.h" -Value '#include <enet/enet.h>'
+        # Clone zpl-c/enet for the enet headers
+        git clone --depth 1 https://github.com/zpl-c/enet.git libs/_enet_repo
+        # Copy the enet/ directory into libs/ so #include <enet/enet.h> works
+        Copy-Item -Path "libs/_enet_repo/include/enet" -Destination "libs/enet" -Recurse -Force
+        # Wrapper: code does #include "enet.h" (not "enet/enet.h")
+        Set-Content -Path "libs/enet.h" -Value '#include "enet/enet.h"'
+        Write-Host "Enet headers:"
+        Get-ChildItem libs/enet/ | ForEach-Object { Write-Host "  $($_.Name)" }
         Write-Host "Dependencies downloaded:"
         Get-ChildItem libs/ | ForEach-Object { Write-Host "  $($_.Name)" }
         # Download glad.h for rlgl.h (raylib's external/ dir)

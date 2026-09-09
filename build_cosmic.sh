@@ -22,10 +22,6 @@ for d in $ALL_CLIENT_DIRS; do
     INCLUDES="$INCLUDES -I$d"
 done
 INCLUDES="$INCLUDES -I$RAYLIB_INC -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting"
-# Add enet include path from cloned repo
-if [ -d "libs/enet_repo/include" ]; then
-    INCLUDES="$INCLUDES -Ilibs/enet_repo/include"
-fi
 
 # Collect all source files
 CLIENT_SRC=""
