@@ -118,22 +118,25 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     /* v43: hands. Fingers share the arm origin so they inherit the arm swing
-     * pivot exactly; the animation layer adds a per-finger curl on top. */
+     * pivot exactly; the animation layer adds a per-finger curl on top.
+     * The four fingers stay inside the arm's width so the silhouette from
+     * the first release is preserved - only fingertips extend below it.
+     * The thumb is a small pad on the palm side (front face). */
     for (int finger = 0; finger < 5; finger++) {
         bool thumb = finger == 4;
         float cellX = 8.0f + (finger % 4) * 8.0f;
 
         //right hand finger
-        float rx0 = -2.8f + finger * 0.78f;
+        float rx0 = -2.75f + finger * 0.74f;
         model.types[partI] = PART_TYPE_RIGHT_FINGERS;
         model.firstPersonVisible[partI] = true;
         model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
         if (thumb) {
-            model.boxes[partI].min = (Vector3) {0.35f,-10.9f,-0.9f};
-            model.boxes[partI].max = (Vector3) {1.25f,-9.0f,0.7f};
+            model.boxes[partI].min = (Vector3) {-0.45f,-10.7f,0.55f};
+            model.boxes[partI].max = (Vector3) {0.25f,-9.05f,1.05f};
         } else {
-            model.boxes[partI].min = (Vector3) {rx0,-11.3f,-1.3f};
-            model.boxes[partI].max = (Vector3) {rx0 + 0.72f,-9.1f,0.5f};
+            model.boxes[partI].min = (Vector3) {rx0,-11.15f,-1.55f};
+            model.boxes[partI].max = (Vector3) {rx0 + 0.68f,-9.0f,0.25f};
         }
         model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){cellX,60,6,6};
         model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){cellX,60,6,6};
@@ -143,17 +146,18 @@ void EntityModel_DefineHumanoid(void) {
         model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){cellX,64,6,2};
         partI++;
 
-        //left hand finger
-        float lx0 = 2.8f - 0.72f - finger * 0.78f;
+        //left hand finger (exact mirror of the right one across x = 0)
+        float lxMin = -(rx0 + 0.68f);
+        float lxMax = -rx0;
         model.types[partI] = PART_TYPE_LEFT_FINGERS;
         model.firstPersonVisible[partI] = false;
         model.positions[partI] = (Vector3){3.5f,17.5f,0.0f};
         if (thumb) {
-            model.boxes[partI].min = (Vector3) {-1.25f,-10.9f,-0.9f};
-            model.boxes[partI].max = (Vector3) {-0.35f,-9.0f,0.7f};
+            model.boxes[partI].min = (Vector3) {-0.25f,-10.7f,0.55f};
+            model.boxes[partI].max = (Vector3) {0.45f,-9.05f,1.05f};
         } else {
-            model.boxes[partI].min = (Vector3) {lx0,-11.3f,-1.3f};
-            model.boxes[partI].max = (Vector3) {lx0 + 0.72f,-9.1f,0.5f};
+            model.boxes[partI].min = (Vector3) {lxMin,-11.15f,-1.55f};
+            model.boxes[partI].max = (Vector3) {lxMax,-9.0f,0.25f};
         }
         model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){cellX,60,6,6};
         model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){cellX,60,6,6};

@@ -21,10 +21,10 @@ ROCK_LIGHT   = (52, 42, 86)
 ROCK_EDGE    = (66, 54, 106)
 DIRT_DARK    = (46, 32, 66)
 DIRT_MID     = (58, 42, 80)
-GRASS_DEEP   = (26, 118, 96)
-GRASS_MID    = (38, 158, 122)
-GRASS_LIGHT  = (72, 208, 156)
-GRASS_TIP    = (140, 244, 196)
+GRASS_DEEP   = (34, 148, 112)
+GRASS_MID    = (48, 186, 136)
+GRASS_LIGHT  = (88, 224, 164)
+GRASS_TIP    = (168, 250, 208)
 WATER_DEEP   = (10, 92, 148)
 WATER_MID    = (24, 150, 210)
 WATER_LIGHT  = (64, 214, 255)
@@ -176,12 +176,12 @@ def t_grass_top(index):
         for x in range(TILE):
             v = n[y][x]
             c = lerp(GRASS_DEEP, GRASS_MID, v)
-            if v > 0.62:
-                c = lerp(c, GRASS_LIGHT, (v - 0.62) * 2.4)
-            if v > 0.86:
-                c = lerp(c, GRASS_TIP, (v - 0.86) * 5)
+            if v > 0.55:
+                c = lerp(c, GRASS_LIGHT, (v - 0.55) * 2.2)
+            if v > 0.82:
+                c = lerp(c, GRASS_TIP, (v - 0.82) * 4)
             px[x, y] = with_a(c, 255)
-    speckle(img, index * 31 + 10, GRASS_TIP, 4, 0.3)
+    speckle(img, index * 31 + 10, GRASS_TIP, 5, 0.3)
     return img
 
 
@@ -190,18 +190,18 @@ def t_grass_side(index):
     px = img.load()
     n = value_noise(index * 37 + 4, 4)
     for x in range(TILE):
-        depth = 3 + int(n[0][x] * 3.4)
+        depth = 4 + int(n[0][x] * 3.4)
         for y in range(depth):
             v = n[y][x]
             if y == 0:
-                c = lerp(GRASS_LIGHT, GRASS_TIP, v * 0.8)
-            elif y < depth - 1:
+                c = lerp(GRASS_LIGHT, GRASS_TIP, v * 0.85)
+            elif y < depth - 2:
                 c = lerp(GRASS_MID, GRASS_LIGHT, v)
-            else:
+            elif y < depth - 1:
                 c = lerp(GRASS_DEEP, GRASS_MID, v)
+            else:
+                c = lerp(GRASS_DEEP, DIRT_MID, 0.45)
             px[x, y] = with_a(c, 255)
-        if n[0][x] > 0.55:
-            px[x, depth] = with_a(lerp(GRASS_DEEP, DIRT_MID, 0.5), 255)
     return img
 
 

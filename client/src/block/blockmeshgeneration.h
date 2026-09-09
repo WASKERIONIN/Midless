@@ -25,8 +25,8 @@ void BlockMesh_BuildTemplate(int id);
 
 const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId);
 
-//Add a block face to a given mesh.
-void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, int x, int y, int z, const Block *block, int translucent, int light, int sunlight);
+//Add a block face to a given mesh. `ao` holds a per-vertex 0..15 shade factor.
+void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, int x, int y, int z, const Block *block, int translucent, int light, int sunlight, const unsigned char ao[4]);
 
 //Get facing direction of a block face.
 Vector3 BlockMesh_GetDirection(BlockFace face);

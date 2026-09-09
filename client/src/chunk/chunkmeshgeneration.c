@@ -63,16 +63,85 @@ static bool FaceVisible(const Block *block, const Block *next) {
     return true;
 }
 
+/* ----------------------------------------------------------------------- *
+ * v43: per-vertex ambient occlusion. For each face corner we sample the
+ * two edge neighbours and the diagonal in the layer the face looks into;
+ * occluded corners get darker light nibbles baked into the vertex colors.
+ * ----------------------------------------------------------------------- */
+
+/* 26-neighbourhood offsets, matching Chunk_UpdateNeighbours(). */
+static const Vector3 kNeighbourDirs[26] = {
+    {-1, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1},
+    {-1, -1, -1}, {1, 1, 1}, {-1, -1, 0}, {1, 1, 0}, {-1, -1, 1}, {1, 1, -1},
+    {-1, 0, -1}, {1, 0, 1}, {-1, 0, 1}, {1, 0, -1}, {-1, 1, -1}, {1, -1, 1},
+    {-1, 1, 0}, {1, -1, 0}, {-1, 1, 1}, {1, -1, -1}, {0, -1, -1}, {0, 1, 1},
+    {0, -1, 1}, {0, 1, -1}
+};
+
+static bool SampleOccludes(Chunk *chunk, int x, int y, int z) {
+    int dx = 0, dy = 0, dz = 0;
+    if (x < 0) { dx = -1; x += CHUNK_SIZE_X; } else if (x >= CHUNK_SIZE_X) { dx = 1; x -= CHUNK_SIZE_X; }
+    if (y < 0) { dy = -1; y += CHUNK_SIZE_Y; } else if (y >= CHUNK_SIZE_Y) { dy = 1; y -= CHUNK_SIZE_Y; }
+    if (z < 0) { dz = -1; z += CHUNK_SIZE_Z; } else if (z >= CHUNK_SIZE_Z) { dz = 1; z -= CHUNK_SIZE_Z; }
+
+    Chunk *target = chunk;
+    if (dx | dy | dz) {
+        for (int i = 0; i < 26; i++) {
+            if ((int)kNeighbourDirs[i].x == dx && (int)kNeighbourDirs[i].y == dy &&
+                (int)kNeighbourDirs[i].z == dz) {
+                target = chunk->neighbours[i];
+                break;
+            }
+        }
+        if (target == NULL) return false;
+    }
+    if ((unsigned)x >= CHUNK_SIZE_X || (unsigned)y >= CHUNK_SIZE_Y || (unsigned)z >= CHUNK_SIZE_Z)
+        return false;
+    int index = (y * CHUNK_SIZE_Z + z) * CHUNK_SIZE_X + x;
+    return blockDefinitions[target->data[index]].fastOpaqueCube;
+}
+
+/* Per-corner tangent signs come from the template box coordinates. */
+static void ComputeFaceAO(Chunk *chunk, int nx, int ny, int nz, BlockFace face,
+                          const unsigned char source[12], unsigned char ao[4]) {
+    static const int axis1[6] = {2, 2, 0, 0, 0, 0}; /* 0=x 1=y 2=z */
+    static const int axis2[6] = {1, 1, 2, 2, 1, 1};
+    int a1 = axis1[face], a2 = axis2[face];
+    int base[3] = { nx, ny, nz };
+
+    for (int corner = 0; corner < 4; corner++) {
+        int s1 = source[corner * 3 + a1] > 8 ? 1 : -1;
+        int s2 = source[corner * 3 + a2] > 8 ? 1 : -1;
+
+        int p1[3] = { base[0], base[1], base[2] };
+        p1[a1] += s1;
+        int p2[3] = { base[0], base[1], base[2] };
+        p2[a2] += s2;
+        int pc[3] = { base[0], base[1], base[2] };
+        pc[a1] += s1;
+        pc[a2] += s2;
+
+        bool side1 = SampleOccludes(chunk, p1[0], p1[1], p1[2]);
+        bool side2 = SampleOccludes(chunk, p2[0], p2[1], p2[2]);
+        bool diag = SampleOccludes(chunk, pc[0], pc[1], pc[2]);
+
+        int level = (side1 && side2) ? 0 : 3 - ((side1 ? 1 : 0) + (side2 ? 1 : 0) + (diag ? 1 : 0));
+        static const int shade[4] = {7, 10, 12, 15}; /* 0..15 multiplier */
+        ao[corner] = (unsigned char)shade[level];
+    }
+}
+
 static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
                     BlockFace face, const Block *block) {
     static const int indexOffsets[6] = {-1, 1, CHUNK_SIZE_XZ, -CHUNK_SIZE_XZ, CHUNK_SIZE_X, -CHUNK_SIZE_X};
+    int nox = 0, noy = 0, noz = 0;
     int nx = x, ny = y, nz = z;
-    if (face == BLOCK_FACE_LEFT) nx--;
-    else if (face == BLOCK_FACE_RIGHT) nx++;
-    else if (face == BLOCK_FACE_TOP) ny++;
-    else if (face == BLOCK_FACE_BOTTOM) ny--;
-    else if (face == BLOCK_FACE_FRONT) nz++;
-    else nz--;
+    if (face == BLOCK_FACE_LEFT) { nx--; nox = -1; }
+    else if (face == BLOCK_FACE_RIGHT) { nx++; nox = 1; }
+    else if (face == BLOCK_FACE_TOP) { ny++; noy = 1; }
+    else if (face == BLOCK_FACE_BOTTOM) { ny--; noy = -1; }
+    else if (face == BLOCK_FACE_FRONT) { nz++; noz = 1; }
+    else { nz--; noz = -1; }
 
     Chunk *nextChunk = chunk;
     int nextIndex;
@@ -108,12 +177,20 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
         sunlight = nextChunk->sunlightData[nextIndex];
     }
 
+    /* v43: ambient occlusion for every non-sprite face */
+    unsigned char ao[4] = {15, 15, 15, 15};
+    if (!sprite) {
+        const BlockMeshTemplate *meshTemplate = BlockMesh_GetTemplate((int)(block - blockDefinitions));
+        if (meshTemplate != NULL)
+            ComputeFaceAO(chunk, x + nox, y + noy, z + noz, face, meshTemplate->vertices[(int)face], ao);
+    }
+
     if (block->renderType == BLOCK_RENDER_TRANSLUCENT) {
         chunkTransparentTriangleCount += 2;
-        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, x, y, z, block, 1, light, sunlight);
+        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, x, y, z, block, 1, light, sunlight, ao);
     } else {
         chunkTriangleCount += 2;
-        BlockMesh_AddFace(vertices, indices, texcoords, colors, face, x, y, z, block, 0, light, sunlight);
+        BlockMesh_AddFace(vertices, indices, texcoords, colors, face, x, y, z, block, 0, light, sunlight, ao);
     }
 }
 

@@ -41,6 +41,7 @@ typedef struct DiskParticle {
 static Texture2D ringTex;
 static Texture2D haloTex;
 static Texture2D spotTex;
+static Texture2D streakTex;   /* Y2K anamorphic lens flare */
 static DiskParticle particles[DISK_PARTICLES];
 static Vector3 diskNormal = { 0.22f, 0.90f, 0.34f };
 static Vector3 diskU = { 0 };
@@ -119,6 +120,33 @@ static Texture2D MakeHaloTexture(int size) {
     return texture;
 }
 
+static Texture2D MakeStreakTexture(int width, int height) {
+    /* thin horizontal anamorphic flare: cyan-white core, violet falloff */
+    Image image = GenImageColor(width, height, BLANK);
+    Color *pixels = (Color *)image.data;
+    float halfW = width * 0.5f, halfH = height * 0.5f;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            float dx = (x - halfW + 0.5f) / halfW;
+            float dy = (y - halfH + 0.5f) / halfH;
+            float lat = expf(-dy * dy * 26.0f);
+            float lon = expf(-fabsf(dx) * 3.4f);
+            float intensity = lat * lon;
+            Color c = {
+                (unsigned char)(180 + 75 * intensity),
+                (unsigned char)(220 + 35 * intensity),
+                (unsigned char)255,
+                (unsigned char)(210.0f * intensity)
+            };
+            pixels[y * width + x] = c;
+        }
+    }
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+    return texture;
+}
+
 static Texture2D MakeSpotTexture(int size) {
     Image image = GenImageColor(size, size, BLANK);
     Color *pixels = (Color *)image.data;
@@ -156,6 +184,7 @@ void BlackHole_Init(void) {
     ringTex = MakeRingTexture(256);
     haloTex = MakeHaloTexture(256);
     spotTex = MakeSpotTexture(64);
+    streakTex = MakeStreakTexture(256, 32);
 
     diskNormal = Vector3Normalize(diskNormal);
     Vector3 helper = fabsf(diskNormal.y) < 0.9f ? (Vector3){ 0, 1, 0 } : (Vector3){ 1, 0, 0 };
@@ -182,6 +211,7 @@ void BlackHole_Shutdown(void) {
     UnloadTexture(ringTex);
     UnloadTexture(haloTex);
     UnloadTexture(spotTex);
+    UnloadTexture(streakTex);
     ready = false;
 }
 
@@ -239,6 +269,22 @@ void BlackHole_Draw(Camera camera) {
 
     /* 3. photon ring */
     DrawBillboard(camera, ringTex, center, BH_HORIZON * BH_RING_OUTER * 2.55f, WHITE);
+
+    /* 3b. Y2K anamorphic lens flare: long horizontal streak with a slow
+     * shimmer, plus a shorter vertical cross flare */
+    float shimmer = 0.72f + 0.28f * sinf(diskTime * 0.9f) * sinf(diskTime * 0.23f + 1.7f);
+    DrawBillboardPro(camera, streakTex,
+                     (Rectangle){ 0, 0, (float)streakTex.width, (float)streakTex.height },
+                     center, (Vector3){ 0, 0, 1 },
+                     (Vector2){ BH_HORIZON * 30.0f, BH_HORIZON * 2.6f },
+                     (Vector2){ 0, 0 }, 0.0f,
+                     (Color){ 200, 225, 255, (unsigned char)(150 * shimmer) });
+    DrawBillboardPro(camera, streakTex,
+                     (Rectangle){ 0, 0, (float)streakTex.width, (float)streakTex.height },
+                     center, (Vector3){ 0, 0, 1 },
+                     (Vector2){ BH_HORIZON * 7.0f, BH_HORIZON * 11.0f },
+                     (Vector2){ 0, 0 }, 90.0f,
+                     (Color){ 235, 200, 255, (unsigned char)(80 * shimmer) });
 
     rlDrawRenderBatchActive();
     rlSetBlendMode(BLEND_ALPHA);

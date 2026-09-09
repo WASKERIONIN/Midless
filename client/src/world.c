@@ -33,6 +33,8 @@
 #include "localserver.h"
 #include "particle.h"
 #include "asteroid.h"
+#include "dropshadow.h"
+#include "starfield.h"
 #include "settings.h"
 #include "bird.h"
 #include "mapview.h"
@@ -379,6 +381,8 @@ void World_Draw(Vector3 camPosition) {
         Entity_Draw(&world.entities[i]);
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
+    DropShadow_DrawAll();
+    Starfield_DrawMotes(player.camera);
     Asteroid_Draw(camPosition, World_GetSunlightStrength());
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
@@ -479,7 +483,7 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 
 float World_GetSunlightStrength(void) {
     /* No sun — nebula ambient with a slow pulse. Never drop to night-black. */
-    return 0.70f + 0.08f * sinf(world.time * 0.12f);
+    return 0.80f + 0.05f * sinf(world.time * 0.12f);
 }
 
 float World_GetBrightness(Vector3 position) {

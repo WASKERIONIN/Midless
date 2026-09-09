@@ -25,6 +25,19 @@
 #define NEBULA_COUNT     22
 #define SHOOTING_MAX     3
 #define STAR_RADIUS      255.0f
+#define MOTE_COUNT       42
+#define MOTE_BOX         30.0f
+
+/* dreamcore dust: motes drift lazily near the camera, wrap in a box */
+typedef struct Mote {
+    Vector3 pos;
+    Vector3 vel;
+    float size;
+    float phase;
+    Color color;
+} Mote;
+static Mote motes[MOTE_COUNT];
+static bool motesReady;
 
 typedef struct BrightStar {
     Vector3 pos;
@@ -53,6 +66,7 @@ static ShootingStar shooting[SHOOTING_MAX];
 static float nextShootingIn = 4.0f;
 static Texture2D nebulaTex;
 static Texture2D starTex;
+static Vector3 cameraMoteAnchor = { 0 };
 static float skyTime = 0.0f;
 static bool ready;
 
@@ -165,6 +179,27 @@ void Starfield_Init(void) {
     }
 
     for (int i = 0; i < SHOOTING_MAX; i++) shooting[i].active = false;
+
+    for (int i = 0; i < MOTE_COUNT; i++) {
+        Mote *m = &motes[i];
+        m->pos = (Vector3){
+            (Unit(Mix(7000u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX,
+            (Unit(Mix(7100u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX,
+            (Unit(Mix(7200u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX
+        };
+        m->vel = (Vector3){
+            (Unit(Mix(7300u + (uint32_t)i)) - 0.5f) * 0.35f,
+            -0.12f - Unit(Mix(7400u + (uint32_t)i)) * 0.22f,
+            (Unit(Mix(7500u + (uint32_t)i)) - 0.5f) * 0.35f
+        };
+        m->size = 0.05f + Unit(Mix(7600u + (uint32_t)i)) * 0.09f;
+        m->phase = Unit(Mix(7700u + (uint32_t)i)) * 6.2831f;
+        int roll = (int)(Unit(Mix(7800u + (uint32_t)i)) * 3.0f);
+        if (roll == 0) m->color = (Color){150, 240, 235, 90};
+        else if (roll == 1) m->color = (Color){200, 140, 255, 85};
+        else m->color = (Color){255, 190, 235, 70};
+    }
+    motesReady = true;
     ready = true;
 }
 
@@ -177,6 +212,24 @@ void Starfield_Shutdown(void) {
 
 void Starfield_Update(float deltaTime) {
     skyTime += deltaTime;
+
+    /* motes drift and wrap around the camera */
+    if (motesReady) {
+        Vector3 cam = cameraMoteAnchor;
+        for (int i = 0; i < MOTE_COUNT; i++) {
+            Mote *m = &motes[i];
+            m->pos.x += m->vel.x * deltaTime;
+            m->pos.y += m->vel.y * deltaTime;
+            m->pos.z += m->vel.z * deltaTime;
+            if (m->pos.x < -MOTE_BOX * 0.5f) m->pos.x += MOTE_BOX;
+            if (m->pos.x > MOTE_BOX * 0.5f) m->pos.x -= MOTE_BOX;
+            if (m->pos.y < -MOTE_BOX * 0.5f) m->pos.y += MOTE_BOX;
+            if (m->pos.y > MOTE_BOX * 0.5f) m->pos.y -= MOTE_BOX;
+            if (m->pos.z < -MOTE_BOX * 0.5f) m->pos.z += MOTE_BOX;
+            if (m->pos.z > MOTE_BOX * 0.5f) m->pos.z -= MOTE_BOX;
+            (void)cam;
+        }
+    }
 
     nextShootingIn -= deltaTime;
     if (nextShootingIn <= 0.0f) {
@@ -281,4 +334,23 @@ void Starfield_Draw(Camera camera) {
     rlSetBlendMode(BLEND_ALPHA);
     rlEnableDepthMask();
     rlEnableDepthTest();
+}
+
+void Starfield_DrawMotes(Camera camera) {
+    if (!motesReady) return;
+    cameraMoteAnchor = camera.position;
+
+    rlDrawRenderBatchActive();
+    /* depth tested: dust hides behind terrain, keeping the dream subtle */
+    rlSetBlendMode(BLEND_ADDITIVE);
+    for (int i = 0; i < MOTE_COUNT; i++) {
+        Mote *m = &motes[i];
+        Vector3 p = Vector3Add(camera.position, m->pos);
+        float bob = 0.35f + 0.65f * (0.5f + 0.5f * sinf(skyTime * 0.9f + m->phase));
+        Color c = m->color;
+        c.a = (unsigned char)(c.a * bob);
+        DrawBillboard(camera, starTex, p, m->size * 2.4f, c);
+    }
+    rlDrawRenderBatchActive();
+    rlSetBlendMode(BLEND_ALPHA);
 }

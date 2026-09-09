@@ -81,7 +81,7 @@ void BlockMesh_ResetIndexes(void) {
     memset(indicesIndex, 0, sizeof(indicesIndex));
 }
 
-static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunlight) {
+static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunlight, int ao) {
     int shade = 0;
     if (!sprite) {
         if (face == BLOCK_FACE_BOTTOM) shade = 8;
@@ -89,6 +89,10 @@ static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunli
         else if (face == BLOCK_FACE_FRONT || face == BLOCK_FACE_BACK) shade = 3;
     }
     light -= shade; sunlight -= shade;
+    /* v43: bake per-vertex ambient occlusion into the light nibbles so
+     * corners and overhangs get soft contact shadows. */
+    light = light * ao / 15;
+    sunlight = sunlight * ao / 15;
     if (light < 0) light = 0;
     if (sunlight < 0) sunlight = 0;
     return (unsigned char)((light << 4) | sunlight);
@@ -96,21 +100,31 @@ static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunli
 
 void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords,
                        unsigned char *colors, BlockFace face, int x, int y, int z,
-                       const Block *block, int translucent, int light, int sunlight) {
+                       const Block *block, int translucent, int light, int sunlight,
+                       const unsigned char ao[4]) {
     const BlockMeshTemplate *meshTemplate = &templates[block - blockDefinitions];
     const unsigned char *source = meshTemplate->vertices[(int)face];
 
     int baseVertex = (verticesIndex[translucent] / 3) % 65536;
-    static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
-    for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + faceIndices[i]);
+    bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
+    unsigned char color[4];
+    for (int i = 0; i < 4; i++) color[i] = FaceColor(face, sprite, light, sunlight, ao[i]);
 
-    unsigned char color = FaceColor(face, block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
+    /* v43: flip the quad diagonal toward the darker corners so AO gradients
+     * stay smooth instead of zig-zagging across the face. */
+    static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
+    static const unsigned short flippedIndices[6] = {1, 2, 3, 0, 3, 2};
+    const unsigned short *pattern =
+        (ao[0] + ao[1] >= ao[2] + ao[3]) ? faceIndices : flippedIndices;
+    for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + pattern[i]);
+
     int offsetX = x * 15, offsetY = y * 15, offsetZ = z * 15;
-    for (int i = 0; i < 4; i++) {
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[i*3] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetY + source[i*3+1] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[i*3+2] * 15 / 16);
-        colors[colorsIndex[translucent]++] = color;
+    for (int i = 0; i < 6; i++) {
+        int corner = pattern[i];
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[corner*3] * 15 / 16);
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetY + source[corner*3+1] * 15 / 16);
+        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[corner*3+2] * 15 / 16);
+        colors[colorsIndex[translucent]++] = color[corner];
     }
     memcpy(&texcoords[textureIndex[translucent]], meshTemplate->texcoords[(int)face], 8 * sizeof(unsigned short));
     textureIndex[translucent] += 8;

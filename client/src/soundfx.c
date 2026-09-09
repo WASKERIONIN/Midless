@@ -10,8 +10,11 @@ static Sound jumpSnd;
 static Sound teleportSnd;
 static Sound clickSnd;
 static Sound windSnd;
+static Sound droneSnd;   /* dungeon synth pedal drone */
+static Sound bellSnd;    /* distant temple bell */
 static bool ready;
 static float volume = 0.7f;
+static double nextBellIn = 30.0;
 
 /* deterministic LCG so every install sounds identical */
 static unsigned int RngState = 0xA341316Cu;
@@ -102,6 +105,40 @@ static void FillClick(short *data, int frames) {
     }
 }
 
+/* dungeon synth drone: detuned low sines with a breathing slow LFO,
+ * seamless 8-second loop */
+static void FillDrone(short *data, int frames) {
+    const float base = 55.0f; /* A1 */
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float lfo = 0.72f + 0.28f * sinf(2.0f * PI * t / 8.0f);
+        float v = 0.0f;
+        v += sinf(2.0f * PI * base * t) * 0.30f;
+        v += sinf(2.0f * PI * base * 1.005f * t + 1.3f) * 0.24f;  /* detune beat */
+        v += sinf(2.0f * PI * base * 1.5f * t + 0.4f) * 0.14f;    /* fifth */
+        v += sinf(2.0f * PI * base * 2.0f * t + 2.2f) * 0.09f;    /* octave */
+        v += sinf(2.0f * PI * base * 2.997f * t + 0.9f) * 0.05f;  /* shimmer */
+        data[i] = (short)(v * lfo * 5200.0f);
+    }
+}
+
+/* distant temple bell: inharmonic partials, long fade */
+static void FillBell(short *data, int frames) {
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 1.35f);
+        float strike = expf(-t * 22.0f);
+        float v = 0.0f;
+        v += sinf(2.0f * PI * 220.0f * t) * 0.34f;
+        v += sinf(2.0f * PI * 220.0f * 2.74f * t) * 0.20f * expf(-t * 2.2f);
+        v += sinf(2.0f * PI * 220.0f * 5.42f * t) * 0.12f * expf(-t * 3.6f);
+        v += sinf(2.0f * PI * 220.0f * 8.13f * t) * 0.07f * expf(-t * 5.0f);
+        v += sinf(2.0f * PI * 110.0f * t) * 0.18f;
+        v += NextNoise() * strike * 0.16f;
+        data[i] = (short)(v * env * 10500.0f);
+    }
+}
+
 /* ambient void wind: seamless 4s band-passed brown noise loop */
 static void FillWind(short *data, int frames) {
     float lp1 = 0.0f, lp2 = 0.0f;
@@ -129,8 +166,13 @@ void SoundFx_Init(void) {
     teleportSnd = MakeSound(8800, FillTeleport);
     clickSnd = MakeSound(900, FillClick);
     windSnd = MakeSound(22050 * 4, FillWind);
+    droneSnd = MakeSound(22050 * 8, FillDrone);
+    bellSnd = MakeSound(22050 * 5, FillBell);
     ready = true;
-    if (ready && IsAudioDeviceReady()) PlaySound(windSnd);
+    if (ready && IsAudioDeviceReady()) {
+        PlaySound(windSnd);
+        PlaySound(droneSnd);
+    }
 }
 
 void SoundFx_Shutdown(void) {
@@ -141,13 +183,31 @@ void SoundFx_Shutdown(void) {
     UnloadSound(teleportSnd);
     UnloadSound(clickSnd);
     UnloadSound(windSnd);
+    UnloadSound(droneSnd);
+    UnloadSound(bellSnd);
     CloseAudioDevice();
     ready = false;
 }
 
 void SoundFx_Update(void) {
-    /* keep the ambient loop alive */
-    if (ready && IsAudioDeviceReady() && !IsSoundPlaying(windSnd)) PlaySound(windSnd);
+    if (!ready || !IsAudioDeviceReady()) return;
+    /* keep the ambient loops alive */
+    if (!IsSoundPlaying(windSnd)) {
+        PlaySound(windSnd);
+        SetSoundVolume(windSnd, 0.55f);
+    }
+    if (!IsSoundPlaying(droneSnd)) {
+        PlaySound(droneSnd);
+        SetSoundVolume(droneSnd, 0.6f);
+    }
+    /* dungeon synth moment: a far-away bell tolls now and then */
+    nextBellIn -= GetFrameTime();
+    if (nextBellIn <= 0.0f) {
+        nextBellIn = 34.0f + (float)(GetRandomValue(0, 3200)) / 100.0f;
+        SetSoundPitch(bellSnd, 0.78f + (float)GetRandomValue(0, 44) / 100.0f);
+        PlaySound(bellSnd);
+        SetSoundVolume(bellSnd, 0.5f);
+    }
 }
 
 void SoundFx_PlayDig(void) { if (ready) PlaySound(digSnd); }
