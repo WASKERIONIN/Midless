@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Setup MSYS2 + MinGW + Raylib
+    - name: Setup MSYS2 + MinGW
       uses: msys2/setup-msys2@v2
       with:
         msystem: MINGW64
@@ -26,25 +26,50 @@ jobs:
         install: >-
           mingw-w64-x86_64-gcc
           mingw-w64-x86_64-make
-          mingw-w64-x86_64-raylib
           mingw-w64-x86_64-pkg-config
           git
           zip
           p7zip
+          wget
+
+    - name: Install raylib pre-built
+      run: |
+        set -ex
+        cd /tmp
+        wget -q https://github.com/raysan5/raylib/releases/download/4.5.0/raylib-4.5.0_win64_mingw-w64.zip
+        unzip -q raylib-4.5.0_win64_mingw-w64.zip
+        RL=/tmp/raylib-4.5.0_win64_mingw-w64/raylib
+        echo "Raylib contents:"
+        find "$RL" -maxdepth 2 -type f | head -30
+        # Find where the headers and library are
+        if [ -f "$RL/include/raylib.h" ]; then
+          echo "RAYLIB_INCLUDE_DIR=$RL/include" >> $GITHUB_ENV
+        else
+          echo "RAYLIB_INCLUDE_DIR=$RL/src" >> $GITHUB_ENV
+        fi
+        if [ -f "$RL/lib/libraylib.a" ]; then
+          echo "RAYLIB_LIB_DIR=$RL/lib" >> $GITHUB_ENV
+        else
+          echo "RAYLIB_LIB_DIR=$RL/src" >> $GITHUB_ENV
+        fi
+        echo "RAYLIB_PATH=$RL" >> $GITHUB_ENV
 
     - name: Build client (game.exe)
       run: |
-        export RAYLIB_PATH=/mingw64
+        set -ex
         export PATH="/mingw64/bin:$PATH"
-        mingw32-make -j$(nproc)
-      continue-on-error: false
+        echo "RAYLIB_PATH=$RAYLIB_PATH"
+        echo "RAYLIB_INCLUDE_DIR=$RAYLIB_INCLUDE_DIR"
+        echo "RAYLIB_LIB_DIR=$RAYLIB_LIB_DIR"
+        ls "$RAYLIB_INCLUDE_DIR"/raylib.h
+        ls "$RAYLIB_LIB_DIR"/libraylib.a
+        mingw32-make RAYLIB_PATH="$RAYLIB_PATH" RAYLIB_INCLUDE_DIR="$RAYLIB_INCLUDE_DIR" RAYLIB_LIB_DIR="$RAYLIB_LIB_DIR" -j$(nproc) 2>&1 | tail -80
 
     - name: Build server (server.exe)
       run: |
-        export RAYLIB_PATH=/mingw64
+        set -ex
         export PATH="/mingw64/bin:$PATH"
-        mingw32-make BUILD_SERVER=TRUE -j$(nproc)
-      continue-on-error: false
+        mingw32-make BUILD_SERVER=TRUE RAYLIB_PATH="$RAYLIB_PATH" RAYLIB_INCLUDE_DIR="$RAYLIB_INCLUDE_DIR" RAYLIB_LIB_DIR="$RAYLIB_LIB_DIR" -j$(nproc) 2>&1 | tail -30
 
     - name: Package release
       run: |
@@ -52,7 +77,8 @@ jobs:
         OUT="release/Midless-Cosmic-Windows-x64"
         mkdir -p "$OUT/textures" "$OUT/mods"
 
-        # Copy executables (MinGW may or may not append .exe)
+        # Copy executables
+        find build/ -name "game*" -o -name "server*" | head -20
         for f in build/client/game build/client/game.exe; do
           [ -f "$f" ] && cp "$f" "$OUT/game.exe" && break
         done
