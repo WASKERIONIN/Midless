@@ -43,6 +43,17 @@ jobs:
       run: |
         set -ex
         export PATH="/mingw64/bin:$PATH"
+        echo "=== Toolchain info ==="
+        which gcc
+        gcc --version | head -3
+        which mingw32-make
+        echo "=== Make dry run ==="
+        mingw32-make -n \
+          RAYLIB_PATH=/mingw64 \
+          RAYLIB_INCLUDE_DIR=/mingw64/include \
+          RAYLIB_LIB_DIR=/mingw64/lib \
+          2>&1 | head -20
+        echo "=== Actual build ==="
         mingw32-make \
           RAYLIB_PATH=/mingw64 \
           RAYLIB_INCLUDE_DIR=/mingw64/include \
