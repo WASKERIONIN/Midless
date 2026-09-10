@@ -207,6 +207,7 @@ void Game_RunLoop(void) {
                     }
                 }
                 Player_DrawWeb();
+                Player_DrawLaser();
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {
                     const Block *block = Block_GetDefinition(player.rayResult.hitblockId);

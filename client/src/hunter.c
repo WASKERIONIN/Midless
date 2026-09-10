@@ -36,7 +36,20 @@ typedef struct Hunter {
     /* v46.1 steering: remembered detour so the hunter commits to a route */
     Vector3 avoidDir;
     float avoidUntil;
+    /* v48.1: detection - the hunter only hunts what it has actually seen */
+    float aggroTimer;
 } Hunter;
+
+/* v48.1: spark particles (wireframe streaks) for hits and laser shots */
+#define SPARK_MAX 64
+typedef struct Spark {
+    bool active;
+    Vector3 pos;
+    Vector3 vel;
+    float age;
+    Color color;
+} Spark;
+static Spark sparks[SPARK_MAX];
 
 typedef struct Burst {
     bool active;
@@ -85,6 +98,18 @@ static bool IsOpenSpace(Vector3 p) {
     return true;
 }
 
+/* v48.1: is the line hunter -> player clear of blocks? */
+static bool Hunter_HasLineOfSight(Vector3 from, Vector3 to) {
+    Vector3 delta = Vector3Subtract(to, from);
+    float dist = Vector3Length(delta);
+    if (dist < 0.01f) return true;
+    Vector3 dir = Vector3Scale(delta, 1.0f / dist);
+    for (float t = 0.8f; t < dist; t += 0.6f) {
+        if (!IsAirAt(Vector3Add(from, Vector3Scale(dir, t)))) return false;
+    }
+    return true;
+}
+
 static void Hunter_SpawnAttempt(void) {
     if (player.flying) return;
     Vector3 center = PlayerCenter();
@@ -107,6 +132,7 @@ static void Hunter_SpawnAttempt(void) {
             h->age = 0.0f;
             h->avoidDir = (Vector3){ 0 };
             h->avoidUntil = 0.0f;
+            h->aggroTimer = 0.0f;
             return;
         }
         return;
@@ -132,6 +158,25 @@ static void Shard_Spawn(Vector3 pos, int count) {
     }
 }
 
+static void Spark_Spawn(Vector3 pos, Color color, int count) {
+    for (int n = 0; n < count; n++) {
+        for (int i = 0; i < SPARK_MAX; i++) {
+            Spark *s = &sparks[i];
+            if (s->active) continue;
+            s->active = true;
+            s->pos = pos;
+            s->vel = (Vector3){
+                -2.4f + (float)GetRandomValue(0, 480) / 100.0f,
+                -1.0f + (float)GetRandomValue(0, 320) / 100.0f,
+                -2.4f + (float)GetRandomValue(0, 480) / 100.0f
+            };
+            s->age = 0.0f;
+            s->color = color;
+            break;
+        }
+    }
+}
+
 static void Burst_Spawn(Vector3 pos) {
     for (int i = 0; i < BURST_MAX; i++) {
         if (bursts[i].active) continue;
@@ -146,6 +191,7 @@ void Hunter_Init(void) {
     for (int i = 0; i < HUNTER_MAX; i++) hunters[i].active = false;
     for (int i = 0; i < BURST_MAX; i++) bursts[i].active = false;
     for (int i = 0; i < SHARD_MAX; i++) shardDrops[i].active = false;
+    for (int i = 0; i < SPARK_MAX; i++) sparks[i].active = false;
     spawnTimer = 6.0f;   /* grace period after world start */
     bounty = 0;
     surge = false;
@@ -228,7 +274,16 @@ void Hunter_Update(float deltaTime) {
         }
 
         float spd = HUNTER_SPEED * (surge ? 1.15f : 1.0f);
-        bool chasing = !player.flying && dist < CHASE_RANGE && now >= h->retreatUntil;
+        /* v48.1: detection - aggro needs line of sight; sight memory 2.5 s.
+         * No more player magnet: unseen hunters keep drifting. */
+        if (!player.flying && dist < CHASE_RANGE &&
+            Hunter_HasLineOfSight(h->pos, center)) {
+            h->aggroTimer = 2.5f;
+        } else if (h->aggroTimer > 0.0f) {
+            h->aggroTimer -= deltaTime;
+        }
+        bool aggro = surge || h->aggroTimer > 0.0f;
+        bool chasing = aggro && !player.flying && now >= h->retreatUntil;
         Vector3 desired;
         if (chasing) {
             desired = Vector3Scale(Vector3Scale(toPlayer, 1.0f / dist), spd);
@@ -302,8 +357,8 @@ void Hunter_Update(float deltaTime) {
         h->vel = Vector3Lerp(h->vel, desired, 1.0f - powf(0.12f, deltaTime));
         Hunter_MoveWithCollision(h, Vector3Scale(h->vel, deltaTime));
 
-        /* sting */
-        if (!player.flying && dist < STING_RANGE && now >= h->retreatUntil) {
+        /* sting - only a hunter that actually noticed you */
+        if (!player.flying && aggro && dist < STING_RANGE && now >= h->retreatUntil) {
             Vector3 push = Vector3Scale(Vector3Scale(toPlayer, -1.0f / (dist > 0.01f ? dist : 1.0f)), 1.0f);
             Player_Damage(2, push);
             h->retreatUntil = (float)now + 1.4f;
@@ -314,6 +369,16 @@ void Hunter_Update(float deltaTime) {
         if (!bursts[i].active) continue;
         bursts[i].age += deltaTime;
         if (bursts[i].age > 0.5f) bursts[i].active = false;
+    }
+
+    /* v48.1: sparks fly and fade */
+    for (int i = 0; i < SPARK_MAX; i++) {
+        Spark *s = &sparks[i];
+        if (!s->active) continue;
+        s->age += deltaTime;
+        if (s->age > 0.45f) { s->active = false; continue; }
+        s->vel.y -= 4.5f * deltaTime;
+        s->pos = Vector3Add(s->pos, Vector3Scale(s->vel, deltaTime));
     }
 
     /* v48: shard pickups - drift, magnet to the player, collect */
@@ -366,6 +431,47 @@ bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist) {
     h->hitFlash = 0.15f;
     h->vel = Vector3Add(Vector3Scale(rd, 3.2f), (Vector3){ 0, 0.8f, 0 });
     h->retreatUntil = (float)GetTime() + 0.35f;
+    Spark_Spawn(h->pos, (Color){ 255, 255, 255 }, 7);
+    if (h->hp <= 0.0f) {
+        Burst_Spawn(h->pos);
+        Shard_Spawn(h->pos, surge ? 2 : 1);
+        h->active = false;
+        bounty++;
+        Player_Heal(1);
+        SoundFx_PlayHunterDie();
+    } else {
+        SoundFx_PlayHunterHit();
+    }
+    return true;
+}
+
+bool Hunter_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint) {
+    if (!ready) return false;
+    float rayLen = sqrtf(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+    if (rayLen < 0.0001f) return false;
+    Vector3 rd = Vector3Scale(dir, 1.0f / rayLen);
+
+    int best = -1;
+    float bestT = maxDist;
+    for (int i = 0; i < HUNTER_MAX; i++) {
+        Hunter *h = &hunters[i];
+        if (!h->active) continue;
+        Vector3 oc = Vector3Subtract(h->pos, origin);
+        float t = Vector3DotProduct(oc, rd);
+        if (t < 0.0f || t > bestT) continue;
+        float distSq = Vector3LengthSqr(Vector3Subtract(oc, Vector3Scale(rd, t)));
+        if (distSq < 0.75f * 0.75f) { best = i; bestT = t; }
+    }
+    if (best < 0) return false;
+
+    Hunter *h = &hunters[best];
+    h->hp -= 1.0f;
+    h->hitFlash = 0.15f;
+    h->vel = Vector3Add(Vector3Scale(rd, 2.4f), (Vector3){ 0, 0.5f, 0 });
+    h->retreatUntil = (float)GetTime() + 0.25f;
+    h->aggroTimer = 2.5f;   /* being shot gets its attention */
+    if (hitPoint) *hitPoint = Vector3Add(origin, Vector3Scale(rd, bestT));
+    Spark_Spawn(h->pos, (Color){ 255, 240, 200 }, 9);
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);
         Shard_Spawn(h->pos, surge ? 2 : 1);
@@ -433,7 +539,28 @@ void Hunter_Draw(void) {
             float a = spin + k * 1.0472f;
             ring[k] = (Vector3){ c.x + cosf(a) * 0.55f, c.y, c.z + sinf(a) * 0.55f };
         }
-        for (int k = 0; k < 6; k++) Hn_Edge(ring[k], ring[(k + 1) % 6], bright);
+        /* v48.1: a hunting hunter reads red from any distance - its ring turns
+         * red and a wider pulsing halo ring surrounds it */
+        float distNow = Vector3Length(Vector3Subtract(PlayerCenter(), h->pos));
+        bool isAggro = surge || h->aggroTimer > 0.0f;
+        for (int k = 0; k < 6; k++) {
+            if (isAggro) rlColor4ub(255, 76, 86, 255);
+            else rlColor4ub(bright, bright, bright, 255);
+            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
+            rlVertex3f(ring[(k + 1) % 6].x, ring[(k + 1) % 6].y, ring[(k + 1) % 6].z);
+        }
+        if (isAggro) {
+            float rr = 0.74f + 0.07f * sinf((float)now * 6.0f);
+            for (int k = 0; k < 6; k++) {
+                float a = -spin * 0.8f + k * 1.0472f;
+                Vector3 p0 = { c.x + cosf(a) * rr, c.y, c.z + sinf(a) * rr };
+                float a2 = -spin * 0.8f + (k + 1) * 1.0472f;
+                Vector3 p1 = { c.x + cosf(a2) * rr, c.y, c.z + sinf(a2) * rr };
+                rlColor4ub(255, 70, 80, 255);
+                rlVertex3f(p0.x, p0.y, p0.z);
+                rlVertex3f(p1.x, p1.y, p1.z);
+            }
+        }
 
         /* spines: top and bottom tripods to the ring */
         Vector3 top = { c.x, c.y + 0.62f, c.z };
@@ -447,9 +574,8 @@ void Hunter_Draw(void) {
         Hn_Edge((Vector3){ c.x, c.y + 0.82f, c.z }, (Vector3){ c.x, c.y - 0.82f, c.z }, spine);
 
         /* eye: small counter-rotating diamond.
-         * v46: glows red when the hunter is on the hunt or just stung. */
-        float dist = Vector3Length(Vector3Subtract(PlayerCenter(), h->pos));
-        bool aggro = surge || (!player.flying && dist < CHASE_RANGE) || now < h->retreatUntil;
+         * v48.1: red while this hunter is actively hunting (seen you recently). */
+        bool aggro = surge || (!player.flying && distNow < CHASE_RANGE) || now < h->retreatUntil;
         float eyePulse = aggro ? (0.15f + 0.06f * sinf((float)now * 11.0f)) : 0.12f;
         Vector3 eye[4];
         for (int k = 0; k < 4; k++) {
@@ -488,10 +614,11 @@ void Hunter_Draw(void) {
     for (int i = 0; i < SHARD_MAX; i++) {
         Shard *s = &shardDrops[i];
         if (!s->active) continue;
-        float spin = (float)now * 2.6f + s->bob;
-        float bobY = sinf((float)now * 2.4f + s->bob) * 0.08f;
+        /* v48.1: shards hover in place - a slow bob and a breathing pulse,
+         * no pointless spinning */
+        float bobY = sinf((float)now * 2.0f + s->bob) * 0.10f;
         Vector3 c = { s->pos.x, s->pos.y + bobY, s->pos.z };
-        float r = 0.16f;
+        float r = 0.15f + 0.02f * sinf((float)now * 3.0f + s->bob);
         unsigned char fade = (s->age > 50.0f)
             ? (unsigned char)(255.0f * (60.0f - s->age) / 10.0f) : 255;
         Vector3 v[6] = {
@@ -499,7 +626,6 @@ void Hunter_Draw(void) {
             { c.x + r, c.y, c.z }, { c.x - r, c.y, c.z },
             { c.x, c.y, c.z + r }, { c.x, c.y, c.z - r }
         };
-        for (int k = 0; k < 6; k++) v[k] = Hn_RotateXZ(v[k], spin);
         rlColor4ub(96, 255, 214, fade);
         for (int e = 0; e < 12; e++) {
             rlVertex3f(v[SHARD_OCTA[e][0]].x, v[SHARD_OCTA[e][0]].y, v[SHARD_OCTA[e][0]].z);

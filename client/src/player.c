@@ -45,6 +45,10 @@ static int lastSentHeldBlock;
 static double lastGroundedTime = -100.0;
 static double jumpPressedTime = -100.0;
 static float respawnFade = 0.0f;
+static double laserReadyTime = 0.0;
+static double laserBeamUntil = 0.0;
+static Vector3 laserFrom = { 0 };
+static Vector3 laserTo = { 0 };
 static int voidShards = 3;   /* v48: warp travel currency */
 
 int Player_GetShards(void) { return voidShards; }
@@ -103,6 +107,7 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.weaponMode = 0;
     player.crouching = false;
     player.crouchT = 0.0f;
     player.dashChargesUsed = 0;
@@ -438,6 +443,13 @@ void Player_CheckInputs() {
             Chat_AddLine("The launch pad hurls you into the void. Glide!");
         }
 
+        /* v48.2: R switches weapon - blade <-> laser */
+        if (IsKeyPressed(KEY_R)) {
+            player.weaponMode ^= 1;
+            SoundFx_PlayClick();
+            Chat_AddLine(player.weaponMode ? "Laser rifle armed." : "Blade readied.");
+        }
+
         /* v47.1: interactions live on E (standing rule). Warping requires
          * actually standing within reach of a warp core - no global F teleport. */
         if (IsKeyPressed(KEY_E) && !player.webActive && Player_NearWarpCore()) {
@@ -532,7 +544,21 @@ void Player_CheckInputs() {
         eyePosition.y -= 0.4f * player.crouchT;   /* v46.1: crouch lowers the eye */
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && player.weaponMode == 1) { //Laser rifle
+            double nowL = GetTime();
+            if (nowL >= laserReadyTime) {
+                laserReadyTime = nowL + 0.35;
+                Vector3 hitPoint;
+                laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
+                if (Hunter_LaserHit(eyePosition, forward, 30.0f, &hitPoint)) {
+                    laserTo = hitPoint;
+                } else {
+                    laserTo = Vector3Add(eyePosition, Vector3Scale(forward, 30.0f));
+                }
+                laserBeamUntil = nowL + 0.09;
+                SoundFx_PlayWebShoot();
+            }
+        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
             /* v45: a swing at a hunter takes priority over mining */
@@ -908,4 +934,22 @@ bool Player_GetWebTarget(Vector3 *blockCell) {
     if (!Player_WebRay(eye, Player_GetForwardVector(), &pullPoint, &cell)) return false;
     if (blockCell) *blockCell = cell;
     return true;
+}
+
+/* v48.2: laser beam - white core with a hot afterglow strand */
+void Player_DrawLaser(void) {
+    if ((double)GetTime() >= laserBeamUntil) return;
+    float t = (float)GetTime();
+
+    rlDrawRenderBatchActive();
+    rlBegin(RL_LINES);
+    rlColor4ub(255, 255, 255, 255);
+    rlVertex3f(laserFrom.x, laserFrom.y, laserFrom.z);
+    rlVertex3f(laserTo.x, laserTo.y, laserTo.z);
+    unsigned char glow = (unsigned char)(160.0f + 60.0f * sinf(t * 60.0f));
+    rlColor4ub(glow, (unsigned char)(glow * 60 / 100), 255, 200);
+    rlVertex3f(laserFrom.x, laserFrom.y - 0.03f, laserFrom.z);
+    rlVertex3f(laserTo.x, laserTo.y - 0.03f, laserTo.z);
+    rlEnd();
+    rlDrawRenderBatchActive();
 }

@@ -39,6 +39,8 @@ typedef struct Player{
     unsigned char modelId;
     bool hasEntityModel;
     bool flying;
+    /* v48.2: weapons - 0 = blade (melee), 1 = laser (ranged) */
+    int weaponMode;
     /* v46.1: crouch + double dash */
     bool crouching;
     float crouchT;         /* smooth 0..1 eye/speed blend */
@@ -72,6 +74,7 @@ void Player_CheckInputs(void);
 void Player_Update(void);
 void Player_Draw(void);
 void Player_DrawWeb(void);
+void Player_DrawLaser(void);
 bool Player_GetWebTarget(Vector3 *blockCell);
 bool Player_NearWarpCore(void);
 void Player_SetEntityModel(int type, int modelId);

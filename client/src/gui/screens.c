@@ -211,17 +211,18 @@ void Screen_DrawGame(void) {
         double dashLeft = player.dashReadyTime - GetTime();
         int dashCharges = 2 - player.dashChargesUsed;
         Vector3 padCheck = { player.position.x, player.position.y - 0.1f, player.position.z };
+        const char *weaponTag = player.weaponMode ? "[R: LASER]" : "[R: BLADE]";
         const char *moveText;
         if (player.webActive)
-            moveText = "WEB: hold SHIFT to reel   SPACE release   F detach";
+            moveText = TextFormat("%s WEB: hold SHIFT to reel   SPACE release   F detach", weaponTag);
         else if (Player_NearWarpCore())
-            moveText = "F - WARP to the nearest core";
+            moveText = TextFormat("%s E - WARP to the nearest core", weaponTag);
         else if (World_GetBlock(padCheck) == 21)
-            moveText = "SPACE - LAUNCH from the pad";
+            moveText = TextFormat("%s SPACE - LAUNCH from the pad", weaponTag);
         else if (dashCharges > 0)
-            moveText = TextFormat("F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", dashCharges);
+            moveText = TextFormat("%s F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", weaponTag, dashCharges);
         else
-            moveText = TextFormat("dash recharges on landing %.1f", dashLeft);
+            moveText = TextFormat("%s dash recharges on landing %.1f", weaponTag, dashLeft);
         int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
         DrawText(moveText, mvX + 1, 9, 16, BLACK);

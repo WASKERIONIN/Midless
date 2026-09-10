@@ -14,6 +14,7 @@ void Hunter_Draw(void);                /* inside BeginMode3D */
 
 /* player swing at a hunter: returns true if the aim ray hit one in range */
 bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist);
+bool Hunter_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint);
 
 /* player touch damage query: true if any hunter is within sting range */
 bool Hunter_TouchingPlayer(Vector3 playerPos, Vector3 *pushDir);
