@@ -44,6 +44,17 @@ typedef struct Burst {
     float age;
 } Burst;
 
+/* v48: void shards - the warp currency, drops from fallen hunters */
+#define SHARD_MAX 24
+typedef struct Shard {
+    bool active;
+    Vector3 pos;
+    Vector3 vel;
+    float age;
+    float bob;
+} Shard;
+static Shard shardDrops[SHARD_MAX];
+
 static Hunter hunters[HUNTER_MAX];
 static Burst bursts[BURST_MAX];
 static float spawnTimer;
@@ -102,6 +113,25 @@ static void Hunter_SpawnAttempt(void) {
     }
 }
 
+static void Shard_Spawn(Vector3 pos, int count) {
+    for (int n = 0; n < count; n++) {
+        for (int i = 0; i < SHARD_MAX; i++) {
+            Shard *s = &shardDrops[i];
+            if (s->active) continue;
+            s->active = true;
+            s->pos = pos;
+            s->vel = (Vector3){
+                -0.6f + (float)GetRandomValue(0, 120) / 100.0f,
+                0.8f + (float)GetRandomValue(0, 80) / 100.0f,
+                -0.6f + (float)GetRandomValue(0, 120) / 100.0f
+            };
+            s->age = 0.0f;
+            s->bob = (float)GetRandomValue(0, 628) / 100.0f;
+            break;
+        }
+    }
+}
+
 static void Burst_Spawn(Vector3 pos) {
     for (int i = 0; i < BURST_MAX; i++) {
         if (bursts[i].active) continue;
@@ -115,6 +145,7 @@ static void Burst_Spawn(Vector3 pos) {
 void Hunter_Init(void) {
     for (int i = 0; i < HUNTER_MAX; i++) hunters[i].active = false;
     for (int i = 0; i < BURST_MAX; i++) bursts[i].active = false;
+    for (int i = 0; i < SHARD_MAX; i++) shardDrops[i].active = false;
     spawnTimer = 6.0f;   /* grace period after world start */
     bounty = 0;
     surge = false;
@@ -284,6 +315,28 @@ void Hunter_Update(float deltaTime) {
         bursts[i].age += deltaTime;
         if (bursts[i].age > 0.5f) bursts[i].active = false;
     }
+
+    /* v48: shard pickups - drift, magnet to the player, collect */
+    for (int i = 0; i < SHARD_MAX; i++) {
+        Shard *s = &shardDrops[i];
+        if (!s->active) continue;
+        s->age += deltaTime;
+        if (s->age > 60.0f) { s->active = false; continue; }
+        s->vel.y -= 0.02f * deltaTime * 60.0f * 0.1f;
+        s->vel = Vector3Scale(s->vel, powf(0.4f, deltaTime));
+        s->pos = Vector3Add(s->pos, Vector3Scale(s->vel, deltaTime));
+
+        Vector3 toPlayer = Vector3Subtract(center, s->pos);
+        float d = Vector3Length(toPlayer);
+        if (d < 3.5f && d > 0.01f) {
+            s->pos = Vector3Add(s->pos, Vector3Scale(Vector3Scale(toPlayer, 1.0f / d), 6.0f * deltaTime));
+        }
+        if (d < 0.9f) {
+            s->active = false;
+            Player_AddShards(1);
+            SoundFx_PlayWebAttach();
+        }
+    }
 }
 
 bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist) {
@@ -315,6 +368,7 @@ bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist) {
     h->retreatUntil = (float)GetTime() + 0.35f;
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);
+        Shard_Spawn(h->pos, surge ? 2 : 1);
         h->active = false;
         bounty++;
         Player_Heal(1);
@@ -352,6 +406,10 @@ static void Hn_Edge(Vector3 a, Vector3 b, unsigned char bright) {
     rlVertex3f(a.x, a.y, a.z);
     rlVertex3f(b.x, b.y, b.z);
 }
+
+static const int SHARD_OCTA[12][2] = {
+    {0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,4},{4,3},{3,5},{5,2}
+};
 
 void Hunter_Draw(void) {
     if (!ready) return;
@@ -424,6 +482,29 @@ void Hunter_Draw(void) {
             {0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,4},{4,3},{3,5},{5,2}
         };
         for (int e = 0; e < 12; e++) Hn_Edge(v[edges[e][0]], v[edges[e][1]], bright);
+    }
+
+    /* v48: shard pickups - small spinning teal octahedra */
+    for (int i = 0; i < SHARD_MAX; i++) {
+        Shard *s = &shardDrops[i];
+        if (!s->active) continue;
+        float spin = (float)now * 2.6f + s->bob;
+        float bobY = sinf((float)now * 2.4f + s->bob) * 0.08f;
+        Vector3 c = { s->pos.x, s->pos.y + bobY, s->pos.z };
+        float r = 0.16f;
+        unsigned char fade = (s->age > 50.0f)
+            ? (unsigned char)(255.0f * (60.0f - s->age) / 10.0f) : 255;
+        Vector3 v[6] = {
+            { c.x, c.y + r, c.z }, { c.x, c.y - r, c.z },
+            { c.x + r, c.y, c.z }, { c.x - r, c.y, c.z },
+            { c.x, c.y, c.z + r }, { c.x, c.y, c.z - r }
+        };
+        for (int k = 0; k < 6; k++) v[k] = Hn_RotateXZ(v[k], spin);
+        rlColor4ub(96, 255, 214, fade);
+        for (int e = 0; e < 12; e++) {
+            rlVertex3f(v[SHARD_OCTA[e][0]].x, v[SHARD_OCTA[e][0]].y, v[SHARD_OCTA[e][0]].z);
+            rlVertex3f(v[SHARD_OCTA[e][1]].x, v[SHARD_OCTA[e][1]].y, v[SHARD_OCTA[e][1]].z);
+        }
     }
 
     rlEnd();

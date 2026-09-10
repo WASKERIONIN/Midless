@@ -93,6 +93,7 @@ int main(void) {
     MapView_Init();
     Bird_Init();
     Hunter_Init();
+    Player_LoadProgress();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);

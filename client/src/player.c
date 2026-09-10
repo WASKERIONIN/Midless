@@ -45,6 +45,38 @@ static int lastSentHeldBlock;
 static double lastGroundedTime = -100.0;
 static double jumpPressedTime = -100.0;
 static float respawnFade = 0.0f;
+static int voidShards = 3;   /* v48: warp travel currency */
+
+int Player_GetShards(void) { return voidShards; }
+
+void Player_AddShards(int n) {
+    voidShards += n;
+    if (voidShards < 0) voidShards = 0;
+    Player_SaveProgress();
+}
+
+/* v48: progress persists next to settings.ini */
+void Player_SaveProgress(void) {
+    const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fprintf(f, "shards=%d\nbounty=%d\n", voidShards, Hunter_GetBounty());
+    fclose(f);
+}
+
+void Player_LoadProgress(void) {
+    const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    int s = 3, b = 0;
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        if (sscanf(line, "shards=%d", &s) == 1) voidShards = s;
+        else if (sscanf(line, "bounty=%d", &b) == 1) { (void)b; }
+    }
+    fclose(f);
+    if (voidShards < 0) voidShards = 0;
+}
 
 float Player_GetRespawnFade(void) { return respawnFade; }
 
@@ -411,10 +443,18 @@ void Player_CheckInputs() {
         if (IsKeyPressed(KEY_E) && !player.webActive && Player_NearWarpCore()) {
             Vector3 warpTarget;
             if (Player_FindWarpTarget(&warpTarget)) {
-                Player_Teleport(warpTarget);
-                respawnFade = 0.6f;
-                SoundFx_PlayTeleport();
-                Chat_AddLine("The warp core folds space. You are elsewhere.");
+                /* v48: each jump through the network burns one void shard */
+                if (voidShards > 0) {
+                    Player_AddShards(-1);
+                    World_MarkCoreVisited(warpTarget);
+                    Player_Teleport(warpTarget);
+                    respawnFade = 0.6f;
+                    SoundFx_PlayTeleport();
+                    Chat_AddLine(TextFormat("The core folds space. Shards left: %d.", voidShards));
+                } else {
+                    SoundFx_PlayClick();
+                    Chat_AddLine("The core demands a void shard. Fell hunters to gather more.");
+                }
             }
         }
 
@@ -853,7 +893,7 @@ bool Player_NearWarpCore(void) {
             Chunk *chunk = World_GetChunkAt(chunkPos);
             if (chunk == NULL) continue;
             for (int s = 0; s < chunk->specialCount[0]; s++) {
-                if (Vector3Distance(chunk->specialPos[0][s], center) <= 7.0f) return true;
+                if (Vector3Distance(chunk->specialPos[0][s], center) <= 2.5f) return true;
             }
         }
     }

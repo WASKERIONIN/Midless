@@ -482,6 +482,24 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 
 }
 
+/* v48: visited warp cores tint teal - the network you have opened */
+static Vector3 visitedCores[64];
+static int visitedCoreCount = 0;
+
+void World_MarkCoreVisited(Vector3 pos) {
+    for (int i = 0; i < visitedCoreCount; i++) {
+        if (Vector3Distance(visitedCores[i], pos) < 2.0f) return;
+    }
+    if (visitedCoreCount < 64) visitedCores[visitedCoreCount++] = pos;
+}
+
+bool World_IsCoreVisited(Vector3 pos) {
+    for (int i = 0; i < visitedCoreCount; i++) {
+        if (Vector3Distance(visitedCores[i], pos) < 2.0f) return true;
+    }
+    return false;
+}
+
 /* ---- v44: black & white wireframe auras --------------------------------
  * Special world objects get animated vector frames: warp cores carry a
  * slowly spinning octahedron, launch pads emit an expanding ring. Drawn
@@ -506,7 +524,12 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
         v[5] = (Vector3){ center.x + r * sx, center.y, center.z - r * cx };
         int edges[12][2] = {{0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,4},{4,3},{3,5},{5,2}};
         unsigned char bright = (unsigned char)(190.0f + 50.0f * sinf((float)t * 2.3f + phase * 4.0f));
-        Color c = { bright, bright, (unsigned char)(bright + 8 > 255 ? 255 : bright + 8), 255 };
+        Color c;
+        if (World_IsCoreVisited(center)) {
+            c = (Color){ 60, bright, (unsigned char)((bright + 40) / 2), 255 };  /* teal: opened */
+        } else {
+            c = (Color){ bright, bright, (unsigned char)(bright + 8 > 255 ? 255 : bright + 8), 255 };
+        }
         for (int e = 0; e < 12; e++) DrawLine3D(v[edges[e][0]], v[edges[e][1]], c);
         /* axis ticks top/bottom */
         DrawLine3D((Vector3){center.x, center.y + ry + 0.12f, center.z},

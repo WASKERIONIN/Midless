@@ -252,6 +252,19 @@ void Screen_DrawGame(void) {
         DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
         DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
 
+        /* v48: shard counter with a tiny wireframe diamond */
+        int shards = Player_GetShards();
+        const char *shardText = TextFormat("VOID SHARDS: %d", shards);
+        int sy = by + 34;
+        Color shardCol = shards > 0 ? (Color){96, 255, 214, 255} : (Color){120, 120, 140, 220};
+        DrawText(shardText, bx + 1, sy + 1, 14, BLACK);
+        DrawText(shardText, bx, sy, 14, shardCol);
+        Color dEdge = shardCol;
+        DrawLine(bx + 128, sy + 3, bx + 132, sy + 7, dEdge);
+        DrawLine(bx + 132, sy + 7, bx + 128, sy + 11, dEdge);
+        DrawLine(bx + 128, sy + 11, bx + 124, sy + 7, dEdge);
+        DrawLine(bx + 124, sy + 7, bx + 128, sy + 3, dEdge);
+
         /* v47.1: void-tide is impossible to miss */
         float surgeLvl = Hunter_GetSurgeLevel();
         if (surgeLvl > 0.02f) {

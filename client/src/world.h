@@ -37,7 +37,6 @@ bool World_LoadSingleplayer(void);
 //Update World
 void World_Update(void);
 //Build Chunks mesh in queue
-void World_UpdateChunks(void);
 //Load & Unload Chunks around players.
 void World_LoadChunks(void);
 //Read Queue to generate chunks.
@@ -60,6 +59,8 @@ void World_Shutdown(void);
 void World_Reload(void);
 //Draw the world.
 void World_DrawWireAuras(void);
+void World_MarkCoreVisited(Vector3 pos);
+bool World_IsCoreVisited(Vector3 pos);
 void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);
