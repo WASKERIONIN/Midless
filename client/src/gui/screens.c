@@ -15,6 +15,7 @@
 #include "screens.h"
 #include "chat.h"
 #include "player.h"
+#include "../hunter.h"
 #include "world.h"
 #include "block.h"
 #include "networkhandler.h"
@@ -215,6 +216,38 @@ void Screen_DrawGame(void) {
         Color mvCol = dashLeft > 0.0 ? (Color){120, 150, 190, 255} : (Color){94, 255, 214, 255};
         DrawText(moveText, mvX + 1, 9, 16, BLACK);
         DrawText(moveText, mvX, 8, 16, mvCol);
+    }
+
+    /* v45: vitals HUD - wireframe diamond pips + hunter bounty */
+    if (currentScreen == SCREEN_GAME) {
+        int hp = Player_GetHp();
+        int bx = 8, by = 92, cell = 20;
+        for (int i = 0; i < 10; i++) {
+            int x = bx + i * cell, y = by;
+            Color edge = (i < hp) ? (Color){94, 255, 214, 255} : (Color){90, 90, 110, 160};
+            Color fill = (i < hp) ? (Color){94, 255, 214, 70} : BLANK;
+            DrawLine(x + 7, y, x + 13, y + 6, edge);
+            DrawLine(x + 13, y + 6, x + 7, y + 12, edge);
+            DrawLine(x + 7, y + 12, x + 1, y + 6, edge);
+            DrawLine(x + 1, y + 6, x + 7, y, edge);
+            if (fill.a > 0) {
+                DrawLine(x + 7, y + 2, x + 11, y + 6, fill);
+                DrawLine(x + 11, y + 6, x + 7, y + 10, fill);
+                DrawLine(x + 7, y + 10, x + 3, y + 6, fill);
+                DrawLine(x + 3, y + 6, x + 7, y + 2, fill);
+                DrawPixelV((Vector2){ x + 7, y + 6 }, edge);
+            }
+        }
+        const char *bountyText = TextFormat("VOID HUNTERS FELLED: %d", Hunter_GetBounty());
+        DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
+        DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
+
+        /* hurt flash */
+        double sinceHurt = GetTime() - player.lastHurtTime;
+        if (sinceHurt < 0.3) {
+            DrawRectangle(0, 0, screenWidth, screenHeight,
+                          (Color){255, 235, 245, (unsigned char)(70.0f * (1.0 - sinceHurt / 0.3))});
+        }
     }
 
     //Draw crosshair

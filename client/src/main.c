@@ -33,6 +33,7 @@
 #include "soundfx.h"
 #include "mapview.h"
 #include "bird.h"
+#include "hunter.h"
 
 
 void Game_RunLoop(void);
@@ -91,6 +92,7 @@ int main(void) {
     SoundFx_SetVolume(gameSettings.volume / 100.0f);
     MapView_Init();
     Bird_Init();
+    Hunter_Init();
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
@@ -140,6 +142,7 @@ void Game_RunLoop(void) {
         World_Update();
         BlackHole_Update(GetFrameTime());
         Bird_Update(GetFrameTime());
+        Hunter_Update(GetFrameTime());
         MapView_Update();
         SoundFx_Update();
     }
@@ -158,6 +161,7 @@ void Game_RunLoop(void) {
                 BlackHole_Draw(player.camera);
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
+                Hunter_Draw();
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {
                     const Block *block = Block_GetDefinition(player.rayResult.hitblockId);

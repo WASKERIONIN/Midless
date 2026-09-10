@@ -490,13 +490,15 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
     float phase = (sinf(center.x * 12.9f) + sinf(center.z * 7.3f)) * 0.5f;
 
     if (kind == 0) {
-        /* warp core: tumbling octahedron */
+        /* warp core: tumbling octahedron, flattened vertically so it never
+         * stabs through the neighbouring blocks */
         float ang = (float)t * 0.9f + phase * 3.0f;
-        float r = 0.52f + 0.06f * sinf((float)t * 1.7f + phase * 5.0f);
+        float r = 0.55f + 0.06f * sinf((float)t * 1.7f + phase * 5.0f);
+        float ry = r * 0.5f;
         float cx = cosf(ang), sx = sinf(ang);
         Vector3 v[6];
-        v[0] = (Vector3){ center.x, center.y + r, center.z };
-        v[1] = (Vector3){ center.x, center.y - r, center.z };
+        v[0] = (Vector3){ center.x, center.y + ry, center.z };
+        v[1] = (Vector3){ center.x, center.y - ry, center.z };
         v[2] = (Vector3){ center.x + r * cx, center.y, center.z + r * sx };
         v[3] = (Vector3){ center.x - r * cx, center.y, center.z - r * sx };
         v[4] = (Vector3){ center.x - r * sx, center.y, center.z + r * cx };
@@ -506,10 +508,10 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
         Color c = { bright, bright, (unsigned char)(bright + 8 > 255 ? 255 : bright + 8), 255 };
         for (int e = 0; e < 12; e++) DrawLine3D(v[edges[e][0]], v[edges[e][1]], c);
         /* axis ticks top/bottom */
-        DrawLine3D((Vector3){center.x, center.y + r + 0.18f, center.z},
-                   (Vector3){center.x, center.y + r, center.z}, c);
-        DrawLine3D((Vector3){center.x, center.y - r, center.z},
-                   (Vector3){center.x, center.y - r - 0.18f, center.z}, c);
+        DrawLine3D((Vector3){center.x, center.y + ry + 0.12f, center.z},
+                   (Vector3){center.x, center.y + ry, center.z}, c);
+        DrawLine3D((Vector3){center.x, center.y - ry, center.z},
+                   (Vector3){center.x, center.y - ry - 0.12f, center.z}, c);
     } else {
         /* launch pad: square ring expanding from the pad surface */
         float period = 1.8f;

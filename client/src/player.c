@@ -19,6 +19,7 @@
 #include "networkhandler.h"
 #include "packet.h"
 #include "particle.h"
+#include "hunter.h"
 #include "entity.h"
 #include "mapview.h"
 #include "soundfx.h"
@@ -69,6 +70,9 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.hp = 10;
+    player.invulnUntil = 0.0;
+    player.lastHurtTime = -100.0;
     player.airJumpsUsed = 0;
     player.dashReadyTime = 0.0;
     player.dashActiveUntil = 0.0;
@@ -97,6 +101,35 @@ void Player_ClearEntityModel(void) {
     EntityModel_Destroy(&player.entityModel);
     player.hasEntityModel = false;
     player.entityType = 0;
+}
+
+void Player_Damage(int amount, Vector3 fromDir) {
+    if (player.flying) return;
+    double now = GetTime();
+    if (now < player.invulnUntil) return;
+    player.hp -= amount;
+    player.invulnUntil = now + 0.9;
+    player.lastHurtTime = now;
+    player.velocity.x += fromDir.x * 0.28f;
+    player.velocity.y += 0.14f;
+    player.velocity.z += fromDir.z * 0.28f;
+    SoundFx_PlayPlayerHurt();
+    if (player.hp <= 0) {
+        player.hp = 10;
+        Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
+        respawnFade = 1.0f;
+        SoundFx_PlayTeleport();
+        Chat_AddLine("The hunters got you. Wake up on the starter island.");
+    }
+}
+
+void Player_Heal(int amount) {
+    player.hp += amount;
+    if (player.hp > 10) player.hp = 10;
+}
+
+int Player_GetHp(void) {
+    return player.hp;
 }
 
 void Player_Teleport(Vector3 position) {
@@ -300,10 +333,13 @@ void Player_CheckInputs() {
         
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
-            if (player.rayResult.hitblockId != -1) {
+            /* v45: a swing at a hunter takes priority over mining */
+            if (Hunter_TryHit(eyePosition, forward, 4.5f)) {
+                SoundFx_PlayClick();
+            } else if (player.rayResult.hitblockId != -1) {
                 Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));

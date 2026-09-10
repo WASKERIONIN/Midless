@@ -12,6 +12,9 @@ static Sound clickSnd;
 static Sound windSnd;
 static Sound droneSnd;   /* dungeon synth pedal drone */
 static Sound bellSnd;    /* distant temple bell */
+static Sound hunterHitSnd;
+static Sound hunterDieSnd;
+static Sound hurtSnd;
 static bool ready;
 static float volume = 0.7f;
 static double nextBellIn = 30.0;
@@ -105,6 +108,44 @@ static void FillClick(short *data, int frames) {
     }
 }
 
+/* v45 hunter hit: metallic tick - bright sine snap with noise edge */
+static void FillHunterHit(short *data, int frames) {
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 55.0f);
+        float v = sinf(2.0f * PI * 1150.0f * t) * 0.6f
+                + sinf(2.0f * PI * 1720.0f * t) * 0.25f
+                + NextNoise() * 0.2f * expf(-t * 90.0f);
+        data[i] = (short)(v * env * 11500.0f);
+    }
+}
+
+/* v45 hunter death: descending sweep + crumble */
+static void FillHunterDie(short *data, int frames) {
+    float phase = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 6.5f);
+        float f = 880.0f * expf(-t * 4.2f) + 90.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        float v = sinf(phase) * 0.55f + NextNoise() * 0.3f * expf(-t * 9.0f);
+        data[i] = (short)(v * env * 11500.0f);
+    }
+}
+
+/* v45 player hurt: low dull thud */
+static void FillHurt(short *data, int frames) {
+    float phase = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 26.0f);
+        float f = 120.0f * expf(-t * 18.0f) + 46.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        float v = sinf(phase) * 0.85f + NextNoise() * 0.12f;
+        data[i] = (short)(v * env * 12000.0f);
+    }
+}
+
 /* dungeon synth drone: detuned low sines with a breathing slow LFO,
  * seamless 8-second loop */
 static void FillDrone(short *data, int frames) {
@@ -168,6 +209,9 @@ void SoundFx_Init(void) {
     windSnd = MakeSound(22050 * 4, FillWind);
     droneSnd = MakeSound(22050 * 8, FillDrone);
     bellSnd = MakeSound(22050 * 5, FillBell);
+    hunterHitSnd = MakeSound(1600, FillHunterHit);
+    hunterDieSnd = MakeSound(5100, FillHunterDie);
+    hurtSnd = MakeSound(1700, FillHurt);
     ready = true;
     if (ready && IsAudioDeviceReady()) {
         PlaySound(windSnd);
@@ -185,6 +229,9 @@ void SoundFx_Shutdown(void) {
     UnloadSound(windSnd);
     UnloadSound(droneSnd);
     UnloadSound(bellSnd);
+    UnloadSound(hunterHitSnd);
+    UnloadSound(hunterDieSnd);
+    UnloadSound(hurtSnd);
     CloseAudioDevice();
     ready = false;
 }
@@ -215,6 +262,10 @@ void SoundFx_PlayPlace(void) { if (ready) PlaySound(placeSnd); }
 void SoundFx_PlayJump(void) { if (ready) PlaySound(jumpSnd); }
 void SoundFx_PlayTeleport(void) { if (ready) PlaySound(teleportSnd); }
 void SoundFx_PlayClick(void) { if (ready) PlaySound(clickSnd); }
+
+void SoundFx_PlayHunterHit(void) { if (ready) PlaySound(hunterHitSnd); }
+void SoundFx_PlayHunterDie(void) { if (ready) PlaySound(hunterDieSnd); }
+void SoundFx_PlayPlayerHurt(void) { if (ready) PlaySound(hurtSnd); }
 
 void SoundFx_SetVolume(float volume01) {
     volume = Clamp(volume01, 0.0f, 1.0f);

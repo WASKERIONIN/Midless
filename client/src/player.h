@@ -39,6 +39,10 @@ typedef struct Player{
     unsigned char modelId;
     bool hasEntityModel;
     bool flying;
+    /* v45: vitals */
+    int hp;
+    double invulnUntil;
+    double lastHurtTime;
     /* v44 traversal: double jump, dash, glide */
     int airJumpsUsed;
     double dashReadyTime;      /* time the dash becomes available again */
@@ -67,6 +71,9 @@ float Player_GetRespawnFade(void);
 bool Player_TryPlaceBlock(Vector3 pos, int blockId);
 
 bool Player_TestCollision(Vector3 offset);
+void Player_Damage(int amount, Vector3 fromDir);
+void Player_Heal(int amount);
+int Player_GetHp(void);
 float Player_GetLiquidSubmersion(void);
 bool Player_GetCameraLiquidTint(Color *tint);
 Vector3 Player_GetForwardVector(void);

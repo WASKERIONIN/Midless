@@ -175,17 +175,24 @@ void Starfield_Init(void) {
 
     for (int i = 0; i < NEBULA_COUNT; i++) {
         Vector3 dir;
-        if (i < 12) {
-            float ang = Unit(Mix(2000u + (uint32_t)i * 5u)) * 6.2831f;
-            float spread = (Unit(Mix(2100u + (uint32_t)i * 5u)) - 0.5f) * 0.55f;
-            dir = Vector3Add(Vector3Scale(bandU, cosf(ang) * cosf(spread)),
-                             Vector3Scale(bandV, sinf(ang) * cosf(spread)));
-            dir = Vector3Add(dir, Vector3Scale(bandNormal, sinf(spread)));
-            dir = Vector3Normalize(dir);
-        } else {
-            dir = OnSphere(3000u + (uint32_t)i * 5u);
-            dir.y *= 0.6f;
-            dir = Vector3Normalize(dir);
+        /* v44.1: rejection-sample until the new nebula is at least ~14 deg
+         * from every earlier one, so wireframes never intersect each other */
+        for (int attempt = 0; attempt < 40; attempt++) {
+            if (i < 12) {
+                float ang = Unit(Mix(2000u + (uint32_t)i * 5u + (uint32_t)attempt * 97u)) * 6.2831f;
+                float spread = (Unit(Mix(2100u + (uint32_t)i * 5u + (uint32_t)attempt * 131u)) - 0.5f) * 0.55f;
+                dir = Vector3Add(Vector3Scale(bandU, cosf(ang) * cosf(spread)),
+                                 Vector3Scale(bandV, sinf(ang) * cosf(spread)));
+                dir = Vector3Add(dir, Vector3Scale(bandNormal, sinf(spread)));
+                dir = Vector3Normalize(dir);
+            } else {
+                dir = OnSphere(3000u + (uint32_t)i * 5u + (uint32_t)attempt * 173u);
+            }
+            bool clear = true;
+            for (int j = 0; j < i; j++) {
+                if (Vector3DotProduct(dir, nebulaDir[j]) > 0.97f) { clear = false; break; }
+            }
+            if (clear) break;
         }
         nebulaDir[i] = dir;
         nebulaSize[i] = 55.0f + Unit(Mix(300u + (uint32_t)i)) * 85.0f;
