@@ -21,6 +21,7 @@
 #include "packet.h"
 #include "particle.h"
 #include "hunter.h"
+#include "mobs.h"
 #include "entity.h"
 #include "mapview.h"
 #include "soundfx.h"
@@ -601,8 +602,11 @@ void Player_CheckInputs() {
                 Vector3 hitPoint;
                 int range = Player_GetLaserRange();
                 laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
+                Vector3 mobHitPoint;
                 if (Hunter_LaserHit(eyePosition, forward, (float)range, &hitPoint)) {
                     laserTo = hitPoint;
+                } else if (Mobs_LaserHit(eyePosition, forward, (float)range, &mobHitPoint)) {
+                    laserTo = mobHitPoint;
                 } else {
                     laserTo = Vector3Add(eyePosition, Vector3Scale(forward, (float)range));
                 }
@@ -614,6 +618,8 @@ void Player_CheckInputs() {
             Network_Send(Packet_CreatePlayerClick(0));
             /* v45: a swing at a hunter takes priority over mining */
             if (Hunter_TryHit(eyePosition, forward, 4.5f)) {
+                SoundFx_PlayClick();
+            } else if (Mobs_MeleeHit(eyePosition, forward, 4.5f)) {
                 SoundFx_PlayClick();
             } else if (player.rayResult.hitblockId != -1) {
                 Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);

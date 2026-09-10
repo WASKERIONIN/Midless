@@ -34,6 +34,7 @@
 #include "mapview.h"
 #include "bird.h"
 #include "hunter.h"
+#include "mobs.h"
 
 
 void Game_RunLoop(void);
@@ -93,6 +94,7 @@ int main(void) {
     MapView_Init();
     Bird_Init();
     Hunter_Init();
+    Mobs_Init();
     Player_LoadProgress();
     
     bool exitProgram = false;
@@ -144,6 +146,7 @@ void Game_RunLoop(void) {
         BlackHole_Update(GetFrameTime());
         Bird_Update(GetFrameTime());
         Hunter_Update(GetFrameTime());
+        Mobs_Update(GetFrameTime());
         MapView_Update();
         SoundFx_Update();
     }
@@ -163,6 +166,7 @@ void Game_RunLoop(void) {
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Hunter_Draw();
+                Mobs_Draw();
                 /* v46.1: web anchor indicator under the crosshair */
                 {
                     Vector3 webCell;
