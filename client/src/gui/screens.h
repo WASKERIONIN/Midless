@@ -19,6 +19,10 @@ typedef enum Screen {
 
 extern Screen currentScreen;
 extern bool screenCursorEnabled;
+
+/* v49.1: laser upgrade menu (opened with B at a warp core) */
+void Screens_UpgradeMenuToggle(void);
+bool Screens_UpgradeMenuIsOpen(void);
 extern bool screenShowDebug;
 
 void Screen_Init(Texture2D terrain, bool *exit);

@@ -89,6 +89,11 @@ void Player_Damage(int amount, Vector3 fromDir);
 void Player_Heal(int amount);
 int Player_GetHp(void);
 int Player_GetShards(void);
+int Player_GetLaserRangeLvl(void);
+int Player_GetLaserRateLvl(void);
+int Player_GetLaserRange(void);
+float Player_GetLaserCooldown(void);
+bool Player_BuyLaserUpgrade(int kind); /* 0 = range, 1 = rate */
 void Player_AddShards(int n);
 void Player_SaveProgress(void);
 void Player_LoadProgress(void);

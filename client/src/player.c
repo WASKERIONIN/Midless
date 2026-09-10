@@ -50,8 +50,6 @@ static int laserRangeLvl = 0;   /* 0..3 */
 static int laserRateLvl = 0;    /* 0..3 */
 #define LASER_UPGRADE_COST 5
 
-static int Player_LaserRange(void)  { return 18 + 6 * laserRangeLvl; }
-static float Player_LaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
 static double laserReadyTime = 0.0;
 static double laserBeamUntil = 0.0;
 static Vector3 laserFrom = { 0 };
@@ -90,6 +88,43 @@ void Player_LoadProgress(void) {
     }
     fclose(f);
     if (voidShards < 0) voidShards = 0;
+}
+
+int Player_GetLaserRangeLvl(void) { return laserRangeLvl; }
+int Player_GetLaserRateLvl(void) { return laserRateLvl; }
+int Player_GetLaserRange(void) { return 18 + 6 * laserRangeLvl; }
+float Player_GetLaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
+
+/* v49.1: one upgrade purchase; feedback lands in chat */
+bool Player_BuyLaserUpgrade(int kind) {
+    if (laserRangeLvl > 2 && laserRateLvl > 2) {
+        Chat_AddLine("The core hums: your laser is fully forged.");
+        return false;
+    }
+    if (voidShards < LASER_UPGRADE_COST) {
+        SoundFx_PlayClick();
+        Chat_AddLine(TextFormat("An upgrade needs %d shards. Fell hunters.", LASER_UPGRADE_COST));
+        return false;
+    }
+    Player_AddShards(-LASER_UPGRADE_COST);
+    if (kind == 0 && laserRangeLvl < 3) {
+        laserRangeLvl++;
+        Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
+                                Player_GetLaserRange(), voidShards));
+    } else if (kind == 1 && laserRateLvl < 3) {
+        laserRateLvl++;
+        Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
+    } else if (laserRangeLvl < 3) {
+        laserRangeLvl++;
+        Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
+                                Player_GetLaserRange(), voidShards));
+    } else {
+        laserRateLvl++;
+        Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
+    }
+    SoundFx_PlayWebAttach();
+    Player_SaveProgress();
+    return true;
 }
 
 float Player_GetRespawnFade(void) { return respawnFade; }
@@ -480,30 +515,9 @@ void Player_CheckInputs() {
             }
         }
 
-        /* v49: B at a core buys laser upgrades with shards */
+        /* v49.1: B at a core opens the upgrade menu */
         if (IsKeyPressed(KEY_B) && !player.webActive && Player_NearWarpCore()) {
-            if (laserRangeLvl > 2 && laserRateLvl > 2) {
-                Chat_AddLine("The core hums: your laser is fully forged.");
-            } else if (voidShards < LASER_UPGRADE_COST) {
-                SoundFx_PlayClick();
-                Chat_AddLine(TextFormat("An upgrade needs %d shards. Fell hunters.", LASER_UPGRADE_COST));
-            } else {
-                Player_AddShards(-LASER_UPGRADE_COST);
-                if (laserRangeLvl <= laserRateLvl && laserRangeLvl < 3) {
-                    laserRangeLvl++;
-                    Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
-                                            Player_LaserRange(), voidShards));
-                } else if (laserRateLvl < 3) {
-                    laserRateLvl++;
-                    Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
-                } else {
-                    laserRangeLvl++;
-                    Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
-                                            Player_LaserRange(), voidShards));
-                }
-                SoundFx_PlayWebAttach();
-                Player_SaveProgress();
-            }
+            Screens_UpgradeMenuToggle();
         }
 
         /* v46: web grapple - F fires, Shift reels, Space releases with momentum */
@@ -583,9 +597,9 @@ void Player_CheckInputs() {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && player.weaponMode == 1) { //Laser rifle
             double nowL = GetTime();
             if (nowL >= laserReadyTime) {
-                laserReadyTime = nowL + Player_LaserCooldown();
+                laserReadyTime = nowL + Player_GetLaserCooldown();
                 Vector3 hitPoint;
-                int range = Player_LaserRange();
+                int range = Player_GetLaserRange();
                 laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
                 if (Hunter_LaserHit(eyePosition, forward, (float)range, &hitPoint)) {
                     laserTo = hitPoint;

@@ -31,6 +31,22 @@
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
+
+/* v49.1: laser upgrade menu state */
+static bool upgradeMenuOpen = false;
+
+void Screens_UpgradeMenuToggle(void) {
+    upgradeMenuOpen = !upgradeMenuOpen;
+    if (upgradeMenuOpen) {
+        EnableCursor();
+        screenCursorEnabled = true;
+    } else {
+        DisableCursor();
+        screenCursorEnabled = false;
+    }
+}
+
+bool Screens_UpgradeMenuIsOpen(void) { return upgradeMenuOpen; }
 bool screenShowDebug = false;
 static bool loadingStarted = false;
 static bool loadingFailed = false;
@@ -266,19 +282,8 @@ void Screen_DrawGame(void) {
         DrawLine(bx + 128, sy + 11, bx + 124, sy + 7, dEdge);
         DrawLine(bx + 124, sy + 7, bx + 128, sy + 3, dEdge);
 
-        /* v47.1: void-tide is impossible to miss */
-        float surgeLvl = Hunter_GetSurgeLevel();
-        if (surgeLvl > 0.02f) {
-            unsigned char va = (unsigned char)(96.0f * surgeLvl);
-            Color tide = { 24, 4, 38, va };
-            int bar = (int)(28 + 24 * surgeLvl);
-            DrawRectangle(0, 0, screenWidth, bar, tide);
-            DrawRectangle(0, screenHeight - bar, screenWidth, bar, tide);
-            DrawRectangle(0, 0, bar, screenHeight, tide);
-            DrawRectangle(screenWidth - bar, 0, bar, screenHeight, tide);
-            DrawRectangle(0, 0, screenWidth, screenHeight,
-                          (Color){ 30, 6, 44, (unsigned char)(26.0f * surgeLvl) });
-        }
+        /* v49.1: the edge vignette is gone - the tide speaks through the
+         * banner, the hunters' red glow and the swelling drone */
         float tideIncoming = Hunter_GetCalmTimeLeft();
         if (Hunter_GetSurgeTimeLeft() > 0.0f) {
             float pulse = 0.75f + 0.25f * sinf(GetTime() * 6.0f);
@@ -298,6 +303,63 @@ void Screen_DrawGame(void) {
         if (sinceHurt < 0.3) {
             DrawRectangle(0, 0, screenWidth, screenHeight,
                           (Color){255, 235, 245, (unsigned char)(70.0f * (1.0 - sinceHurt / 0.3))});
+        }
+    }
+
+    /* v49.1: laser upgrade menu */
+    if (upgradeMenuOpen) {
+        /* pause/ESC closes it (cursor was taken away) */
+        if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
+            upgradeMenuOpen = false;
+        } else {
+            if (IsKeyPressed(KEY_B) || IsKeyPressed(KEY_ESCAPE)) {
+                Screens_UpgradeMenuToggle();
+            } else {
+                int mx = screenWidth / 2 - 170;
+                int my = screenHeight / 2 - 130;
+                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
+                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 300 });
+
+                const char *title = "WARP CORE FORGE";
+                DrawText(title, mx + 2, my + 2, 24, BLACK);
+                DrawText(title, mx, my, 24, (Color){ 96, 255, 214, 255 });
+                const char *shardLine = TextFormat("Void shards: %d", Player_GetShards());
+                DrawText(shardLine, mx + 2, my + 32, 16, BLACK);
+                DrawText(shardLine, mx, my + 30, 16, (Color){ 200, 160, 255, 255 });
+
+                int rl = Player_GetLaserRangeLvl();
+                int lv = Player_GetLaserRateLvl();
+                const char *rangeLine = TextFormat("LENS   range %d m   %s", Player_GetLaserRange(),
+                                                   rl >= 3 ? "MAX" : TextFormat("lvl %d/3", rl));
+                DrawText(rangeLine, mx + 2, my + 62, 15, BLACK);
+                DrawText(rangeLine, mx, my + 60, 15, WHITE);
+                const char *rateLine = TextFormat("COIL   %.2f s   %s", Player_GetLaserCooldown(),
+                                                 lv >= 3 ? "MAX" : TextFormat("lvl %d/3", lv));
+                DrawText(rateLine, mx + 2, my + 84, 15, BLACK);
+                DrawText(rateLine, mx, my + 82, 15, WHITE);
+
+                bool full = (rl >= 3 && lv >= 3);
+                if (full) {
+                    const char *done = "The laser is fully forged.";
+                    DrawText(done, mx + 2, my + 116, 16, BLACK);
+                    DrawText(done, mx, my + 114, 16, (Color){ 96, 255, 214, 255 });
+                } else {
+                    char rb[64], cb[64];
+                    if (rl >= 3) snprintf(rb, sizeof(rb), "LENS  MAX");
+                    else snprintf(rb, sizeof(rb), "UPGRADE LENS  (%d shards)", 5);
+                    if (lv >= 3) snprintf(cb, sizeof(cb), "COIL  MAX");
+                    else snprintf(cb, sizeof(cb), "UPGRADE COIL  (%d shards)", 5);
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 110, 340, 36 }, rb)) {
+                        Player_BuyLaserUpgrade(0);
+                    }
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 154, 340, 36 }, cb)) {
+                        Player_BuyLaserUpgrade(1);
+                    }
+                }
+                const char *hint = "B / ESC - close";
+                DrawText(hint, mx + 2, my + 206, 14, BLACK);
+                DrawText(hint, mx, my + 204, 14, (Color){ 170, 170, 190, 255 });
+            }
         }
     }
 
