@@ -190,9 +190,10 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
     /* v42: smaller cube, dropped below the palm so air shows between hand and block, slow spin. */
     Matrix item = MatrixMultiply(MatrixScale(0.22f, 0.22f, 0.22f),
         MatrixRotateXYZ((Vector3){-swing.arc * 0.6f, (float)GetTime() * 0.8f, -swing.twist * 0.4f}));
-    item.m12 = 0.40f - swing.arc * 0.14f;
-    item.m13 = -0.58f + swing.arc * 0.06f;
-    item.m14 = -0.72f - swing.arc * 0.10f;
+    /* v43.5: raised - the held cube was half-clipped by the bottom of the view */
+    item.m12 = 0.38f - swing.arc * 0.14f;
+    item.m13 = -0.38f + swing.arc * 0.06f;
+    item.m14 = -0.66f - swing.arc * 0.10f;
     BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, cameraTransform),
                              Entity_GetBrightness(entity->position));
 }

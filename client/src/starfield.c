@@ -25,20 +25,6 @@
 #define NEBULA_COUNT     22
 #define SHOOTING_MAX     3
 #define STAR_RADIUS      255.0f
-#define MOTE_COUNT       42
-#define MOTE_BOX         30.0f
-
-/* dreamcore dust: motes drift lazily near the camera, wrap in a box */
-typedef struct Mote {
-    Vector3 pos;
-    Vector3 vel;
-    float size;
-    float phase;
-    Color color;
-} Mote;
-static Mote motes[MOTE_COUNT];
-static bool motesReady;
-
 typedef struct BrightStar {
     Vector3 pos;
     float size;
@@ -64,9 +50,8 @@ static Color nebulaCol[NEBULA_COUNT];
 static float nebulaPulse[NEBULA_COUNT];
 static ShootingStar shooting[SHOOTING_MAX];
 static float nextShootingIn = 4.0f;
-static Texture2D nebulaTex;
+static Texture2D nebulaTex[3];
 static Texture2D starTex;
-static Vector3 cameraMoteAnchor = { 0 };
 static float skyTime = 0.0f;
 static bool ready;
 
@@ -100,6 +85,92 @@ static Color StarColor(uint32_t seed) {
                         (unsigned char)(255 * bright), 255 };
     return (Color){ (unsigned char)(236 * bright), (unsigned char)(150 * bright),
                     (unsigned char)(255 * bright), 255 };
+}
+
+/* ---- v43.5 nebula generator -------------------------------------------
+ * Hash-based value-noise fBm with a radial envelope, ridged dust lanes and a
+ * bright folded core; written into an RGBA image per palette variant. */
+static float SkyHash(int x, int y, int seed) {
+    int h = x * 374761 + y * 668265 + seed * 1442695040;
+    h = (h ^ (h >> 13)) * 1274126177;
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0f;
+}
+
+static float SkyValueNoise(float x, float y, int seed) {
+    int xi = (int)floorf(x), yi = (int)floorf(y);
+    float xf = x - xi, yf = y - yi;
+    xf = xf * xf * (3.0f - 2.0f * xf);
+    yf = yf * yf * (3.0f - 2.0f * yf);
+    float a = SkyHash(xi, yi, seed),     b = SkyHash(xi + 1, yi, seed);
+    float c = SkyHash(xi, yi + 1, seed), d = SkyHash(xi + 1, yi + 1, seed);
+    return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+}
+
+static float SkyFbm(float x, float y, int seed, int octaves) {
+    float sum = 0.0f, amp = 0.5f, freq = 1.0f, norm = 0.0f;
+    for (int o = 0; o < octaves; o++) {
+        sum += SkyValueNoise(x * freq, y * freq, seed + o * 101) * amp;
+        norm += amp;
+        amp *= 0.55f;
+        freq *= 2.1f;
+    }
+    return sum / norm;
+}
+
+static Texture2D MakeNebulaTexture(int variant) {
+    const int size = 256;
+    int seed = 910 + variant * 77;
+    /* palette: deep edge, mid tone, filament highlight, core */
+    Color cDeep, cMid, cHigh;
+    if (variant == 0)      { cDeep = (Color){ 46, 10, 64 };  cMid = (Color){ 148, 34, 178 }; cHigh = (Color){ 255, 132, 246 }; }
+    else if (variant == 1) { cDeep = (Color){ 24, 12, 70 };  cMid = (Color){ 84, 44, 196 };  cHigh = (Color){ 168, 128, 255 }; }
+    else                   { cDeep = (Color){ 6, 40, 62 };   cMid = (Color){ 22, 130, 168 }; cHigh = (Color){ 128, 240, 252 }; }
+
+    Image image = GenImageColor(size, size, BLANK);
+    Color *pixels = (Color *)image.data;
+    float cx = size * 0.5f, cy = size * 0.5f;
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            float dx = (x - cx) / cx, dy = (y - cy) / cy;
+            float r = sqrtf(dx * dx + dy * dy);
+            float env = 1.0f - r;                    /* radial envelope */
+            if (env <= 0.0f) continue;
+            env = env * env;
+
+            float nx = x / 34.0f, ny = y / 34.0f;
+            float density = SkyFbm(nx, ny, seed, 5);
+            /* stretch horizontally for a windswept look */
+            density = 0.55f * density + 0.45f * SkyFbm(nx * 0.55f, ny * 1.6f, seed + 31, 4);
+            density = (density - 0.34f) / 0.66f;
+            if (density < 0.0f) density = 0.0f;
+            float filaments = 1.0f - fabsf(2.0f * SkyFbm(nx * 2.1f, ny * 2.1f, seed + 57, 4) - 1.0f);
+            float dust = SkyFbm(nx * 1.3f + 9.0f, ny * 1.3f - 4.0f, seed + 83, 3);
+            float a = env * density;
+            a *= 0.65f + 0.6f * filaments;           /* bright filament threads */
+            a *= 0.55f + 0.75f * dust;               /* dark dust lane mottling */
+            if (a <= 0.004f) continue;
+
+            float t = density * filaments;
+            Color out;
+            if (t < 0.55f) {
+                float k = t / 0.55f;
+                out.b = (unsigned char)(cDeep.b + (cMid.b - cDeep.b) * k);
+                out.g = (unsigned char)(cDeep.g + (cMid.g - cDeep.g) * k);
+                out.r = (unsigned char)(cDeep.r + (cMid.r - cDeep.r) * k);
+            } else {
+                float k = (t - 0.55f) / 0.45f;
+                out.b = (unsigned char)(cMid.b + (cHigh.b - cMid.b) * k);
+                out.g = (unsigned char)(cMid.g + (cHigh.g - cMid.g) * k);
+                out.r = (unsigned char)(cMid.r + (cHigh.r - cMid.r) * k);
+            }
+            out.a = (unsigned char)(255.0f * (a > 1.0f ? 1.0f : a));
+            pixels[y * size + x] = out;
+        }
+    }
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+    return texture;
 }
 
 void Starfield_Init(void) {
@@ -148,11 +219,9 @@ void Starfield_Init(void) {
     UnloadImage(glow);
     SetTextureFilter(starTex, TEXTURE_FILTER_BILINEAR);
 
-    Image soft = GenImageGradientRadial(128, 128, 0.15f, (Color){ 255, 255, 255, 170 },
-                                        (Color){ 255, 255, 255, 0 });
-    nebulaTex = LoadTextureFromImage(soft);
-    UnloadImage(soft);
-    SetTextureFilter(nebulaTex, TEXTURE_FILTER_BILINEAR);
+    /* v43.5: real fBm nebulae instead of flat radial blobs - filaments,
+     * dust lanes and bright cores per palette variant. */
+    for (int v = 0; v < 3; v++) nebulaTex[v] = MakeNebulaTexture(v);
 
     for (int i = 0; i < NEBULA_COUNT; i++) {
         Vector3 dir;
@@ -179,57 +248,18 @@ void Starfield_Init(void) {
     }
 
     for (int i = 0; i < SHOOTING_MAX; i++) shooting[i].active = false;
-
-    for (int i = 0; i < MOTE_COUNT; i++) {
-        Mote *m = &motes[i];
-        m->pos = (Vector3){
-            (Unit(Mix(7000u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX,
-            (Unit(Mix(7100u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX,
-            (Unit(Mix(7200u + (uint32_t)i * 3u)) - 0.5f) * MOTE_BOX
-        };
-        m->vel = (Vector3){
-            (Unit(Mix(7300u + (uint32_t)i)) - 0.5f) * 0.35f,
-            -0.12f - Unit(Mix(7400u + (uint32_t)i)) * 0.22f,
-            (Unit(Mix(7500u + (uint32_t)i)) - 0.5f) * 0.35f
-        };
-        m->size = 0.05f + Unit(Mix(7600u + (uint32_t)i)) * 0.09f;
-        m->phase = Unit(Mix(7700u + (uint32_t)i)) * 6.2831f;
-        int roll = (int)(Unit(Mix(7800u + (uint32_t)i)) * 3.0f);
-        if (roll == 0) m->color = (Color){150, 240, 235, 90};
-        else if (roll == 1) m->color = (Color){200, 140, 255, 85};
-        else m->color = (Color){255, 190, 235, 70};
-    }
-    motesReady = true;
-    ready = true;
+ready = true;
 }
 
 void Starfield_Shutdown(void) {
     if (!ready) return;
-    UnloadTexture(nebulaTex);
+    for (int v = 0; v < 3; v++) UnloadTexture(nebulaTex[v]);
     UnloadTexture(starTex);
     ready = false;
 }
 
 void Starfield_Update(float deltaTime) {
     skyTime += deltaTime;
-
-    /* motes drift and wrap around the camera */
-    if (motesReady) {
-        Vector3 cam = cameraMoteAnchor;
-        for (int i = 0; i < MOTE_COUNT; i++) {
-            Mote *m = &motes[i];
-            m->pos.x += m->vel.x * deltaTime;
-            m->pos.y += m->vel.y * deltaTime;
-            m->pos.z += m->vel.z * deltaTime;
-            if (m->pos.x < -MOTE_BOX * 0.5f) m->pos.x += MOTE_BOX;
-            if (m->pos.x > MOTE_BOX * 0.5f) m->pos.x -= MOTE_BOX;
-            if (m->pos.y < -MOTE_BOX * 0.5f) m->pos.y += MOTE_BOX;
-            if (m->pos.y > MOTE_BOX * 0.5f) m->pos.y -= MOTE_BOX;
-            if (m->pos.z < -MOTE_BOX * 0.5f) m->pos.z += MOTE_BOX;
-            if (m->pos.z > MOTE_BOX * 0.5f) m->pos.z -= MOTE_BOX;
-            (void)cam;
-        }
-    }
 
     nextShootingIn -= deltaTime;
     if (nextShootingIn <= 0.0f) {
@@ -282,7 +312,7 @@ void Starfield_Draw(Camera camera) {
         float pulse = 0.82f + 0.18f * sinf(skyTime * 0.23f + nebulaPulse[i]);
         Color c = nebulaCol[i];
         c.a = (unsigned char)(c.a * pulse);
-        DrawBillboard(camera, nebulaTex, p, nebulaSize[i], c);
+        DrawBillboard(camera, nebulaTex[i % 3], p, nebulaSize[i], c);
     }
 
     /* faint star dust */
@@ -334,23 +364,4 @@ void Starfield_Draw(Camera camera) {
     rlSetBlendMode(BLEND_ALPHA);
     rlEnableDepthMask();
     rlEnableDepthTest();
-}
-
-void Starfield_DrawMotes(Camera camera) {
-    if (!motesReady) return;
-    cameraMoteAnchor = camera.position;
-
-    rlDrawRenderBatchActive();
-    /* depth tested: dust hides behind terrain, keeping the dream subtle */
-    rlSetBlendMode(BLEND_ADDITIVE);
-    for (int i = 0; i < MOTE_COUNT; i++) {
-        Mote *m = &motes[i];
-        Vector3 p = Vector3Add(camera.position, m->pos);
-        float bob = 0.35f + 0.65f * (0.5f + 0.5f * sinf(skyTime * 0.9f + m->phase));
-        Color c = m->color;
-        c.a = (unsigned char)(c.a * bob);
-        DrawBillboard(camera, starTex, p, m->size * 2.4f, c);
-    }
-    rlDrawRenderBatchActive();
-    rlSetBlendMode(BLEND_ALPHA);
 }

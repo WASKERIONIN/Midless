@@ -242,6 +242,8 @@ bool ChunkMeshGeneration_IsTranslucentFaceVisible(const Block *block, const Bloc
     if (SameLiquidOccludes(block, next)) return false;
     if (next->colliderType != BLOCK_COLLIDER_SOLID) return true;
     if (next->modelType == BLOCK_MODEL_GAS) return true;
-    if (next->renderType == BLOCK_RENDER_TRANSPARENT) return true;
+    /* v43.5: full transparent neighbours (glass, crystal) cull the water face
+     * just like opaque ones - drawing both left coplanar faces that z-fought
+     * (texture shimmer that read as "inversion" when moving). */
     return !block->fullCube || !next->fullCube;
 }

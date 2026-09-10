@@ -1,4 +1,4 @@
--- Midless: Cosmic Edition worldgen (v6)
+-- Midless: Cosmic Edition worldgen (v7)
 -- Floating islands adrift in a starlit void, cone-tapered like hanging
 -- gardens. Water exists only inside glass basins. The starter island carries
 -- a launch pad, four warp-core obelisks and a glowing crystal basin.
@@ -33,6 +33,18 @@ midless.define_block(22, {
     name = "Warp Core",
     textures = { all = 20 },
     light = block.light.EMIT,
+})
+
+-- 23 chrome: mirror-bright white plate, pure Y2K
+midless.define_block(23, {
+    name = "Chrome Plate",
+    textures = { all = 24 },
+})
+
+-- 24 gold_plate: warm polished gold
+midless.define_block(24, {
+    name = "Gold Plate",
+    textures = { all = 5 },
 })
 
 ------------------------------------------------------------- utilities ----
@@ -147,7 +159,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 6,
+    id = "midless:cosmic", version = 7,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = inside, skylight = inside,
@@ -216,4 +228,81 @@ wg.define_structure("midless:cosmic_tree", {
     spacing = 28, chance = 0.28, min_y = 20, max_y = 150,
     max_slope = 4, rotate = true, air_only = true,
     tree = { height = 5, radius = 2, trunk = 10, leaves = 11 },
+})
+
+------------------------------------------------- dream structures (v7) ----
+-- Dream gate: a Y2K chrome doorway that hums on island edges. A floating
+-- crystal gem hangs in the opening - dreamcore's "remember this?" landmark.
+local gate = {}
+local function g(bx, by, bz, id)
+    gate[#gate + 1] = { x = bx, y = by, z = bz, block = id }
+end
+for py = 0, 2 do
+    g(-1, py, 0, 23)  -- chrome pillar left
+    g(1, py, 0, 23)   -- chrome pillar right
+end
+g(-1, 3, 0, 20)       -- crystal arch left
+g(0, 3, 0, 24)        -- gold keystone
+g(1, 3, 0, 20)        -- crystal arch right
+g(0, 2, 0, 20)        -- the gem floating inside the gate
+
+wg.define_structure("midless:dream_gate", {
+    spacing = 36, chance = 0.42, min_y = 20, max_y = 150,
+    max_slope = 3, rotate = true, air_only = true,
+    blocks = gate,
+})
+
+-- Chrome totem: polished stack with a levitating crystal cap. Pure Y2K
+-- antenna aesthetics, catches the nebula light from far away.
+wg.define_structure("midless:chrome_totem", {
+    spacing = 30, chance = 0.35, min_y = 20, max_y = 150,
+    max_slope = 3, rotate = false, air_only = true,
+    blocks = {
+        { x = 0, y = 0, z = 0, block = 23 },
+        { x = 0, y = 1, z = 0, block = 24 },
+        { x = 0, y = 2, z = 0, block = 23 },
+        { x = 0, y = 3, z = 0, block = 24 },
+        { x = 0, y = 5, z = 0, block = 20 },  -- cap floats one block above
+    },
+})
+
+-- Ruined shrine: dungeon synth ruins. A cracked void-rock platform with
+-- broken columns and a still-lit warp core in the middle.
+local shrine = {}
+local function s(bx, by, bz, id)
+    shrine[#shrine + 1] = { x = bx, y = by, z = bz, block = id }
+end
+for dz = -2, 2 do
+    for dx = -2, 2 do
+        local edge = (math.abs(dx) == 2) or (math.abs(dz) == 2)
+        s(dx, 0, dz, edge and 19 or 21)  -- pad ring on void rock
+    end
+end
+-- broken columns (deliberately uneven heights)
+s(-2, 1, -2, 19); s(-2, 2, -2, 19)
+s(2, 1, -2, 19)
+s(-2, 1, 2, 19)
+s(2, 1, 2, 19); s(2, 2, 2, 19); s(2, 3, 2, 20)
+-- the core
+s(0, 1, 0, 22)
+
+wg.define_structure("midless:ruined_shrine", {
+    spacing = 52, chance = 0.5, min_y = 20, max_y = 150,
+    max_slope = 2, rotate = true, air_only = false,
+    foundation = 19, foundation_depth = 3,
+    blocks = shrine,
+})
+
+-- Memory float: little levitating clusters of chrome and crystal drifting
+-- above open ground. The dreamcore signature - geometry that shouldn't fly,
+-- flying anyway.
+wg.define_structure("midless:memory_float", {
+    spacing = 24, chance = 0.3, min_y = 20, max_y = 150,
+    max_slope = 6, rotate = true, air_only = true,
+    blocks = {
+        { x = 0, y = 3, z = 0, block = 23 },
+        { x = 1, y = 4, z = 1, block = 20 },
+        { x = -1, y = 5, z = 0, block = 24 },
+        { x = 0, y = 6, z = 1, block = 23 },
+    },
 })

@@ -382,7 +382,6 @@ void World_Draw(Vector3 camPosition) {
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
     DropShadow_DrawAll();
-    Starfield_DrawMotes(player.camera);
     Asteroid_Draw(camPosition, World_GetSunlightStrength());
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
@@ -405,7 +404,9 @@ void World_Draw(Vector3 camPosition) {
     ChunkMesh_PrepareDrawing(world.material);
 
     rlDisableDepthMask();
-    rlDisableBackfaceCulling();
+    /* v43.5: cull back faces - water interior surfaces no longer bleed
+     * through the surface (the "seeing inside sides" artifact). */
+    rlEnableBackfaceCulling();
 
     for (int i = 0; i < sortedLength; i++) {
         Chunk *chunk = sortedChunks[i].chunk;
@@ -414,12 +415,11 @@ void World_Draw(Vector3 camPosition) {
                                    0, 1, 0, chunk->blockPosition.y,
                                    0, 0, 1, chunk->blockPosition.z,
                                    0, 0, 0, 1 };
-        
+
         ChunkMesh_Draw(&chunk->meshTransparent, world.material, matrix);
     }
 
     ChunkMesh_FinishDrawing();
-    rlEnableBackfaceCulling();
     rlEnableDepthMask();
 }
 
