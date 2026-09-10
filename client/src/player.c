@@ -45,6 +45,13 @@ static int lastSentHeldBlock;
 static double lastGroundedTime = -100.0;
 static double jumpPressedTime = -100.0;
 static float respawnFade = 0.0f;
+/* v49: laser upgrade tracks - shards buy range and rate at warp cores */
+static int laserRangeLvl = 0;   /* 0..3 */
+static int laserRateLvl = 0;    /* 0..3 */
+#define LASER_UPGRADE_COST 5
+
+static int Player_LaserRange(void)  { return 18 + 6 * laserRangeLvl; }
+static float Player_LaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
 static double laserReadyTime = 0.0;
 static double laserBeamUntil = 0.0;
 static Vector3 laserFrom = { 0 };
@@ -64,7 +71,8 @@ void Player_SaveProgress(void) {
     const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
     FILE *f = fopen(path, "w");
     if (!f) return;
-    fprintf(f, "shards=%d\nbounty=%d\n", voidShards, Hunter_GetBounty());
+    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\n",
+            voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl);
     fclose(f);
 }
 
@@ -77,6 +85,8 @@ void Player_LoadProgress(void) {
     while (fgets(line, sizeof(line), f)) {
         if (sscanf(line, "shards=%d", &s) == 1) voidShards = s;
         else if (sscanf(line, "bounty=%d", &b) == 1) { (void)b; }
+        else if (sscanf(line, "laserRange=%d", &s) == 1) laserRangeLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "laserRate=%d", &s) == 1) laserRateLvl = (s >= 0 && s <= 3) ? s : 0;
     }
     fclose(f);
     if (voidShards < 0) voidShards = 0;
@@ -470,6 +480,32 @@ void Player_CheckInputs() {
             }
         }
 
+        /* v49: B at a core buys laser upgrades with shards */
+        if (IsKeyPressed(KEY_B) && !player.webActive && Player_NearWarpCore()) {
+            if (laserRangeLvl > 2 && laserRateLvl > 2) {
+                Chat_AddLine("The core hums: your laser is fully forged.");
+            } else if (voidShards < LASER_UPGRADE_COST) {
+                SoundFx_PlayClick();
+                Chat_AddLine(TextFormat("An upgrade needs %d shards. Fell hunters.", LASER_UPGRADE_COST));
+            } else {
+                Player_AddShards(-LASER_UPGRADE_COST);
+                if (laserRangeLvl <= laserRateLvl && laserRangeLvl < 3) {
+                    laserRangeLvl++;
+                    Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
+                                            Player_LaserRange(), voidShards));
+                } else if (laserRateLvl < 3) {
+                    laserRateLvl++;
+                    Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
+                } else {
+                    laserRangeLvl++;
+                    Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
+                                            Player_LaserRange(), voidShards));
+                }
+                SoundFx_PlayWebAttach();
+                Player_SaveProgress();
+            }
+        }
+
         /* v46: web grapple - F fires, Shift reels, Space releases with momentum */
         if (IsKeyPressed(KEY_F)) {
             if (player.webActive) {
@@ -547,13 +583,14 @@ void Player_CheckInputs() {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && player.weaponMode == 1) { //Laser rifle
             double nowL = GetTime();
             if (nowL >= laserReadyTime) {
-                laserReadyTime = nowL + 0.35;
+                laserReadyTime = nowL + Player_LaserCooldown();
                 Vector3 hitPoint;
+                int range = Player_LaserRange();
                 laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
-                if (Hunter_LaserHit(eyePosition, forward, 30.0f, &hitPoint)) {
+                if (Hunter_LaserHit(eyePosition, forward, (float)range, &hitPoint)) {
                     laserTo = hitPoint;
                 } else {
-                    laserTo = Vector3Add(eyePosition, Vector3Scale(forward, 30.0f));
+                    laserTo = Vector3Add(eyePosition, Vector3Scale(forward, (float)range));
                 }
                 laserBeamUntil = nowL + 0.09;
                 SoundFx_PlayWebShoot();

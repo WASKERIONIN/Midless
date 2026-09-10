@@ -13,6 +13,7 @@
 #include "player.h"
 #include "world.h"
 #include "soundfx.h"
+#include "particle.h"
 #include "chat.h"
 
 #define HUNTER_MAX      6
@@ -431,6 +432,8 @@ bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist) {
     h->hitFlash = 0.15f;
     h->vel = Vector3Add(Vector3Scale(rd, 3.2f), (Vector3){ 0, 0.8f, 0 });
     h->retreatUntil = (float)GetTime() + 0.35f;
+    /* v49: impact reads like breaking a block - textured cube debris */
+    Particle_SpawnBlockBreak(h->pos, 20);
     Spark_Spawn(h->pos, (Color){ 255, 255, 255 }, 7);
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);
@@ -471,6 +474,8 @@ bool Hunter_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoi
     h->retreatUntil = (float)GetTime() + 0.25f;
     h->aggroTimer = 2.5f;   /* being shot gets its attention */
     if (hitPoint) *hitPoint = Vector3Add(origin, Vector3Scale(rd, bestT));
+    /* v49: cube debris burst, same language as breaking blocks */
+    Particle_SpawnBlockBreak(h->pos, 20);
     Spark_Spawn(h->pos, (Color){ 255, 240, 200 }, 9);
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);

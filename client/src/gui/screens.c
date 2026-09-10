@@ -216,7 +216,7 @@ void Screen_DrawGame(void) {
         if (player.webActive)
             moveText = TextFormat("%s WEB: hold SHIFT to reel   SPACE release   F detach", weaponTag);
         else if (Player_NearWarpCore())
-            moveText = TextFormat("%s E - WARP to the nearest core", weaponTag);
+            moveText = TextFormat("%s E - WARP   B - UPGRADE LASER (5 shards)", weaponTag);
         else if (World_GetBlock(padCheck) == 21)
             moveText = TextFormat("%s SPACE - LAUNCH from the pad", weaponTag);
         else if (dashCharges > 0)
