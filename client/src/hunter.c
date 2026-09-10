@@ -33,6 +33,9 @@ typedef struct Hunter {
     float hitFlash;
     float retreatUntil;   /* GetTime() timestamp: backing off after a sting */
     float age;
+    /* v46.1 steering: remembered detour so the hunter commits to a route */
+    Vector3 avoidDir;
+    float avoidUntil;
 } Hunter;
 
 typedef struct Burst {
@@ -85,6 +88,8 @@ static void Hunter_SpawnAttempt(void) {
             h->hitFlash = 0.0f;
             h->retreatUntil = 0.0f;
             h->age = 0.0f;
+            h->avoidDir = (Vector3){ 0 };
+            h->avoidUntil = 0.0f;
             return;
         }
         return;
@@ -169,6 +174,64 @@ void Hunter_Update(float deltaTime) {
             float t = (float)now * 0.35f + h->phase;
             desired = (Vector3){ sinf(t) * 0.7f, sinf(t * 1.7f + h->phase) * 0.4f, cosf(t * 0.83f) * 0.7f };
         }
+
+        /* ---- v46.1 steering: obstacle avoidance + separation ----------------
+         * Research approach (steering behaviors / whisker probes): cast a
+         * short feeler along the desired direction; when it hits a block the
+         * hunter commits to the best of 10 escape directions (the one closest
+         * to the goal that stays in open air) for ~0.7 s instead of jittering
+         * against the wall. Hunters also repel each other so packs wrap
+         * around their target instead of stacking. */
+        float dLen = Vector3Length(desired);
+        if (dLen > 0.01f) {
+            Vector3 dir = Vector3Scale(desired, 1.0f / dLen);
+            bool blocked = !IsAirAt(Vector3Add(h->pos, Vector3Scale(dir, 1.4f)));
+
+            if (now >= h->avoidUntil) {
+                if (blocked) {
+                    /* pick the open direction that best keeps the goal */
+                    static const Vector3 escapes[10] = {
+                        { 1, 0, 0}, {-1, 0, 0}, { 0, 0, 1}, { 0, 0,-1},
+                        { 1, 0, 1}, {-1, 0, 1}, { 1, 0,-1}, {-1, 0,-1},
+                        { 0, 1, 0.35f}, { 0,-1, 0.35f}
+                    };
+                    float bestScore = -1e9f;
+                    Vector3 bestDir = dir;
+                    for (int k = 0; k < 10; k++) {
+                        Vector3 cand = Vector3Normalize(escapes[k]);
+                        /* bias: keep moving toward the player, add per-hunter
+                         * randomness so a pack splits around cover both ways */
+                        float goal = Vector3DotProduct(cand, dir);
+                        /* deterministic per-hunter bias: the pack splits around
+                         * cover in different directions (some left, some right) */
+                        float rnd = ((int)(h->phase * 7.0f) + k) % 2 == 0 ? 0.10f : -0.10f;
+                        Vector3 probe = Vector3Add(h->pos, Vector3Scale(cand, 1.6f));
+                        if (!IsAirAt(probe)) goal -= 0.9f;   /* prefer open lanes */
+                        float score = goal + rnd;
+                        if (score > bestScore) { bestScore = score; bestDir = cand; }
+                    }
+                    h->avoidDir = bestDir;
+                    h->avoidUntil = (float)now + 0.7f;
+                    desired = Vector3Scale(bestDir, HUNTER_SPEED);
+                }
+            } else {
+                /* still detouring: keep the remembered lane */
+                desired = Vector3Scale(h->avoidDir, HUNTER_SPEED);
+            }
+
+            /* separation: hunters repel each other within 2.2 blocks */
+            for (int j = 0; j < HUNTER_MAX; j++) {
+                if (j == i || !hunters[j].active) continue;
+                Vector3 away = Vector3Subtract(h->pos, hunters[j].pos);
+                float d2 = Vector3LengthSqr(away);
+                if (d2 < 2.2f * 2.2f && d2 > 0.0001f) {
+                    float d = sqrtf(d2);
+                    desired = Vector3Add(desired,
+                        Vector3Scale(Vector3Scale(away, 1.0f / d), HUNTER_SPEED * (1.0f - d / 2.2f) * 1.4f));
+                }
+            }
+        }
+
         /* steer */
         h->vel = Vector3Lerp(h->vel, desired, 1.0f - powf(0.12f, deltaTime));
         Hunter_MoveWithCollision(h, Vector3Scale(h->vel, deltaTime));

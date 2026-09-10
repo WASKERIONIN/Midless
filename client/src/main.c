@@ -162,6 +162,49 @@ void Game_RunLoop(void) {
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Hunter_Draw();
+                /* v46.1: web anchor indicator under the crosshair */
+                {
+                    Vector3 webCell;
+                    if (Player_GetWebTarget(&webCell)) {
+                        double wt = (double)GetTime();
+                        float pulse = 0.55f + 0.45f * sinf(wt * 6.0f);
+                        unsigned char bright = (unsigned char)(130.0f + 110.0f * pulse);
+                        Color wc = { bright, bright, (unsigned char)(bright + 12 > 255 ? 255 : bright + 12), 255 };
+                        Vector3 c0 = webCell;
+                        Vector3 c1 = Vector3Add(webCell, (Vector3){ 1, 1, 1 });
+                        rlDrawRenderBatchActive();
+                        rlBegin(RL_LINES);
+                        rlColor4ub(wc.r, wc.g, wc.b, 255);
+                        Vector3 corners[8] = {
+                            { c0.x, c0.y, c0.z }, { c1.x, c0.y, c0.z },
+                            { c1.x, c0.y, c1.z }, { c0.x, c0.y, c1.z },
+                            { c0.x, c1.y, c0.z }, { c1.x, c1.y, c0.z },
+                            { c1.x, c1.y, c1.z }, { c0.x, c1.y, c1.z }
+                        };
+                        static const int wedges[12][2] = {
+                            {0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}
+                        };
+                        for (int e = 0; e < 12; e++) {
+                            rlVertex3f(corners[wedges[e][0]].x, corners[wedges[e][0]].y, corners[wedges[e][0]].z);
+                            rlVertex3f(corners[wedges[e][1]].x, corners[wedges[e][1]].y, corners[wedges[e][1]].z);
+                        }
+                        /* center diamond lock marker */
+                        {
+                            Vector3 ctr = Vector3Scale(Vector3Add(c0, c1), 0.5f);
+                            float r = 0.16f + 0.05f * pulse;
+                            Vector3 d[4] = {
+                                { ctr.x, ctr.y + r, ctr.z }, { ctr.x + r, ctr.y, ctr.z },
+                                { ctr.x, ctr.y - r, ctr.z }, { ctr.x - r, ctr.y, ctr.z }
+                            };
+                            for (int k = 0; k < 4; k++) {
+                                rlVertex3f(d[k].x, d[k].y, d[k].z);
+                                rlVertex3f(d[(k + 1) % 4].x, d[(k + 1) % 4].y, d[(k + 1) % 4].z);
+                            }
+                        }
+                        rlEnd();
+                        rlDrawRenderBatchActive();
+                    }
+                }
                 Player_DrawWeb();
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {

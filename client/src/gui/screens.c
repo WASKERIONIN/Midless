@@ -209,13 +209,14 @@ void Screen_DrawGame(void) {
     } else if (currentScreen == SCREEN_GAME) {
         /* v44 traversal hints with dash cooldown */
         double dashLeft = player.dashReadyTime - GetTime();
+        int dashCharges = 2 - player.dashChargesUsed;
         const char *moveText = player.webActive
             ? "WEB: hold SHIFT to reel   SPACE release   F detach"
-            : (dashLeft > 0.0
-                ? TextFormat("F web   SPACE x2 jump   hold SPACE glide   SHIFT dash %.1f", dashLeft)
-                : "F web   SPACE x2 jump   hold SPACE glide   SHIFT dash ready");
+            : (dashCharges > 0
+                ? TextFormat("F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", dashCharges)
+                : TextFormat("dash recharges on landing %.1f", dashLeft));
         int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
-        Color mvCol = dashLeft > 0.0 ? (Color){120, 150, 190, 255} : (Color){94, 255, 214, 255};
+        Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
         DrawText(moveText, mvX + 1, 9, 16, BLACK);
         DrawText(moveText, mvX, 8, 16, mvCol);
     }

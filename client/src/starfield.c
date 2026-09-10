@@ -50,6 +50,7 @@ static float nebulaPulse[NEBULA_COUNT];
 static ShootingStar shooting[SHOOTING_MAX];
 static float nextShootingIn = 4.0f;
 static Texture2D starTex;
+static Texture2D nebulaTex[4];
 static float skyTime = 0.0f;
 static bool ready;
 
@@ -125,6 +126,91 @@ static Vector3 SkyWireRotate(Vector3 v, float ax, float ay) {
     return (Vector3){ x, y, z };
 }
 
+/* ---- v46.1: colorful fBm nebulae --------------------------------------
+ * The black & white vector sky keeps its wires, but deep space gets its
+ * color back: filament fbm clouds with dust lanes in four palettes. */
+static float SkyHash(int x, int y, int seed) {
+    int h = x * 374761 + y * 668265 + seed * 1442695040;
+    h = (h ^ (h >> 13)) * 1274126177;
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0f;
+}
+
+static float SkyValueNoise(float x, float y, int seed) {
+    int xi = (int)floorf(x), yi = (int)floorf(y);
+    float xf = x - xi, yf = y - yi;
+    xf = xf * xf * (3.0f - 2.0f * xf);
+    yf = yf * yf * (3.0f - 2.0f * yf);
+    float a = SkyHash(xi, yi, seed),     b = SkyHash(xi + 1, yi, seed);
+    float c = SkyHash(xi, yi + 1, seed), d = SkyHash(xi + 1, yi + 1, seed);
+    return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
+}
+
+static float SkyFbm(float x, float y, int seed, int octaves) {
+    float sum = 0.0f, amp = 0.5f, freq = 1.0f, norm = 0.0f;
+    for (int o = 0; o < octaves; o++) {
+        sum += SkyValueNoise(x * freq, y * freq, seed + o * 101) * amp;
+        norm += amp;
+        amp *= 0.55f;
+        freq *= 2.1f;
+    }
+    return sum / norm;
+}
+
+static Texture2D MakeNebulaTexture(int variant) {
+    const int size = 256;
+    int seed = 910 + variant * 77;
+    Color cDeep, cMid, cHigh;
+    if (variant == 0)      { cDeep = (Color){ 52, 8, 70 };  cMid = (Color){ 168, 34, 196 }; cHigh = (Color){ 255, 128, 240 }; }
+    else if (variant == 1) { cDeep = (Color){ 22, 12, 82 }; cMid = (Color){ 92, 46, 214 };  cHigh = (Color){ 172, 132, 255 }; }
+    else if (variant == 2) { cDeep = (Color){ 4, 44, 66 };  cMid = (Color){ 20, 140, 184 }; cHigh = (Color){ 130, 244, 252 }; }
+    else                   { cDeep = (Color){ 66, 18, 40 }; cMid = (Color){ 208, 52, 96 };  cHigh = (Color){ 255, 150, 150 }; }
+
+    Image image = GenImageColor(size, size, BLANK);
+    Color *pixels = (Color *)image.data;
+    float cx = size * 0.5f, cy = size * 0.5f;
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            float dx = (x - cx) / cx, dy = (y - cy) / cy;
+            float r = sqrtf(dx * dx + dy * dy);
+            float env = 1.0f - r;
+            if (env <= 0.0f) continue;
+            env = env * env;
+
+            float nx = x / 34.0f, ny = y / 34.0f;
+            float density = SkyFbm(nx, ny, seed, 5);
+            density = 0.55f * density + 0.45f * SkyFbm(nx * 0.55f, ny * 1.6f, seed + 31, 4);
+            density = (density - 0.30f) / 0.70f;
+            if (density < 0.0f) density = 0.0f;
+            float filaments = 1.0f - fabsf(2.0f * SkyFbm(nx * 2.1f, ny * 2.1f, seed + 57, 4) - 1.0f);
+            float dust = SkyFbm(nx * 1.3f + 9.0f, ny * 1.3f - 4.0f, seed + 83, 3);
+            float a = env * density;
+            a *= 0.75f + 0.6f * filaments;
+            a *= 0.60f + 0.7f * dust;
+            if (a <= 0.004f) continue;
+
+            float t = density * filaments;
+            Color out;
+            if (t < 0.55f) {
+                float k = t / 0.55f;
+                out.b = (unsigned char)(cDeep.b + (cMid.b - cDeep.b) * k);
+                out.g = (unsigned char)(cDeep.g + (cMid.g - cDeep.g) * k);
+                out.r = (unsigned char)(cDeep.r + (cMid.r - cDeep.r) * k);
+            } else {
+                float k = (t - 0.55f) / 0.45f;
+                out.b = (unsigned char)(cMid.b + (cHigh.b - cMid.b) * k);
+                out.g = (unsigned char)(cMid.g + (cHigh.g - cMid.g) * k);
+                out.r = (unsigned char)(cMid.r + (cHigh.r - cMid.r) * k);
+            }
+            out.a = (unsigned char)(255.0f * (a > 1.0f ? 1.0f : a));
+            pixels[y * size + x] = out;
+        }
+    }
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+    return texture;
+}
+
 void Starfield_Init(void) {
     /* galaxy band plane: tilted disk the eye can read as a galactic arm */
     Vector3 bandNormal = Vector3Normalize((Vector3){ 0.42f, 0.86f, -0.28f });
@@ -171,6 +257,9 @@ void Starfield_Init(void) {
     UnloadImage(glow);
     SetTextureFilter(starTex, TEXTURE_FILTER_BILINEAR);
 
+    /* v46.1: colorful nebula clouds (4 palettes) */
+    for (int v = 0; v < 4; v++) nebulaTex[v] = MakeNebulaTexture(v);
+
 
 
     for (int i = 0; i < NEBULA_COUNT; i++) {
@@ -205,6 +294,7 @@ ready = true;
 
 void Starfield_Shutdown(void) {
     if (!ready) return;
+    for (int v = 0; v < 4; v++) UnloadTexture(nebulaTex[v]);
     UnloadTexture(starTex);
     ready = false;
 }
@@ -282,6 +372,15 @@ void Starfield_Draw(Camera camera) {
         }
     }
     rlEnd();
+    rlDrawRenderBatchActive();
+
+    /* v46.1: colorful nebula clouds behind everything */
+    for (int i = 0; i < NEBULA_COUNT; i++) {
+        Vector3 p = Vector3Add(camera.position, Vector3Scale(SkyPoint(nebulaDir[i]), 230.0f));
+        float pulse = 0.82f + 0.18f * sinf(skyTime * 0.23f + nebulaPulse[i]);
+        Color c = { 255, 255, 255, (unsigned char)(54.0f * pulse) };
+        DrawBillboard(camera, nebulaTex[i % 4], p, nebulaSize[i] * 2.3f, c);
+    }
     rlDrawRenderBatchActive();
 
     /* faint star dust */

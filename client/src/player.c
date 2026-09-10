@@ -71,6 +71,9 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.crouching = false;
+    player.crouchT = 0.0f;
+    player.dashChargesUsed = 0;
     player.webActive = false;
     player.webAnchor = (Vector3){ 0 };
     player.webBlock = (Vector3){ 0 };
@@ -334,11 +337,13 @@ void Player_CheckInputs() {
 
         moveDir = Vector3ClampValue(moveDir, 0.0f, 1.0f); // normalize
 
-        /* v44: dash - Shift burst in the movement (or look) direction */
+        /* v44/v46.1: dash - Shift burst, two charges refilled on landing */
         double nowDash = GetTime();
         if (!player.flying && !player.webActive &&
             (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT)) &&
+            player.dashChargesUsed < 2 &&
             nowDash >= player.dashReadyTime) {
+            player.dashChargesUsed++;
             Vector3 dir = moveDir;
             if (Vector3Length(dir) < 0.01f) dir = (Vector3){ cx, 0, sx };
             dir.y = 0;
@@ -346,7 +351,7 @@ void Player_CheckInputs() {
                 dir = Vector3Normalize(dir);
                 player.dashDir = dir;
                 player.dashActiveUntil = nowDash + 0.16;
-                player.dashReadyTime = nowDash + 1.6;
+                player.dashReadyTime = nowDash + 0.45;   /* short gap between the two dashes */
                 player.velocity.y += 0.06f;
                 SoundFx_PlayTeleport();
             }
@@ -397,6 +402,9 @@ void Player_CheckInputs() {
         }
 
         Vector3 moveVel = Vector3Scale(moveDir, player.speed);
+        /* v46.1: crouch on C - slow and low */
+        player.crouching = !player.flying && IsKeyDown(KEY_C);
+        if (player.crouching) moveVel = Vector3Scale(moveVel, 0.55f);
         if (player.liquidSubmersion > 0.0f) {
             moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
         }
@@ -406,6 +414,9 @@ void Player_CheckInputs() {
         if (wheel > 0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, 1);
         if (wheel < -0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, -1);
         
+        player.crouchT += ((player.crouching ? 1.0f : 0.0f) - player.crouchT) *
+                          (1.0f - powf(0.0001f, GetFrameTime()));
+        eyePosition.y -= 0.4f * player.crouchT;   /* v46.1: crouch lowers the eye */
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
@@ -547,6 +558,7 @@ void Player_Update(void) {
             if (player.velocity.y <= 0) {
                 player.canJump = true;
                 player.airJumpsUsed = 0;
+                player.dashChargesUsed = 0;
                 lastGroundedTime = GetTime();
             }
             player.velocity.y = 0;
@@ -753,4 +765,14 @@ void Player_DrawWeb(void) {
     }
     rlEnd();
     rlDrawRenderBatchActive();
+}
+
+/* v46.1: aiming feedback - is there a valid web anchor under the crosshair? */
+bool Player_GetWebTarget(Vector3 *blockCell) {
+    if (player.webActive || player.flying) return false;
+    Vector3 eye = { player.position.x + 0.5f, player.position.y + 1.5f, player.position.z + 0.5f };
+    Vector3 pullPoint, cell;
+    if (!Player_WebRay(eye, Player_GetForwardVector(), &pullPoint, &cell)) return false;
+    if (blockCell) *blockCell = cell;
+    return true;
 }

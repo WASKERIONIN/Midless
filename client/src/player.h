@@ -39,6 +39,10 @@ typedef struct Player{
     unsigned char modelId;
     bool hasEntityModel;
     bool flying;
+    /* v46.1: crouch + double dash */
+    bool crouching;
+    float crouchT;         /* smooth 0..1 eye/speed blend */
+    int dashChargesUsed;   /* 2 charges, refill on landing */
     /* v46: web grapple */
     bool webActive;
     Vector3 webAnchor;    /* pull point, slightly off the hit face */
@@ -68,6 +72,7 @@ void Player_CheckInputs(void);
 void Player_Update(void);
 void Player_Draw(void);
 void Player_DrawWeb(void);
+bool Player_GetWebTarget(Vector3 *blockCell);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);
