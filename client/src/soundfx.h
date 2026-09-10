@@ -9,6 +9,9 @@ void SoundFx_PlayPlace(void);
 void SoundFx_PlayJump(void);
 void SoundFx_PlayTeleport(void);
 void SoundFx_PlayClick(void);
+void SoundFx_PlayHunterHit(void);
+void SoundFx_PlayHunterDie(void);
+void SoundFx_PlayPlayerHurt(void);
 void SoundFx_SetVolume(float volume01);
 float SoundFx_GetVolume(void);
 
