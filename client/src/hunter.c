@@ -120,7 +120,7 @@ void Hunter_Init(void) {
     surge = false;
     tideWarned = false;
     surgeLevel = 0.0f;
-    waveTimer = 150.0f;
+    waveTimer = 90.0f;   /* first tide arrives inside the first minute and a half */
     ready = true;
 }
 
@@ -161,6 +161,8 @@ void Hunter_Update(float deltaTime) {
         if (surge) {
             waveTimer = 45.0f;
             Chat_AddLine("THE VOID TIDE RISES - survive!");
+            /* opening burst: the tide crashes in, not trickles */
+            for (int b = 0; b < 3; b++) Hunter_SpawnAttempt();
         } else {
             waveTimer = 150.0f;
             tideWarned = false;
@@ -389,7 +391,7 @@ void Hunter_Draw(void) {
         /* eye: small counter-rotating diamond.
          * v46: glows red when the hunter is on the hunt or just stung. */
         float dist = Vector3Length(Vector3Subtract(PlayerCenter(), h->pos));
-        bool aggro = (!player.flying && dist < CHASE_RANGE) || now < h->retreatUntil;
+        bool aggro = surge || (!player.flying && dist < CHASE_RANGE) || now < h->retreatUntil;
         float eyePulse = aggro ? (0.15f + 0.06f * sinf((float)now * 11.0f)) : 0.12f;
         Vector3 eye[4];
         for (int k = 0; k < 4; k++) {
@@ -430,4 +432,12 @@ void Hunter_Draw(void) {
 
 float Hunter_GetSurgeLevel(void) {
     return surgeLevel;
+}
+
+float Hunter_GetSurgeTimeLeft(void) {
+    return surge ? waveTimer : 0.0f;
+}
+
+float Hunter_GetCalmTimeLeft(void) {
+    return (!surge && tideWarned) ? waveTimer : 0.0f;
 }

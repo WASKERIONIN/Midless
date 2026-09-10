@@ -40,9 +40,7 @@ void Settings_Load(void) {
         else if (sscanf(line, "fullscreen=%d", &value) == 1) gameSettings.fullscreen = value != 0;
         else if (sscanf(line, "maxfps=%d", &value) == 1) gameSettings.maxFpsChoice = value;
         else if (sscanf(line, "drawdistance=%d", &value) == 1) {
-            if (value < 2) value = 2;
-            if (value > 16) value = 16;
-            gameSettings.drawDistance = value;
+            (void)value; /* v47.1: draw distance is fixed at 20 */
         } else if (sscanf(line, "volume=%d", &value) == 1) {
             if (value < 0) value = 0;
             if (value > 100) value = 100;

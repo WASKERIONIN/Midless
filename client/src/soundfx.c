@@ -1,5 +1,6 @@
 #include "soundfx.h"
 #include "raylib.h"
+#include "hunter.h"
 #include "raymath.h"
 #include <stdlib.h>
 #include <math.h>
@@ -279,6 +280,8 @@ void SoundFx_Update(void) {
         PlaySound(droneSnd);
         SetSoundVolume(droneSnd, 0.6f);
     }
+    /* v47.1: the dungeon drone swells when the void tide rises */
+    SetSoundVolume(droneSnd, 0.55f + 0.4f * Hunter_GetSurgeLevel());
     /* dungeon synth moment: a far-away bell tolls now and then */
     nextBellIn -= GetFrameTime();
     if (nextBellIn <= 0.0f) {

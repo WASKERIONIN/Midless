@@ -252,15 +252,31 @@ void Screen_DrawGame(void) {
         DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
         DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
 
-        /* v47: void-tide vignette */
+        /* v47.1: void-tide is impossible to miss */
         float surgeLvl = Hunter_GetSurgeLevel();
         if (surgeLvl > 0.02f) {
-            unsigned char va = (unsigned char)(52.0f * surgeLvl);
+            unsigned char va = (unsigned char)(96.0f * surgeLvl);
             Color tide = { 24, 4, 38, va };
-            DrawRectangle(0, 0, screenWidth, 30, tide);
-            DrawRectangle(0, screenHeight - 30, screenWidth, 30, tide);
-            DrawRectangle(0, 0, 30, screenHeight, tide);
-            DrawRectangle(screenWidth - 30, 0, 30, screenHeight, tide);
+            int bar = (int)(28 + 24 * surgeLvl);
+            DrawRectangle(0, 0, screenWidth, bar, tide);
+            DrawRectangle(0, screenHeight - bar, screenWidth, bar, tide);
+            DrawRectangle(0, 0, bar, screenHeight, tide);
+            DrawRectangle(screenWidth - bar, 0, bar, screenHeight, tide);
+            DrawRectangle(0, 0, screenWidth, screenHeight,
+                          (Color){ 30, 6, 44, (unsigned char)(26.0f * surgeLvl) });
+        }
+        float tideIncoming = Hunter_GetCalmTimeLeft();
+        if (Hunter_GetSurgeTimeLeft() > 0.0f) {
+            float pulse = 0.75f + 0.25f * sinf(GetTime() * 6.0f);
+            const char *tideText = TextFormat("VOID TIDE  %.0f", Hunter_GetSurgeTimeLeft());
+            int tx = screenWidth / 2 - MeasureText(tideText, 28) / 2;
+            DrawText(tideText, tx + 2, 44, 28, BLACK);
+            DrawText(tideText, tx, 42, 28, (Color){255, 90, 120, (unsigned char)(255.0f * pulse)});
+        } else if (tideIncoming > 0.0) {
+            const char *warnText = TextFormat("THE VOID STIRS - TIDE IN %.0f", tideIncoming);
+            int wx = screenWidth / 2 - MeasureText(warnText, 20) / 2;
+            DrawText(warnText, wx + 1, 45, 20, BLACK);
+            DrawText(warnText, wx, 44, 20, (Color){255, 190, 110, 230});
         }
 
         /* hurt flash */
@@ -370,31 +386,12 @@ void Screen_DrawOptions(void) {
     int offsetX = screenWidth / 2 - 100;
     DrawPanel((Rectangle){offsetX - 14, offsetY - 14, 228, (float)(8 * 35 + 20)});
 
-    const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
+    const char* drawDistanceTxt = "Draw Distance: 20 (fixed)";
 
-    //Draw distance Button
-    float drawDistanceValue = (float)world.drawDistance;
-    GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", &drawDistanceValue, 2, 16);
-    int newDrawDistance = (int)(drawDistanceValue + 0.5f);
+    //Draw distance: fixed label (v47.1)
     Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY + 15 - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
-
-    if (newDrawDistance != world.drawDistance) {
-        if (newDrawDistance > world.drawDistance) {
-            world.drawDistance = newDrawDistance;
-            World_LoadChunks();
-        } else {
-            world.drawDistance = newDrawDistance;
-            World_Reload();
-        }
-        gameSettings.drawDistance = world.drawDistance;
-        Settings_Save();
-
-        if (networkConnectedToServer) {
-            Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
-        }
-    }
 
     offsetY += 35;
 

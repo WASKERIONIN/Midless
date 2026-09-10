@@ -406,7 +406,9 @@ void Player_CheckInputs() {
             Chat_AddLine("The launch pad hurls you into the void. Glide!");
         }
 
-        if (IsKeyPressed(KEY_F) && !player.webActive) {
+        /* v47.1: interactions live on E (standing rule). Warping requires
+         * actually standing within reach of a warp core - no global F teleport. */
+        if (IsKeyPressed(KEY_E) && !player.webActive && Player_NearWarpCore()) {
             Vector3 warpTarget;
             if (Player_FindWarpTarget(&warpTarget)) {
                 Player_Teleport(warpTarget);
@@ -839,10 +841,23 @@ void Player_DrawWeb(void) {
     rlDrawRenderBatchActive();
 }
 
-/* v47: is the player standing within reach of a warp core? */
+/* v47.1: is the player actually standing within reach of a warp core? */
 bool Player_NearWarpCore(void) {
-    Vector3 target;
-    return !player.webActive && Player_FindWarpTarget(&target);
+    if (player.webActive) return false;
+    Vector3 center = { player.position.x + 0.5f, player.position.y + 0.5f, player.position.z + 0.5f };
+    for (int dz = -1; dz <= 1; dz++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            Vector3 chunkPos = { floorf(center.x / CHUNK_SIZE_X) + dx,
+                                 floorf(center.y / CHUNK_SIZE_Y),
+                                 floorf(center.z / CHUNK_SIZE_Z) + dz };
+            Chunk *chunk = World_GetChunkAt(chunkPos);
+            if (chunk == NULL) continue;
+            for (int s = 0; s < chunk->specialCount[0]; s++) {
+                if (Vector3Distance(chunk->specialPos[0][s], center) <= 7.0f) return true;
+            }
+        }
+    }
+    return false;
 }
 
 /* v46.1: aiming feedback - is there a valid web anchor under the crosshair? */
