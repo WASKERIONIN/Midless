@@ -50,6 +50,12 @@ static float spawnTimer;
 static int bounty;
 static bool ready;
 
+/* v47: void tide - periodic hunter surges */
+static bool surge = false;
+static float waveTimer = 150.0f;
+static bool tideWarned = false;
+static float surgeLevel = 0.0f;
+
 static Vector3 PlayerCenter(void) {
     return (Vector3){ player.position.x + 0.5f, player.position.y + 0.9f, player.position.z + 0.5f };
 }
@@ -111,6 +117,10 @@ void Hunter_Init(void) {
     for (int i = 0; i < BURST_MAX; i++) bursts[i].active = false;
     spawnTimer = 6.0f;   /* grace period after world start */
     bounty = 0;
+    surge = false;
+    tideWarned = false;
+    surgeLevel = 0.0f;
+    waveTimer = 150.0f;
     ready = true;
 }
 
@@ -140,13 +150,35 @@ void Hunter_Update(float deltaTime) {
     double now = (double)GetTime();
     Vector3 center = PlayerCenter();
 
+    /* v47: void tide director - calm 150 s, warn 10 s before, surge 45 s */
+    waveTimer -= deltaTime;
+    if (!surge && !tideWarned && waveTimer <= 10.0f) {
+        tideWarned = true;
+        Chat_AddLine("The void stirs... a tide of hunters rises.");
+    }
+    if (waveTimer <= 0.0f) {
+        surge = !surge;
+        if (surge) {
+            waveTimer = 45.0f;
+            Chat_AddLine("THE VOID TIDE RISES - survive!");
+        } else {
+            waveTimer = 150.0f;
+            tideWarned = false;
+            Player_Heal(2);
+            Chat_AddLine("The tide recedes. The void grants +2 vitality.");
+        }
+    }
+    surgeLevel += ((surge ? 1.0f : 0.0f) - surgeLevel) * (1.0f - powf(0.05f, deltaTime));
+    int populationCap = surge ? 6 : HUNTER_TARGET;
+    float spawnInterval = surge ? 0.8f : 1.6f;
+
     /* population control */
     spawnTimer -= deltaTime;
     int alive = 0;
     for (int i = 0; i < HUNTER_MAX; i++) if (hunters[i].active) alive++;
     if (spawnTimer <= 0.0f) {
-        spawnTimer = 1.6f;
-        if (alive < HUNTER_TARGET) Hunter_SpawnAttempt();
+        spawnTimer = spawnInterval;
+        if (alive < populationCap) Hunter_SpawnAttempt();
     }
 
     for (int i = 0; i < HUNTER_MAX; i++) {
@@ -162,13 +194,14 @@ void Hunter_Update(float deltaTime) {
             continue;
         }
 
+        float spd = HUNTER_SPEED * (surge ? 1.15f : 1.0f);
         bool chasing = !player.flying && dist < CHASE_RANGE && now >= h->retreatUntil;
         Vector3 desired;
         if (chasing) {
-            desired = Vector3Scale(Vector3Scale(toPlayer, 1.0f / dist), HUNTER_SPEED);
+            desired = Vector3Scale(Vector3Scale(toPlayer, 1.0f / dist), spd);
         } else if (now < h->retreatUntil) {
             /* back off after a sting */
-            desired = Vector3Scale(Vector3Scale(toPlayer, -1.0f / (dist > 0.01f ? dist : 1.0f)), HUNTER_SPEED * 0.8f);
+            desired = Vector3Scale(Vector3Scale(toPlayer, -1.0f / (dist > 0.01f ? dist : 1.0f)), spd * 0.8f);
         } else {
             /* lazy drift on a lissajous wander */
             float t = (float)now * 0.35f + h->phase;
@@ -212,11 +245,11 @@ void Hunter_Update(float deltaTime) {
                     }
                     h->avoidDir = bestDir;
                     h->avoidUntil = (float)now + 0.7f;
-                    desired = Vector3Scale(bestDir, HUNTER_SPEED);
+                    desired = Vector3Scale(bestDir, spd);
                 }
             } else {
                 /* still detouring: keep the remembered lane */
-                desired = Vector3Scale(h->avoidDir, HUNTER_SPEED);
+                desired = Vector3Scale(h->avoidDir, spd);
             }
 
             /* separation: hunters repel each other within 2.2 blocks */
@@ -227,7 +260,7 @@ void Hunter_Update(float deltaTime) {
                 if (d2 < 2.2f * 2.2f && d2 > 0.0001f) {
                     float d = sqrtf(d2);
                     desired = Vector3Add(desired,
-                        Vector3Scale(Vector3Scale(away, 1.0f / d), HUNTER_SPEED * (1.0f - d / 2.2f) * 1.4f));
+                        Vector3Scale(Vector3Scale(away, 1.0f / d), spd * (1.0f - d / 2.2f) * 1.4f));
                 }
             }
         }
@@ -393,4 +426,8 @@ void Hunter_Draw(void) {
 
     rlEnd();
     rlDrawRenderBatchActive();
+}
+
+float Hunter_GetSurgeLevel(void) {
+    return surgeLevel;
 }

@@ -73,6 +73,7 @@ void Player_Update(void);
 void Player_Draw(void);
 void Player_DrawWeb(void);
 bool Player_GetWebTarget(Vector3 *blockCell);
+bool Player_NearWarpCore(void);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);

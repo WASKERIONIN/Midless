@@ -20,5 +20,6 @@ bool Hunter_TouchingPlayer(Vector3 playerPos, Vector3 *pushDir);
 
 int Hunter_AliveCount(void);
 int Hunter_GetBounty(void);            /* kills this session */
+float Hunter_GetSurgeLevel(void);      /* 0..1 void-tide intensity */
 
 #endif

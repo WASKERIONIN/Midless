@@ -210,11 +210,18 @@ void Screen_DrawGame(void) {
         /* v44 traversal hints with dash cooldown */
         double dashLeft = player.dashReadyTime - GetTime();
         int dashCharges = 2 - player.dashChargesUsed;
-        const char *moveText = player.webActive
-            ? "WEB: hold SHIFT to reel   SPACE release   F detach"
-            : (dashCharges > 0
-                ? TextFormat("F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", dashCharges)
-                : TextFormat("dash recharges on landing %.1f", dashLeft));
+        Vector3 padCheck = { player.position.x, player.position.y - 0.1f, player.position.z };
+        const char *moveText;
+        if (player.webActive)
+            moveText = "WEB: hold SHIFT to reel   SPACE release   F detach";
+        else if (Player_NearWarpCore())
+            moveText = "F - WARP to the nearest core";
+        else if (World_GetBlock(padCheck) == 21)
+            moveText = "SPACE - LAUNCH from the pad";
+        else if (dashCharges > 0)
+            moveText = TextFormat("F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", dashCharges);
+        else
+            moveText = TextFormat("dash recharges on landing %.1f", dashLeft);
         int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
         DrawText(moveText, mvX + 1, 9, 16, BLACK);
@@ -244,6 +251,17 @@ void Screen_DrawGame(void) {
         const char *bountyText = TextFormat("VOID HUNTERS FELLED: %d", Hunter_GetBounty());
         DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
         DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
+
+        /* v47: void-tide vignette */
+        float surgeLvl = Hunter_GetSurgeLevel();
+        if (surgeLvl > 0.02f) {
+            unsigned char va = (unsigned char)(52.0f * surgeLvl);
+            Color tide = { 24, 4, 38, va };
+            DrawRectangle(0, 0, screenWidth, 30, tide);
+            DrawRectangle(0, screenHeight - 30, screenWidth, 30, tide);
+            DrawRectangle(0, 0, 30, screenHeight, tide);
+            DrawRectangle(screenWidth - 30, 0, 30, screenHeight, tide);
+        }
 
         /* hurt flash */
         double sinceHurt = GetTime() - player.lastHurtTime;

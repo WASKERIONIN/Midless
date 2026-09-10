@@ -210,6 +210,35 @@ static bool Player_WebRay(Vector3 origin, Vector3 dir, Vector3 *pullPoint, Vecto
     return false;
 }
 
+/* v47: nearest other warp core within loaded chunks (>= 40 blocks away) */
+static bool Player_FindWarpTarget(Vector3 *out) {
+    Vector3 center = { player.position.x + 0.5f, player.position.y + 0.5f, player.position.z + 0.5f };
+    float bestDist = 1e9f;
+    Vector3 best = { 0 };
+    bool found = false;
+    /* world chunk iteration: use World_GetChunkAt over the loaded ring */
+    for (int dz = -8; dz <= 8; dz++) {
+        for (int dx = -8; dx <= 8; dx++) {
+            Vector3 chunkPos = { floorf(center.x / CHUNK_SIZE_X) + dx,
+                                 floorf(center.y / CHUNK_SIZE_Y),
+                                 floorf(center.z / CHUNK_SIZE_Z) + dz };
+            Chunk *chunk = World_GetChunkAt(chunkPos);
+            if (chunk == NULL) continue;
+            for (int s = 0; s < chunk->specialCount[0]; s++) {
+                Vector3 core = chunk->specialPos[0][s];
+                float dist = Vector3Distance(core, center);
+                if (dist >= 40.0f && dist < bestDist) {
+                    bestDist = dist;
+                    best = (Vector3){ core.x - 0.5f, core.y, core.z - 0.5f };
+                    found = true;
+                }
+            }
+        }
+    }
+    if (found) *out = best;
+    return found;
+}
+
 void Player_CheckInputs() {
     if (!chatOpen) {
         if (IsKeyPressed(KEY_SPACE)) jumpPressedTime = GetTime();
@@ -361,6 +390,32 @@ void Player_CheckInputs() {
             player.velocity.z += player.dashDir.z * player.speed * 2.6f;
         }
 
+        /* v47: warp network ------------------------------------------------
+         * Launch pad: press Space while standing on one to skyshot upward.
+         * Warp core: press F within reach to jump to the nearest other core. */
+        Vector3 feetBlock = { player.position.x, player.position.y - 0.1f, player.position.z };
+        if (!player.webActive && player.canJump &&
+            World_GetBlock(feetBlock) == 21 && IsKeyPressed(KEY_SPACE)) {
+            player.velocity.y = 0.62f;
+            player.velocity.x += forward.x * 0.16f;
+            player.velocity.z += forward.z * 0.16f;
+            player.canJump = false;
+            player.airJumpsUsed = 0;
+            player.dashChargesUsed = 0;
+            SoundFx_PlayTeleport();
+            Chat_AddLine("The launch pad hurls you into the void. Glide!");
+        }
+
+        if (IsKeyPressed(KEY_F) && !player.webActive) {
+            Vector3 warpTarget;
+            if (Player_FindWarpTarget(&warpTarget)) {
+                Player_Teleport(warpTarget);
+                respawnFade = 0.6f;
+                SoundFx_PlayTeleport();
+                Chat_AddLine("The warp core folds space. You are elsewhere.");
+            }
+        }
+
         /* v46: web grapple - F fires, Shift reels, Space releases with momentum */
         if (IsKeyPressed(KEY_F)) {
             if (player.webActive) {
@@ -379,24 +434,40 @@ void Player_CheckInputs() {
             }
         }
         if (player.webActive) {
-            if (World_GetBlock(player.webBlock) == 0) {
-                Player_WebDetach();   /* anchored block was broken */
+            /* v47: a web only lets go when YOU release it (Space / F), or when
+             * its block is truly destroyed in a loaded chunk. Moving, reeling,
+             * swinging past the anchor - none of that cancels the web; near
+             * the anchor the pull simply eases off so you fling past it. */
+            Vector3 chunkPosOfBlock = {
+                floorf(player.webBlock.x / CHUNK_SIZE_X),
+                floorf(player.webBlock.y / CHUNK_SIZE_Y),
+                floorf(player.webBlock.z / CHUNK_SIZE_Z)
+            };
+            bool anchorGone = false;
+            if (World_GetChunkAt(chunkPosOfBlock) != NULL &&
+                World_GetBlock(player.webBlock) == 0) {
+                anchorGone = true;
+            }
+            if (anchorGone) {
+                Player_WebDetach();
             } else if (IsKeyPressed(KEY_SPACE)) {
-                Player_WebDetach();   /* keep momentum for the jump chain */
-            } else {
+                Player_WebDetach();   /* release - momentum kept for the jump chain */
+            } else if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
                 Vector3 bodyCenter = { player.position.x + 0.5f, player.position.y + 1.0f, player.position.z + 0.5f };
                 Vector3 toAnchor = Vector3Subtract(player.webAnchor, bodyCenter);
                 float dist = Vector3Length(toAnchor);
-                if (dist < WEB_DETACH_DIST) {
-                    Player_WebDetach();   /* arrived - velocity keeps, you fling past */
-                } else if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+                if (dist > WEB_DETACH_DIST) {
                     Vector3 dir = Vector3Scale(toAnchor, 1.0f / dist);
                     float frameScale = GetFrameTime() * 60.0f;
-                    player.velocity = Vector3Add(player.velocity,
-                        Vector3Scale(dir, WEB_REEL * frameScale));
-                    float speed = Vector3Length(player.velocity);
-                    if (speed > WEB_MAX_SPEED)
-                        player.velocity = Vector3Scale(player.velocity, WEB_MAX_SPEED / speed);
+                    /* ease off near the anchor so you pass it, not grind on it */
+                    float pull = WEB_REEL * (dist < 3.0f ? (dist - WEB_DETACH_DIST) / 1.5f : 1.0f);
+                    if (pull > 0.0f) {
+                        player.velocity = Vector3Add(player.velocity,
+                            Vector3Scale(dir, pull * frameScale));
+                        float speed = Vector3Length(player.velocity);
+                        if (speed > WEB_MAX_SPEED)
+                            player.velocity = Vector3Scale(player.velocity, WEB_MAX_SPEED / speed);
+                    }
                 }
             }
         }
@@ -528,8 +599,9 @@ void Player_Update(void) {
             player.velocity.y = -WATER_MAX_FALL_SPEED;
         }
     } else {
-        player.velocity.y -= 0.0085f * frameScale;
-        if (player.velocity.y <= -0.85f) player.velocity.y = -0.85f;
+        /* v47: softer gravity - these are drifting islands in space */
+        player.velocity.y -= 0.0068f * frameScale;
+        if (player.velocity.y <= -0.72f) player.velocity.y = -0.72f;
         /* v44: glide - hold Space while falling to float down gently */
         if (!player.canJump && player.liquidSubmersion <= 0.0f &&
             IsKeyDown(KEY_SPACE) && player.velocity.y < -0.18f) {
@@ -765,6 +837,12 @@ void Player_DrawWeb(void) {
     }
     rlEnd();
     rlDrawRenderBatchActive();
+}
+
+/* v47: is the player standing within reach of a warp core? */
+bool Player_NearWarpCore(void) {
+    Vector3 target;
+    return !player.webActive && Player_FindWarpTarget(&target);
 }
 
 /* v46.1: aiming feedback - is there a valid web anchor under the crosshair? */
