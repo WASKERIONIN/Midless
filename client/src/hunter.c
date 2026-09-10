@@ -12,6 +12,7 @@
 #include "hunter.h"
 #include "player.h"
 #include "world.h"
+#include "block.h"
 #include "soundfx.h"
 #include "particle.h"
 #include "chat.h"
@@ -97,6 +98,33 @@ static bool IsOpenSpace(Vector3 p) {
                 if (!IsAirAt((Vector3){ p.x + dx, p.y + dy, p.z + dz })) return false;
             }
     return true;
+}
+
+/* v49.3: solid test for the hunter's BODY, not a single point.
+ * Body: radius 0.42, height ~1.1 (ring plus spines). */
+#define HN_BODY_R 0.42f
+#define HN_BODY_HALF_H 0.55f
+
+static bool Hunter_BodyBlocked(Vector3 center) {
+    int minX = (int)floorf(center.x - HN_BODY_R), maxX = (int)floorf(center.x + HN_BODY_R);
+    int minY = (int)floorf(center.y - HN_BODY_HALF_H), maxY = (int)floorf(center.y + HN_BODY_HALF_H);
+    int minZ = (int)floorf(center.z - HN_BODY_R), maxZ = (int)floorf(center.z + HN_BODY_R);
+    for (int y = minY; y <= maxY; y++)
+        for (int z = minZ; z <= maxZ; z++)
+            for (int x = minX; x <= maxX; x++) {
+                int id = World_GetBlock((Vector3){ x, y, z });
+                if (id == 0) continue;
+                const Block *b = Block_GetDefinition(id);
+                if (b->colliderType != BLOCK_COLLIDER_SOLID) continue;
+                /* precise AABB overlap against the block's actual bounds */
+                float bx0 = x + b->minBB.x / 16.0f, bx1 = x + b->maxBB.x / 16.0f;
+                float by0 = y + b->minBB.y / 16.0f, by1 = y + b->maxBB.y / 16.0f;
+                float bz0 = z + b->minBB.z / 16.0f, bz1 = z + b->maxBB.z / 16.0f;
+                if (center.x + HN_BODY_R > bx0 && center.x - HN_BODY_R < bx1 &&
+                    center.y + HN_BODY_HALF_H > by0 && center.y - HN_BODY_HALF_H < by1 &&
+                    center.z + HN_BODY_R > bz0 && center.z - HN_BODY_R < bz1) return true;
+            }
+    return false;
 }
 
 /* v48.1: is the line hunter -> player clear of blocks? */
@@ -208,18 +236,18 @@ void Hunter_Shutdown(void) {
 
 static bool Hunter_MoveWithCollision(Hunter *h, Vector3 delta) {
     Vector3 next = Vector3Add(h->pos, delta);
-    if (IsAirAt(next)) {
+    if (!Hunter_BodyBlocked(next)) {
         h->pos = next;
         return true;
     }
-    /* axis slides */
+    /* axis slides with the body box, not a point */
     Vector3 x = { h->pos.x + delta.x, h->pos.y, h->pos.z };
     Vector3 y = { h->pos.x, h->pos.y + delta.y, h->pos.z };
     Vector3 z = { h->pos.x, h->pos.y, h->pos.z + delta.z };
     bool moved = false;
-    if (IsAirAt(x)) { h->pos = x; moved = true; } else h->vel.x = -h->vel.x * 0.5f;
-    if (IsAirAt(y)) { h->pos = y; moved = true; } else h->vel.y = -h->vel.y * 0.5f;
-    if (IsAirAt(z)) { h->pos = z; moved = true; } else h->vel.z = -h->vel.z * 0.5f;
+    if (!Hunter_BodyBlocked(x)) { h->pos = x; moved = true; } else h->vel.x = -h->vel.x * 0.5f;
+    if (!Hunter_BodyBlocked(y)) { h->pos = y; moved = true; } else h->vel.y = -h->vel.y * 0.5f;
+    if (!Hunter_BodyBlocked(z)) { h->pos = z; moved = true; } else h->vel.z = -h->vel.z * 0.5f;
     return moved;
 }
 

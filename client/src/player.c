@@ -958,7 +958,8 @@ void Player_DrawWeb(void) {
     rlDrawRenderBatchActive();
 }
 
-/* v47.1: is the player actually standing within reach of a warp core? */
+/* v49.2: is the player standing at a warp core? Cores sit on pillars, so we
+ * measure horizontally with a vertical tolerance - "within two blocks of it". */
 bool Player_NearWarpCore(void) {
     if (player.webActive) return false;
     Vector3 center = { player.position.x + 0.5f, player.position.y + 0.5f, player.position.z + 0.5f };
@@ -970,7 +971,11 @@ bool Player_NearWarpCore(void) {
             Chunk *chunk = World_GetChunkAt(chunkPos);
             if (chunk == NULL) continue;
             for (int s = 0; s < chunk->specialCount[0]; s++) {
-                if (Vector3Distance(chunk->specialPos[0][s], center) <= 2.5f) return true;
+                Vector3 core = chunk->specialPos[0][s];
+                float hdx = core.x - center.x, hdz = core.z - center.z;
+                float hdist = sqrtf(hdx * hdx + hdz * hdz);
+                float dy = fabsf(core.y - center.y);
+                if (hdist <= 2.2f && dy <= 3.5f) return true;
             }
         }
     }
