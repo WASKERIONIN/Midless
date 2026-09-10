@@ -59,6 +59,7 @@ void World_Shutdown(void);
 //Reload chunks.
 void World_Reload(void);
 //Draw the world.
+void World_DrawWireAuras(void);
 void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);

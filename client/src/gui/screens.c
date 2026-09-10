@@ -205,6 +205,16 @@ void Screen_DrawGame(void) {
         int flyX = screenWidth / 2 - MeasureText(flyText, 16) / 2;
         DrawText(flyText, flyX + 1, 9, 16, BLACK);
         DrawText(flyText, flyX, 8, 16, (Color){94, 231, 255, 255});
+    } else if (currentScreen == SCREEN_GAME) {
+        /* v44 traversal hints with dash cooldown */
+        double dashLeft = player.dashReadyTime - GetTime();
+        const char *moveText = dashLeft > 0.0
+            ? TextFormat("SPACE x2 double jump   hold SPACE glide   SHIFT dash %.1f", dashLeft)
+            : "SPACE x2 double jump   hold SPACE glide   SHIFT dash ready";
+        int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
+        Color mvCol = dashLeft > 0.0 ? (Color){120, 150, 190, 255} : (Color){94, 255, 214, 255};
+        DrawText(moveText, mvX + 1, 9, 16, BLACK);
+        DrawText(moveText, mvX, 8, 16, mvCol);
     }
 
     //Draw crosshair

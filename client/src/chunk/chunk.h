@@ -43,6 +43,11 @@ typedef struct Chunk{
     //mesh flags
     bool hasTransparency;
     bool onlyAir;
+
+    /* v44: world positions of special blocks for wireframe auras.
+     * [0] = warp core, [1] = launch pad. Capped per chunk. */
+    Vector3 specialPos[2][24];
+    int specialCount[2];
 } Chunk;
 
 typedef struct LightNode{

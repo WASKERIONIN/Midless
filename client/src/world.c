@@ -481,6 +481,65 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 
 }
 
+/* ---- v44: black & white wireframe auras --------------------------------
+ * Special world objects get animated vector frames: warp cores carry a
+ * slowly spinning octahedron, launch pads emit an expanding ring. Drawn
+ * through the standard rlgl line pipeline after the chunk pass. */
+static void World_DrawWireAurasAt(Vector3 center, int kind) {
+    double t = (double)GetTime();
+    float phase = (sinf(center.x * 12.9f) + sinf(center.z * 7.3f)) * 0.5f;
+
+    if (kind == 0) {
+        /* warp core: tumbling octahedron */
+        float ang = (float)t * 0.9f + phase * 3.0f;
+        float r = 0.52f + 0.06f * sinf((float)t * 1.7f + phase * 5.0f);
+        float cx = cosf(ang), sx = sinf(ang);
+        Vector3 v[6];
+        v[0] = (Vector3){ center.x, center.y + r, center.z };
+        v[1] = (Vector3){ center.x, center.y - r, center.z };
+        v[2] = (Vector3){ center.x + r * cx, center.y, center.z + r * sx };
+        v[3] = (Vector3){ center.x - r * cx, center.y, center.z - r * sx };
+        v[4] = (Vector3){ center.x - r * sx, center.y, center.z + r * cx };
+        v[5] = (Vector3){ center.x + r * sx, center.y, center.z - r * cx };
+        int edges[12][2] = {{0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,4},{4,3},{3,5},{5,2}};
+        unsigned char bright = (unsigned char)(190.0f + 50.0f * sinf((float)t * 2.3f + phase * 4.0f));
+        Color c = { bright, bright, (unsigned char)(bright + 8 > 255 ? 255 : bright + 8), 255 };
+        for (int e = 0; e < 12; e++) DrawLine3D(v[edges[e][0]], v[edges[e][1]], c);
+        /* axis ticks top/bottom */
+        DrawLine3D((Vector3){center.x, center.y + r + 0.18f, center.z},
+                   (Vector3){center.x, center.y + r, center.z}, c);
+        DrawLine3D((Vector3){center.x, center.y - r, center.z},
+                   (Vector3){center.x, center.y - r - 0.18f, center.z}, c);
+    } else {
+        /* launch pad: square ring expanding from the pad surface */
+        float period = 1.8f;
+        float k = (float)fmod(t, period) / period;      /* 0..1 */
+        float half = 0.22f + 0.26f * k;
+        float fade = 1.0f - k;
+        unsigned char bright = (unsigned char)(90.0f + 150.0f * fade);
+        Color c = { bright, bright, bright, 255 };
+        float y = center.y + 0.5101f;
+        Vector3 a = (Vector3){ center.x - half, y, center.z - half };
+        Vector3 b = (Vector3){ center.x + half, y, center.z - half };
+        Vector3 d = (Vector3){ center.x + half, y, center.z + half };
+        Vector3 e = (Vector3){ center.x - half, y, center.z + half };
+        DrawLine3D(a, b, c); DrawLine3D(b, d, c);
+        DrawLine3D(d, e, c); DrawLine3D(e, a, c);
+    }
+}
+
+void World_DrawWireAuras(void) {
+    Matrix view = rlGetMatrixModelview();
+    Matrix projection = rlGetMatrixProjection();
+    for (int i = 0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value;
+        if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0) continue;
+        if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
+        for (int s = 0; s < chunk->specialCount[0]; s++) World_DrawWireAurasAt(chunk->specialPos[0][s], 0);
+        for (int s = 0; s < chunk->specialCount[1]; s++) World_DrawWireAurasAt(chunk->specialPos[1][s], 1);
+    }
+}
+
 float World_GetSunlightStrength(void) {
     /* No sun — nebula ambient with a slow pulse. Never drop to night-black.
      * v43.4: dialed back down after the overbright report. */

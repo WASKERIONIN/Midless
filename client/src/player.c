@@ -69,6 +69,10 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.airJumpsUsed = 0;
+    player.dashReadyTime = 0.0;
+    player.dashActiveUntil = 0.0;
+    player.dashDir = (Vector3){ 0 };
     player.entityModel = (EntityModel){0};
     EntityAnimation_Init(&player.animation, player.position);
 
@@ -225,6 +229,14 @@ void Player_CheckInputs() {
             } else if (player.canJump || GetTime() - lastGroundedTime < PLAYER_COYOTE_SECONDS) {
                 player.velocity.y += 0.26f;
                 player.canJump = false;
+                player.airJumpsUsed = 0;
+                lastGroundedTime = -100.0;
+                jumpPressedTime = -100.0;
+                SoundFx_PlayJump();
+            } else if (player.airJumpsUsed < 1 && IsKeyPressed(KEY_SPACE)) {
+                /* v44: double jump - one extra mid-air jump on a fresh press */
+                player.velocity.y = 0.22f;
+                player.airJumpsUsed++;
                 lastGroundedTime = -100.0;
                 jumpPressedTime = -100.0;
                 SoundFx_PlayJump();
@@ -253,6 +265,29 @@ void Player_CheckInputs() {
         }
 
         moveDir = Vector3ClampValue(moveDir, 0.0f, 1.0f); // normalize
+
+        /* v44: dash - Shift burst in the movement (or look) direction */
+        double nowDash = GetTime();
+        if (!player.flying &&
+            (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT)) &&
+            nowDash >= player.dashReadyTime) {
+            Vector3 dir = moveDir;
+            if (Vector3Length(dir) < 0.01f) dir = (Vector3){ cx, 0, sx };
+            dir.y = 0;
+            if (Vector3Length(dir) > 0.01f) {
+                dir = Vector3Normalize(dir);
+                player.dashDir = dir;
+                player.dashActiveUntil = nowDash + 0.16;
+                player.dashReadyTime = nowDash + 1.6;
+                player.velocity.y += 0.06f;
+                SoundFx_PlayTeleport();
+            }
+        }
+        if (nowDash < player.dashActiveUntil) {
+            player.velocity.x += player.dashDir.x * player.speed * 2.6f;
+            player.velocity.z += player.dashDir.z * player.speed * 2.6f;
+        }
+
         Vector3 moveVel = Vector3Scale(moveDir, player.speed);
         if (player.liquidSubmersion > 0.0f) {
             moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
@@ -373,6 +408,11 @@ void Player_Update(void) {
     } else {
         player.velocity.y -= 0.0085f * frameScale;
         if (player.velocity.y <= -0.85f) player.velocity.y = -0.85f;
+        /* v44: glide - hold Space while falling to float down gently */
+        if (!player.canJump && player.liquidSubmersion <= 0.0f &&
+            IsKeyDown(KEY_SPACE) && player.velocity.y < -0.18f) {
+            player.velocity.y = -0.18f;
+        }
     }
 
     if (player.position.y < COSMIC_VOID_Y) {
@@ -395,6 +435,7 @@ void Player_Update(void) {
             player.position.y -= velXdt.y / steps;
             if (player.velocity.y <= 0) {
                 player.canJump = true;
+                player.airJumpsUsed = 0;
                 lastGroundedTime = GetTime();
             }
             player.velocity.y = 0;

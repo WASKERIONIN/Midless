@@ -157,6 +157,7 @@ void Game_RunLoop(void) {
                 Starfield_Draw(player.camera);
                 BlackHole_Draw(player.camera);
                 World_Draw(player.camera.position);
+                World_DrawWireAuras();
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {
                     const Block *block = Block_GetDefinition(player.rayResult.hitblockId);

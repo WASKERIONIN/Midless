@@ -46,11 +46,9 @@ static Color starCol[STAR_COUNT];
 static BrightStar brightStars[BRIGHT_STAR_COUNT];
 static Vector3 nebulaDir[NEBULA_COUNT];
 static float nebulaSize[NEBULA_COUNT];
-static Color nebulaCol[NEBULA_COUNT];
 static float nebulaPulse[NEBULA_COUNT];
 static ShootingStar shooting[SHOOTING_MAX];
 static float nextShootingIn = 4.0f;
-static Texture2D nebulaTex[3];
 static Texture2D starTex;
 static float skyTime = 0.0f;
 static bool ready;
@@ -87,90 +85,44 @@ static Color StarColor(uint32_t seed) {
                     (unsigned char)(255 * bright), 255 };
 }
 
-/* ---- v43.5 nebula generator -------------------------------------------
- * Hash-based value-noise fBm with a radial envelope, ridged dust lanes and a
- * bright folded core; written into an RGBA image per palette variant. */
-static float SkyHash(int x, int y, int seed) {
-    int h = x * 374761 + y * 668265 + seed * 1442695040;
-    h = (h ^ (h >> 13)) * 1274126177;
-    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0f;
-}
+/* ---- v44: wireframe dream polyhedra -----------------------------------
+ * In place of painted nebulae: huge, slow-tumbling black & white wireframe
+ * solids hanging in the void - pure Y2K vector geometry. */
+typedef struct SkyWire {
+    int vertexCount;
+    int edgeCount;
+    const Vector3 *vertices;
+    const unsigned char *edges;
+} SkyWire;
 
-static float SkyValueNoise(float x, float y, int seed) {
-    int xi = (int)floorf(x), yi = (int)floorf(y);
-    float xf = x - xi, yf = y - yi;
-    xf = xf * xf * (3.0f - 2.0f * xf);
-    yf = yf * yf * (3.0f - 2.0f * yf);
-    float a = SkyHash(xi, yi, seed),     b = SkyHash(xi + 1, yi, seed);
-    float c = SkyHash(xi, yi + 1, seed), d = SkyHash(xi + 1, yi + 1, seed);
-    return a + (b - a) * xf + (c - a) * yf + (a - b - c + d) * xf * yf;
-}
+static const Vector3 WOCTA_V[6] = {
+    { 0,  1,  0}, { 0, -1,  0}, { 1, 0, 0}, {-1, 0, 0}, {0, 0,  1}, {0, 0, -1}
+};
+static const unsigned char WOCTA_E[12][2] = {
+    {0,2},{0,3},{0,4},{0,5},{1,2},{1,3},{1,4},{1,5},{2,4},{4,3},{3,5},{5,2}
+};
+static const Vector3 WICO_V[12] = {
+    {-1,  0.618f, 0}, { 1,  0.618f, 0}, {-1, -0.618f, 0}, { 1, -0.618f, 0},
+    { 0, -1,  0.618f}, { 0,  1,  0.618f}, { 0, -1, -0.618f}, { 0,  1, -0.618f},
+    { 0.618f, 0, -1}, { 0.618f, 0,  1}, {-0.618f, 0, -1}, {-0.618f, 0,  1}
+};
+static const unsigned char WICO_E[30][2] = {
+    {0,1},{0,5},{0,7},{0,10},{0,11},{1,5},{1,7},{1,8},{1,9},{2,3},
+    {2,4},{2,6},{2,10},{2,11},{3,4},{3,6},{3,8},{3,9},{4,5},{4,9},
+    {4,11},{5,9},{5,11},{6,7},{6,8},{6,10},{7,10},{8,9},{8,10},{9,11}
+};
+static const SkyWire kSkyWires[2] = {
+    { 6, 12, WOCTA_V, &WOCTA_E[0][0] },
+    {12, 30, WICO_V,  &WICO_E[0][0] },
+};
 
-static float SkyFbm(float x, float y, int seed, int octaves) {
-    float sum = 0.0f, amp = 0.5f, freq = 1.0f, norm = 0.0f;
-    for (int o = 0; o < octaves; o++) {
-        sum += SkyValueNoise(x * freq, y * freq, seed + o * 101) * amp;
-        norm += amp;
-        amp *= 0.55f;
-        freq *= 2.1f;
-    }
-    return sum / norm;
-}
-
-static Texture2D MakeNebulaTexture(int variant) {
-    const int size = 256;
-    int seed = 910 + variant * 77;
-    /* palette: deep edge, mid tone, filament highlight, core */
-    Color cDeep, cMid, cHigh;
-    if (variant == 0)      { cDeep = (Color){ 46, 10, 64 };  cMid = (Color){ 148, 34, 178 }; cHigh = (Color){ 255, 132, 246 }; }
-    else if (variant == 1) { cDeep = (Color){ 24, 12, 70 };  cMid = (Color){ 84, 44, 196 };  cHigh = (Color){ 168, 128, 255 }; }
-    else                   { cDeep = (Color){ 6, 40, 62 };   cMid = (Color){ 22, 130, 168 }; cHigh = (Color){ 128, 240, 252 }; }
-
-    Image image = GenImageColor(size, size, BLANK);
-    Color *pixels = (Color *)image.data;
-    float cx = size * 0.5f, cy = size * 0.5f;
-    for (int y = 0; y < size; y++) {
-        for (int x = 0; x < size; x++) {
-            float dx = (x - cx) / cx, dy = (y - cy) / cy;
-            float r = sqrtf(dx * dx + dy * dy);
-            float env = 1.0f - r;                    /* radial envelope */
-            if (env <= 0.0f) continue;
-            env = env * env;
-
-            float nx = x / 34.0f, ny = y / 34.0f;
-            float density = SkyFbm(nx, ny, seed, 5);
-            /* stretch horizontally for a windswept look */
-            density = 0.55f * density + 0.45f * SkyFbm(nx * 0.55f, ny * 1.6f, seed + 31, 4);
-            density = (density - 0.34f) / 0.66f;
-            if (density < 0.0f) density = 0.0f;
-            float filaments = 1.0f - fabsf(2.0f * SkyFbm(nx * 2.1f, ny * 2.1f, seed + 57, 4) - 1.0f);
-            float dust = SkyFbm(nx * 1.3f + 9.0f, ny * 1.3f - 4.0f, seed + 83, 3);
-            float a = env * density;
-            a *= 0.65f + 0.6f * filaments;           /* bright filament threads */
-            a *= 0.55f + 0.75f * dust;               /* dark dust lane mottling */
-            if (a <= 0.004f) continue;
-
-            float t = density * filaments;
-            Color out;
-            if (t < 0.55f) {
-                float k = t / 0.55f;
-                out.b = (unsigned char)(cDeep.b + (cMid.b - cDeep.b) * k);
-                out.g = (unsigned char)(cDeep.g + (cMid.g - cDeep.g) * k);
-                out.r = (unsigned char)(cDeep.r + (cMid.r - cDeep.r) * k);
-            } else {
-                float k = (t - 0.55f) / 0.45f;
-                out.b = (unsigned char)(cMid.b + (cHigh.b - cMid.b) * k);
-                out.g = (unsigned char)(cMid.g + (cHigh.g - cMid.g) * k);
-                out.r = (unsigned char)(cMid.r + (cHigh.r - cMid.r) * k);
-            }
-            out.a = (unsigned char)(255.0f * (a > 1.0f ? 1.0f : a));
-            pixels[y * size + x] = out;
-        }
-    }
-    Texture2D texture = LoadTextureFromImage(image);
-    UnloadImage(image);
-    SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
-    return texture;
+static Vector3 SkyWireRotate(Vector3 v, float ax, float ay) {
+    float cx = cosf(ax), sx = sinf(ax), cy = cosf(ay), sy = sinf(ay);
+    float y = v.y * cx - v.z * sx;
+    float z = v.y * sx + v.z * cx;
+    float x = v.x * cy + z * sy;
+    z = -v.x * sy + z * cy;
+    return (Vector3){ x, y, z };
 }
 
 void Starfield_Init(void) {
@@ -219,9 +171,7 @@ void Starfield_Init(void) {
     UnloadImage(glow);
     SetTextureFilter(starTex, TEXTURE_FILTER_BILINEAR);
 
-    /* v43.5: real fBm nebulae instead of flat radial blobs - filaments,
-     * dust lanes and bright cores per palette variant. */
-    for (int v = 0; v < 3; v++) nebulaTex[v] = MakeNebulaTexture(v);
+
 
     for (int i = 0; i < NEBULA_COUNT; i++) {
         Vector3 dir;
@@ -240,11 +190,6 @@ void Starfield_Init(void) {
         nebulaDir[i] = dir;
         nebulaSize[i] = 55.0f + Unit(Mix(300u + (uint32_t)i)) * 85.0f;
         nebulaPulse[i] = Unit(Mix(400u + (uint32_t)i)) * 6.2831f;
-        float kind = Unit(Mix(400u + (uint32_t)i * 3u));
-        if (kind < 0.38f) nebulaCol[i] = (Color){ 214, 52, 236, 52 };
-        else if (kind < 0.66f) nebulaCol[i] = (Color){ 128, 48, 255, 48 };
-        else if (kind < 0.88f) nebulaCol[i] = (Color){ 40, 208, 226, 40 };
-        else nebulaCol[i] = (Color){ 255, 96, 170, 36 };
     }
 
     for (int i = 0; i < SHOOTING_MAX; i++) shooting[i].active = false;
@@ -253,7 +198,6 @@ ready = true;
 
 void Starfield_Shutdown(void) {
     if (!ready) return;
-    for (int v = 0; v < 3; v++) UnloadTexture(nebulaTex[v]);
     UnloadTexture(starTex);
     ready = false;
 }
@@ -307,16 +251,33 @@ void Starfield_Draw(Camera camera) {
     rlSetBlendMode(BLEND_ADDITIVE);
 
     /* nebula clouds */
+    rlBegin(RL_LINES);
     for (int i = 0; i < NEBULA_COUNT; i++) {
         Vector3 p = Vector3Add(camera.position, Vector3Scale(SkyPoint(nebulaDir[i]), 218.0f));
         float pulse = 0.82f + 0.18f * sinf(skyTime * 0.23f + nebulaPulse[i]);
-        Color c = nebulaCol[i];
-        c.a = (unsigned char)(c.a * pulse);
-        DrawBillboard(camera, nebulaTex[i % 3], p, nebulaSize[i], c);
+        (void)pulse;
+        const SkyWire *shape = &kSkyWires[i % 2];
+        float s = nebulaSize[i] * 0.16f;
+        float ax = skyTime * 0.05f + nebulaPulse[i];
+        float ay = skyTime * 0.037f - nebulaPulse[i] * 0.7f;
+        Vector3 wp[12];
+        for (int v2 = 0; v2 < shape->vertexCount; v2++) {
+            Vector3 rv = SkyWireRotate(shape->vertices[v2], ax, ay);
+            wp[v2] = Vector3Add(p, Vector3Scale(rv, s));
+        }
+        unsigned char bright = (unsigned char)(70.0f + 50.0f * pulse);
+        rlColor4ub(bright, bright, bright, 255);
+        for (int e = 0; e < shape->edgeCount; e++) {
+            Vector3 a = wp[shape->edges[e * 2]];
+            Vector3 b = wp[shape->edges[e * 2 + 1]];
+            rlVertex3f(a.x, a.y, a.z);
+            rlVertex3f(b.x, b.y, b.z);
+        }
     }
+    rlEnd();
+    rlDrawRenderBatchActive();
 
     /* faint star dust */
-    rlDrawRenderBatchActive();
     rlBegin(RL_LINES);
     for (int i = 0; i < STAR_COUNT; i++) {
         Vector3 p = Vector3Add(camera.position, SkyPoint(starPos[i]));

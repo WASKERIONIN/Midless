@@ -39,6 +39,11 @@ typedef struct Player{
     unsigned char modelId;
     bool hasEntityModel;
     bool flying;
+    /* v44 traversal: double jump, dash, glide */
+    int airJumpsUsed;
+    double dashReadyTime;      /* time the dash becomes available again */
+    double dashActiveUntil;    /* burst window end */
+    Vector3 dashDir;           /* normalized horizontal dash direction */
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
     EntityAnimation animation;
