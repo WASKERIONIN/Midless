@@ -34,8 +34,14 @@ bool screenCursorEnabled = false;
 
 /* v49.1: laser upgrade menu state */
 static bool upgradeMenuOpen = false;
+static double upgradeMenuToggleTime = -10.0;
 
 void Screens_UpgradeMenuToggle(void) {
+    /* v49.3: IsKeyPressed stays true for the whole frame - without this
+     * debounce the draw code re-read it and closed the menu the same frame
+     * (the "B does nothing, camera spins" bug). */
+    if (GetTime() - upgradeMenuToggleTime < 0.3) return;
+    upgradeMenuToggleTime = GetTime();
     upgradeMenuOpen = !upgradeMenuOpen;
     if (upgradeMenuOpen) {
         EnableCursor();
@@ -312,8 +318,9 @@ void Screen_DrawGame(void) {
         if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
             upgradeMenuOpen = false;
         } else {
-            if (IsKeyPressed(KEY_B) || IsKeyPressed(KEY_ESCAPE)) {
-                Screens_UpgradeMenuToggle();
+            if (IsKeyPressed(KEY_ESCAPE)) {
+                /* player.c's ESC handler disables the cursor; the auto-close
+                 * below catches it - nothing else to do here */
             } else {
                 int mx = screenWidth / 2 - 170;
                 int my = screenHeight / 2 - 130;
