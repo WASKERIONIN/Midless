@@ -39,6 +39,10 @@ typedef struct Player{
     unsigned char modelId;
     bool hasEntityModel;
     bool flying;
+    /* v46: web grapple */
+    bool webActive;
+    Vector3 webAnchor;    /* pull point, slightly off the hit face */
+    Vector3 webBlock;     /* cell of the anchored block (validity check) */
     /* v45: vitals */
     int hp;
     double invulnUntil;
@@ -63,6 +67,7 @@ void Player_CheckInputs(void);
 //Update a player.
 void Player_Update(void);
 void Player_Draw(void);
+void Player_DrawWeb(void);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);

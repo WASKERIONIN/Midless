@@ -15,6 +15,8 @@ static Sound bellSnd;    /* distant temple bell */
 static Sound hunterHitSnd;
 static Sound hunterDieSnd;
 static Sound hurtSnd;
+static Sound webShootSnd;
+static Sound webAttachSnd;
 static bool ready;
 static float volume = 0.7f;
 static double nextBellIn = 30.0;
@@ -146,6 +148,32 @@ static void FillHurt(short *data, int frames) {
     }
 }
 
+/* v46 web shoot: airy zip up */
+static void FillWebShoot(short *data, int frames) {
+    float phase = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 22.0f);
+        float f = 300.0f + 2400.0f * (1.0f - expf(-t * 30.0f));
+        phase += 2.0f * PI * f / 22050.0f;
+        float v = sinf(phase) * 0.5f + NextNoise() * 0.10f;
+        data[i] = (short)(v * env * 9000.0f);
+    }
+}
+
+/* v46 web attach: crisp double tick */
+static void FillWebAttach(short *data, int frames) {
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 70.0f);
+        float tick = (i > 260 && i < 300) ? 0.5f : 0.0f;
+        float v = sinf(2.0f * PI * 1900.0f * t) * 0.45f * env
+                + NextNoise() * 0.15f * expf(-t * 120.0f)
+                + sinf(2.0f * PI * 2600.0f * (t - 0.012f)) * tick * expf(-(t - 0.012f) * 60.0f);
+        data[i] = (short)(v * 10500.0f);
+    }
+}
+
 /* dungeon synth drone: detuned low sines with a breathing slow LFO,
  * seamless 8-second loop */
 static void FillDrone(short *data, int frames) {
@@ -212,6 +240,8 @@ void SoundFx_Init(void) {
     hunterHitSnd = MakeSound(1600, FillHunterHit);
     hunterDieSnd = MakeSound(5100, FillHunterDie);
     hurtSnd = MakeSound(1700, FillHurt);
+    webShootSnd = MakeSound(1800, FillWebShoot);
+    webAttachSnd = MakeSound(900, FillWebAttach);
     ready = true;
     if (ready && IsAudioDeviceReady()) {
         PlaySound(windSnd);
@@ -232,6 +262,8 @@ void SoundFx_Shutdown(void) {
     UnloadSound(hunterHitSnd);
     UnloadSound(hunterDieSnd);
     UnloadSound(hurtSnd);
+    UnloadSound(webShootSnd);
+    UnloadSound(webAttachSnd);
     CloseAudioDevice();
     ready = false;
 }
@@ -266,6 +298,8 @@ void SoundFx_PlayClick(void) { if (ready) PlaySound(clickSnd); }
 void SoundFx_PlayHunterHit(void) { if (ready) PlaySound(hunterHitSnd); }
 void SoundFx_PlayHunterDie(void) { if (ready) PlaySound(hunterDieSnd); }
 void SoundFx_PlayPlayerHurt(void) { if (ready) PlaySound(hurtSnd); }
+void SoundFx_PlayWebShoot(void) { if (ready) PlaySound(webShootSnd); }
+void SoundFx_PlayWebAttach(void) { if (ready) PlaySound(webAttachSnd); }
 
 void SoundFx_SetVolume(float volume01) {
     volume = Clamp(volume01, 0.0f, 1.0f);

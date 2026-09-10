@@ -10,6 +10,7 @@
 #include <math.h>
 #include "raylib.h"
 #include "raymath.h"
+#include "rlgl.h"
 #include "player.h"
 #include "world.h"
 #include "raycast.h"
@@ -70,6 +71,9 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.webActive = false;
+    player.webAnchor = (Vector3){ 0 };
+    player.webBlock = (Vector3){ 0 };
     player.hp = 10;
     player.invulnUntil = 0.0;
     player.lastHurtTime = -100.0;
@@ -170,6 +174,37 @@ void Player_Draw(void) {
     }
     if (!player.hasEntityModel) return;
     Entity_Draw(&localEntity);
+}
+
+/* ---- v46: web grapple ------------------------------------------------- */
+#define WEB_RANGE      40.0f
+#define WEB_REEL       0.050f    /* acceleration toward the anchor */
+#define WEB_MAX_SPEED  0.62f     /* total velocity cap while reeling */
+#define WEB_DETACH_DIST 1.5f
+
+static void Player_WebDetach(void) {
+    if (!player.webActive) return;
+    player.webActive = false;
+}
+
+/* long-range ray for the web; returns the pull point and the anchored cell */
+static bool Player_WebRay(Vector3 origin, Vector3 dir, Vector3 *pullPoint, Vector3 *blockCell) {
+    float step = 0.06f;
+    Vector3 pos = origin;
+    for (float traveled = 0.0f; traveled < WEB_RANGE; traveled += step) {
+        pos = Vector3Add(pos, Vector3Scale(dir, step));
+        int id = World_GetBlock(pos);
+        if (id == 0) continue;
+        const Block *block = Block_GetDefinition(id);
+        if (block->modelType == BLOCK_MODEL_GAS) continue;
+        if (block->colliderType == BLOCK_COLLIDER_LIQUID) continue;
+        *blockCell = (Vector3){ floorf(pos.x - dir.x * 0.02f),
+                                floorf(pos.y - dir.y * 0.02f),
+                                floorf(pos.z - dir.z * 0.02f) };
+        *pullPoint = Vector3Subtract(pos, Vector3Scale(dir, 0.12f));
+        return true;
+    }
+    return false;
 }
 
 void Player_CheckInputs() {
@@ -301,7 +336,7 @@ void Player_CheckInputs() {
 
         /* v44: dash - Shift burst in the movement (or look) direction */
         double nowDash = GetTime();
-        if (!player.flying &&
+        if (!player.flying && !player.webActive &&
             (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT)) &&
             nowDash >= player.dashReadyTime) {
             Vector3 dir = moveDir;
@@ -319,6 +354,46 @@ void Player_CheckInputs() {
         if (nowDash < player.dashActiveUntil) {
             player.velocity.x += player.dashDir.x * player.speed * 2.6f;
             player.velocity.z += player.dashDir.z * player.speed * 2.6f;
+        }
+
+        /* v46: web grapple - F fires, Shift reels, Space releases with momentum */
+        if (IsKeyPressed(KEY_F)) {
+            if (player.webActive) {
+                Player_WebDetach();
+                SoundFx_PlayClick();
+            } else {
+                Vector3 pullPoint, blockCell;
+                if (Player_WebRay(eyePosition, forward, &pullPoint, &blockCell)) {
+                    player.webActive = true;
+                    player.webAnchor = pullPoint;
+                    player.webBlock = blockCell;
+                    SoundFx_PlayWebAttach();
+                } else {
+                    SoundFx_PlayWebShoot();
+                }
+            }
+        }
+        if (player.webActive) {
+            if (World_GetBlock(player.webBlock) == 0) {
+                Player_WebDetach();   /* anchored block was broken */
+            } else if (IsKeyPressed(KEY_SPACE)) {
+                Player_WebDetach();   /* keep momentum for the jump chain */
+            } else {
+                Vector3 bodyCenter = { player.position.x + 0.5f, player.position.y + 1.0f, player.position.z + 0.5f };
+                Vector3 toAnchor = Vector3Subtract(player.webAnchor, bodyCenter);
+                float dist = Vector3Length(toAnchor);
+                if (dist < WEB_DETACH_DIST) {
+                    Player_WebDetach();   /* arrived - velocity keeps, you fling past */
+                } else if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
+                    Vector3 dir = Vector3Scale(toAnchor, 1.0f / dist);
+                    float frameScale = GetFrameTime() * 60.0f;
+                    player.velocity = Vector3Add(player.velocity,
+                        Vector3Scale(dir, WEB_REEL * frameScale));
+                    float speed = Vector3Length(player.velocity);
+                    if (speed > WEB_MAX_SPEED)
+                        player.velocity = Vector3Scale(player.velocity, WEB_MAX_SPEED / speed);
+                }
+            }
         }
 
         Vector3 moveVel = Vector3Scale(moveDir, player.speed);
@@ -632,4 +707,50 @@ Vector3 Player_GetForwardVector(void) {
 
 Vector3 Player_GetChunkPosition(void) {
     return (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
+}
+
+/* ---- v46: web rendering - white wireframe line + anchor diamond ---- */
+void Player_DrawWeb(void) {
+    if (!player.webActive) return;
+
+    Vector3 hand = { player.position.x + 0.5f, player.position.y + 1.4f, player.position.z + 0.5f };
+    Vector3 toAnchor = Vector3Subtract(player.webAnchor, hand);
+    float len = Vector3Length(toAnchor);
+    if (len < 0.1f) return;
+    Vector3 dir = Vector3Scale(toAnchor, 1.0f / len);
+    /* perpendicular for the shimmer strand */
+    Vector3 side = Vector3Normalize(Vector3CrossProduct(dir, (Vector3){ 0, 1, 0.01f }));
+    float t = (float)GetTime();
+    float sag = sinf(t * 7.0f) * 0.05f * (1.0f - len / 60.0f);
+
+    rlDrawRenderBatchActive();
+    rlBegin(RL_LINES);
+    /* main strand */
+    rlColor4ub(235, 235, 245, 255);
+    rlVertex3f(hand.x, hand.y, hand.z);
+    rlVertex3f(player.webAnchor.x, player.webAnchor.y, player.webAnchor.z);
+    /* shimmer strand */
+    rlColor4ub(150, 150, 170, 200);
+    rlVertex3f(hand.x + side.x * 0.06f, hand.y + 0.06f, hand.z + side.z * 0.06f);
+    rlVertex3f(player.webAnchor.x + side.x * (0.1f + sag), player.webAnchor.y - 0.05f + sag,
+               player.webAnchor.z + side.z * (0.1f + sag));
+    /* anchor diamond */
+    {
+        float r = 0.14f + 0.03f * sinf(t * 6.0f);
+        float a = t * 2.0f;
+        Vector3 d[4];
+        for (int k = 0; k < 4; k++) {
+            float ang = a + k * 1.5708f;
+            d[k] = (Vector3){ player.webAnchor.x + cosf(ang) * r,
+                              player.webAnchor.y + sinf(ang) * r * 0.7f,
+                              player.webAnchor.z + sinf(ang) * r };
+        }
+        rlColor4ub(255, 255, 255, 255);
+        for (int k = 0; k < 4; k++) {
+            rlVertex3f(d[k].x, d[k].y, d[k].z);
+            rlVertex3f(d[(k + 1) % 4].x, d[(k + 1) % 4].y, d[(k + 1) % 4].z);
+        }
+    }
+    rlEnd();
+    rlDrawRenderBatchActive();
 }

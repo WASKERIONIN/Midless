@@ -162,6 +162,7 @@ void Game_RunLoop(void) {
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Hunter_Draw();
+                Player_DrawWeb();
                 if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
                 if (player.rayResult.hitblockId != -1) {
                     const Block *block = Block_GetDefinition(player.rayResult.hitblockId);

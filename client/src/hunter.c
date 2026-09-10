@@ -290,10 +290,11 @@ void Hunter_Draw(void) {
         /* axis */
         Hn_Edge((Vector3){ c.x, c.y + 0.82f, c.z }, (Vector3){ c.x, c.y - 0.82f, c.z }, spine);
 
-        /* eye: small counter-rotating diamond, pulses when chasing */
+        /* eye: small counter-rotating diamond.
+         * v46: glows red when the hunter is on the hunt or just stung. */
         float dist = Vector3Length(Vector3Subtract(PlayerCenter(), h->pos));
-        bool aggro = !player.flying && dist < CHASE_RANGE;
-        float eyePulse = aggro ? (0.14f + 0.05f * sinf((float)now * 9.0f)) : 0.12f;
+        bool aggro = (!player.flying && dist < CHASE_RANGE) || now < h->retreatUntil;
+        float eyePulse = aggro ? (0.15f + 0.06f * sinf((float)now * 11.0f)) : 0.12f;
         Vector3 eye[4];
         for (int k = 0; k < 4; k++) {
             float a = -spin * 1.6f + k * 1.5708f;
@@ -301,8 +302,12 @@ void Hunter_Draw(void) {
             local = Hn_RotateXZ(local, spin * 0.5f);
             eye[k] = (Vector3){ c.x + local.x, c.y + local.y, c.z + local.z };
         }
-        unsigned char eyeBright = (unsigned char)((h->hitFlash > 0.0f ? 255 : 200));
-        for (int k = 0; k < 4; k++) Hn_Edge(eye[k], eye[(k + 1) % 4], eyeBright);
+        Color eyeColor = aggro
+            ? (Color){ 255, (unsigned char)(70 + 40 * sinf((float)now * 11.0f)), 70, 255 }
+            : (Color){ 200, 200, 200, 255 };
+        if (h->hitFlash > 0.0f) eyeColor = (Color){ 255, 255, 255, 255 };
+        rlColor4ub(eyeColor.r, eyeColor.g, eyeColor.b, 255);
+        for (int k = 0; k < 4; k++) Hn_Edge(eye[k], eye[(k + 1) % 4], 255);
     }
 
     /* death bursts: expanding, fading octahedra */
