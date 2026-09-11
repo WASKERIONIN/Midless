@@ -60,6 +60,31 @@ void Screens_UpgradeMenuToggle(void) {
 
 bool Screens_UpgradeMenuIsOpen(void) { return upgradeMenuOpen; }
 
+/* v54: satchel helpers - a real inventory grid, not a text list */
+static void Satchel_Cell(int x, int y, int size, bool highlighted) {
+    DrawRectangle(x, y, size, size, (Color){ 14, 8, 30, 235 });
+    Color border = highlighted ? (Color){ 96, 255, 214, 220 } : (Color){ 94, 231, 255, 80 };
+    DrawRectangleLinesEx((Rectangle){ (float)x, (float)y, (float)size, (float)size }, 1, border);
+    DrawRectangleLinesEx((Rectangle){ (float)x - 1, (float)y - 1, (float)size + 2, (float)size + 2 }, 1,
+                         (Color){ 200, 60, 255, 40 });
+}
+
+static void Satchel_Count(int x, int y, int size, int n) {
+    if (n <= 0) return;
+    const char *t = TextFormat("%d", n);
+    int w = MeasureText(t, 14);
+    DrawText(t, x + size - w - 4 + 1, y + size - 17 + 1, 14, BLACK);
+    DrawText(t, x + size - w - 4, y + size - 17, 14, (Color){ 255, 240, 200, 255 });
+}
+
+static void Satchel_Pips(int cx, int cy, int lvl) {
+    for (int i = 0; i < 3; i++) {
+        int px = cx - 14 + i * 10;
+        if (i < lvl) DrawRectangle(px, cy, 7, 4, (Color){ 96, 255, 214, 255 });
+        else DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy, 7, 4 }, 1, (Color){ 120, 140, 170, 160 });
+    }
+}
+
 void Screens_InventoryToggle(void) {
     if (GetTime() - inventoryToggleTime < 0.3) return;
     inventoryToggleTime = GetTime();
@@ -432,61 +457,100 @@ void Screen_DrawGame(void) {
         }
     }
 
-    /* v53: the satchel (I) - everything the traveler carries */
+    /* v53/v54: the satchel (I) - a slot-grid inventory */
     if (inventoryOpen) {
         if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
             inventoryOpen = false;
         } else {
-            int mx = screenWidth / 2 - 155;
-            int my = screenHeight / 2 - 150;
+            int mx = screenWidth / 2 - 175;
+            int my = screenHeight / 2 - 140;
             DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
-            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 342, 330 });
+            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 382, 300 });
 
             const char *title = "VOID SATCHEL";
-            DrawText(title, mx + 2, my + 2, 24, BLACK);
-            DrawText(title, mx, my, 24, (Color){ 96, 255, 214, 255 });
+            DrawText(title, mx + 2, my + 2, 22, BLACK);
+            DrawText(title, mx, my, 22, (Color){ 96, 255, 214, 255 });
 
+            /* ---- row 1: carry items (56px cells) ---- */
+            int iy = my + 40;
+            int cell = 56;
+
+            /* shards: teal diamond */
+            Satchel_Cell(mx, iy, cell, true);
+            Vector2 sc = { mx + cell / 2.0f, iy + 22 };
+            DrawPoly(sc, 4, 13.0f, 45.0f, (Color){ 96, 231, 214, 255 });
+            DrawPolyLinesEx(sc, 4, 13.0f, 45.0f, 1, (Color){ 220, 255, 250, 255 });
+            Satchel_Count(mx, iy, cell, Player_GetShards());
+            DrawText("SHARDS", mx, iy + cell + 4, 11, (Color){ 150, 150, 180, 255 });
+
+            /* mushrooms: violet cap + pale stem */
+            int mx2 = mx + cell + 10;
+            Satchel_Cell(mx2, iy, cell, Mobs_GetMushrooms() > 0);
+            int hx = mx2 + cell / 2, hy = iy + 20;
+            DrawRectangle(hx - 4, hy + 6, 8, 13, (Color){ 226, 210, 250, 255 });
+            DrawCircle(hx, hy + 6, 13.0f, (Color){ 138, 52, 224, 255 });
+            DrawCircle(hx, hy + 6, 10.0f, (Color){ 190, 100, 255, 255 });
+            DrawCircle(hx - 4, hy + 3, 2.0f, (Color){ 255, 208, 120, 255 });
+            Satchel_Count(mx2, iy, cell, Mobs_GetMushrooms());
+            DrawText("MUSHROOMS", mx2, iy + cell + 4, 11, (Color){ 150, 150, 180, 255 });
+
+            /* three empty slots for the future */
+            for (int e = 0; e < 3; e++) {
+                Satchel_Cell(mx2 + (e + 1) * (cell + 10), iy, cell, false);
+            }
+            DrawText("G - eat a mushroom   E - pick one in the field",
+                     mx, iy + cell + 18, 13, (Color){ 170, 170, 195, 255 });
+
+            /* ---- row 2: laser upgrade chips (46px cells with pips) ---- */
+            int uy = iy + cell + 40;
+            int ucell = 46;
+            struct { const char *name; int lvl; } chips[4] = {
+                { "LENS", Player_GetLaserRangeLvl() },
+                { "COIL", Player_GetLaserRateLvl() },
+                { "BURST", Player_GetBurstLvl() },
+                { "COOL", Player_GetCoolLvl() },
+            };
+            for (int c = 0; c < 4; c++) {
+                int cx = mx + c * (ucell + 10);
+                bool maxed = chips[c].lvl >= 3;
+                Satchel_Cell(cx, uy, ucell, maxed);
+                int ccx = cx + ucell / 2, ccy = uy + 18;
+                if (c == 0) {                      /* lens: ring + dot */
+                    DrawCircleLines(ccx, ccy, 9, (Color){ 96, 255, 214, 255 });
+                    DrawCircle(ccx, ccy, 3, (Color){ 220, 255, 250, 255 });
+                } else if (c == 1) {               /* coil: two rings */
+                    DrawCircleLines(ccx, ccy, 10, (Color){ 255, 190, 84, 255 });
+                    DrawCircleLines(ccx, ccy, 5, (Color){ 255, 230, 150, 255 });
+                } else if (c == 2) {               /* burst: three dots */
+                    DrawCircle(ccx - 7, ccy + 4, 2.5f, (Color){ 232, 84, 240, 255 });
+                    DrawCircle(ccx, ccy - 2, 2.5f, (Color){ 255, 150, 250, 255 });
+                    DrawCircle(ccx + 7, ccy + 4, 2.5f, (Color){ 148, 64, 255, 255 });
+                } else {                            /* cool: asterisk */
+                    for (int a = 0; a < 6; a++) {
+                        float an = 3.1416f * a / 3.0f;
+                        DrawLineEx((Vector2){ ccx - cosf(an) * 9, ccy - sinf(an) * 9 },
+                                   (Vector2){ ccx + cosf(an) * 9, ccy + sinf(an) * 9 },
+                                   1.5f, (Color){ 110, 230, 255, 255 });
+                    }
+                }
+                Satchel_Pips(ccx, uy + ucell - 9, chips[c].lvl);
+                int tw = MeasureText(chips[c].name, 11);
+                DrawText(chips[c].name, ccx - tw / 2, uy + ucell + 4, 11,
+                         maxed ? (Color){ 120, 190, 170, 255 } : (Color){ 150, 150, 180, 255 });
+            }
+            DrawText("Forge the laser at a warp core (B, 5 shards each)",
+                     mx, uy + ucell + 18, 13, (Color){ 170, 170, 195, 255 });
+
+            /* ---- footer: trophies + senses ---- */
+            int fy = uy + ucell + 38;
             char line[128];
-            int y = my + 44;
-            snprintf(line, sizeof(line), "Void shards: %d", Player_GetShards());
-            DrawText(line, mx + 2, y + 2, 17, BLACK);
-            DrawText(line, mx, y, 17, (Color){ 200, 160, 255, 255 });
-            y += 30;
-
-            int shrooms = Mobs_GetMushrooms();
-            if (shrooms > 0) snprintf(line, sizeof(line), "Void mushrooms: %d   [G] eat +3 HP", shrooms);
-            else snprintf(line, sizeof(line), "Void mushrooms: 0");
-            DrawText(line, mx + 2, y + 2, 17, BLACK);
-            DrawText(line, mx, y, 17, shrooms > 0 ? (Color){ 225, 130, 255, 255 }
-                                                  : (Color){ 150, 140, 180, 255 });
-            y += 30;
-
-            snprintf(line, sizeof(line), "Laser: LENS %d/3   COIL %d/3   BURST %d/3   COOL %d/3",
-                     Player_GetLaserRangeLvl(), Player_GetLaserRateLvl(),
-                     Player_GetBurstLvl(), Player_GetCoolLvl());
-            DrawText(line, mx + 2, y + 2, 15, BLACK);
-            DrawText(line, mx, y, 15, (Color){ 96, 231, 214, 255 });
-            y += 30;
-
-            snprintf(line, sizeof(line), "Hunters felled: %d", Hunter_GetBounty());
-            DrawText(line, mx + 2, y + 2, 15, BLACK);
-            DrawText(line, mx, y, 15, (Color){ 255, 200, 120, 255 });
-            y += 32;
-
-            snprintf(line, sizeof(line), "Nearby fauna: %d crawlers, %d wisps, %d spiders",
-                     Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
-            DrawText(line, mx + 2, y + 2, 14, BLACK);
-            DrawText(line, mx, y, 14, (Color){ 255, 130, 150, 255 });
-            y += 28;
-
-            snprintf(line, sizeof(line), "Shards fuel warp jumps and the forge.");
-            DrawText(line, mx + 2, y + 2, 13, BLACK);
-            DrawText(line, mx, y, 13, (Color){ 150, 150, 175, 255 });
-            y += 26;
+            snprintf(line, sizeof(line), "Hunters felled: %d      Nearby: %d crawlers, %d wisps, %d spiders",
+                     Hunter_GetBounty(), Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
+            DrawText(line, mx + 2, fy + 1, 13, BLACK);
+            DrawText(line, mx, fy, 13, (Color){ 255, 170, 130, 255 });
 
             const char *hint = "I / ESC - close";
-            DrawText(hint, mx + 2, y + 2, 14, BLACK);
-            DrawText(hint, mx, y, 14, (Color){ 170, 170, 190, 255 });
+            DrawText(hint, mx, fy + 20, 13, (Color){ 150, 150, 175, 255 });
         }
     }
 

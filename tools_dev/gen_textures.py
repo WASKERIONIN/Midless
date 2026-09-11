@@ -439,17 +439,202 @@ def t_fire(index):
     return img
 
 
-def flower_tile(index, petal_a, petal_b, core):
+# --------------------------------------------------------------- flora ----
+# v54: every species gets its own silhouette (no recolour clones). All art
+# is centred on the tile axis x=8 so the crossed quads line up exactly.
+def _stem(d, pts, color_a, color_b=None):
+    """draw a polyline stem; color_b = optional gradient toward the tip"""
+    n = len(pts)
+    for i in range(n - 1):
+        x0, y0 = pts[i]
+        x1, y1 = pts[i + 1]
+        steps = max(abs(x1 - x0), abs(y1 - y0)) or 1
+        for s in range(steps + 1):
+            t = s / steps
+            x = round(x0 + (x1 - x0) * t)
+            y = round(y0 + (y1 - y0) * t)
+            c = color_a if color_b is None else lerp(color_a, color_b, i / max(1, n - 1))
+            d.point((x, y), fill=with_a(c, 255))
+
+
+def t_rose(index):
+    """cosmic rose: layered magenta petals around a gold heart."""
     img = blank_tile()
     d = ImageDraw.Draw(img)
-    d.line([(8, 15), (8, 8)], fill=with_a(GRASS_DEEP, 255))
-    d.point((7, 11), fill=with_a(GRASS_MID, 255))
-    d.point((9, 12), fill=with_a(GRASS_MID, 255))
-    cx, cy = 8, 6
-    for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1), (0, -2), (0, 2), (-2, 0), (2, 0)):
-        d.point((cx + dx, cy + dy), fill=with_a(lerp(petal_a, petal_b, 0.5), 255))
+    _stem(d, [(8, 15), (8, 12), (7, 9), (8, 6)], GRASS_DEEP, GRASS_MID)
+    d.point((6, 12), fill=with_a(GRASS_MID, 255))
+    d.point((7, 11), fill=with_a(GRASS_LIGHT, 255))
+    d.point((10, 10), fill=with_a(GRASS_MID, 255))
+    # outer petals ring
+    for x, y in ((5, 4), (6, 3), (8, 2), (10, 3), (11, 4),
+                 (4, 6), (5, 6), (11, 6), (12, 6), (5, 8), (11, 8)):
+        d.point((x, y), fill=with_a((232, 84, 240), 255))
+    # mid petals
+    for x, y in ((6, 5), (10, 5), (6, 7), (10, 7), (8, 3), (7, 8), (9, 8)):
+        d.point((x, y), fill=with_a((255, 150, 250), 255))
+    # gold heart
+    d.point((8, 5), fill=with_a((255, 230, 120), 255))
+    d.point((8, 6), fill=with_a((255, 190, 84), 255))
+    d.point((7, 6), fill=with_a((255, 150, 250), 255))
+    d.point((9, 6), fill=with_a((255, 150, 250), 255))
+    return img
+
+
+def t_dandelion(index):
+    """glowing puffball: white-teal orb shedding tiny seeds."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(8, 15), (8, 10)], GRASS_DEEP, GRASS_MID)
+    cx, cy = 8, 5
+    for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1)):
+        d.point((cx + dx, cy + dy), fill=with_a((64, 214, 255), 255))
     for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (0, 0)):
-        d.point((cx + dx, cy + dy), fill=with_a(petal_a if (dx or dy) else core, 255))
+        d.point((cx + dx, cy + dy), fill=with_a((206, 244, 255), 255))
+    # drifting seeds
+    for x, y in ((3, 2), (12, 3), (4, 8), (13, 8), (8, 1)):
+        d.point((x, y), fill=with_a((170, 244, 255), 255))
+    d.point((8, 8), fill=with_a((24, 150, 210), 255))
+    return img
+
+
+def t_bellflower(index):
+    """void bellflower: arched stem, hanging teal bell, gold clapper."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(7, 15), (7, 11), (8, 8), (10, 6), (11, 5)], GRASS_DEEP, GRASS_MID)
+    # bell hangs from (11,5)
+    d.point((10, 5), fill=with_a((24, 150, 210), 255))
+    d.point((10, 6), fill=with_a((24, 150, 210), 255))
+    for x, y in ((9, 6), (12, 6), (9, 7), (12, 7), (9, 8), (12, 8)):
+        d.point((x, y), fill=with_a((64, 214, 255), 255))
+    for x, y in ((10, 6), (11, 6), (10, 7), (11, 7), (10, 8), (11, 8)):
+        d.point((x, y), fill=with_a((10, 92, 148), 255))
+    for x, y in ((9, 9), (10, 9), (11, 9), (12, 9)):
+        d.point((x, y), fill=with_a((24, 150, 210), 255))
+    d.point((10, 10), fill=with_a((255, 190, 84), 255))
+    d.point((11, 10), fill=with_a((255, 190, 84), 255))
+    d.point((6, 12), fill=with_a(GRASS_MID, 255))
+    return img
+
+
+def t_starbloom(index):
+    """starbloom: a five-point gold star with violet sparks, dead centre."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(8, 15), (8, 9)], GRASS_DEEP, GRASS_MID)
+    cx, cy = 8, 5
+    star = [(cx, cy - 3), (cx + 1, cy - 1), (cx + 3, cy - 1), (cx + 1, cy),
+            (cx + 2, cy + 2), (cx, cy + 1), (cx - 2, cy + 2), (cx - 1, cy),
+            (cx - 3, cy - 1), (cx - 1, cy - 1)]
+    for x, y in star:
+        d.point((x, y), fill=with_a((255, 190, 84), 255))
+    d.point((cx, cy), fill=with_a((255, 240, 190), 255))
+    for x, y in ((4, 1), (12, 2), (5, 9), (12, 9)):
+        d.point((x, y), fill=with_a((148, 64, 255), 255))
+    return img
+
+
+def t_spiralfern(index):
+    """spiral fern: a fiddlehead frond curling into a violet-tipped spiral."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(8, 15), (8, 10), (9, 7), (10, 5), (10, 4)], GRASS_DEEP, GRASS_MID)
+    spiral = [(10, 3), (9, 3), (8, 3), (8, 4), (9, 4), (9, 5)]
+    for i, (x, y) in enumerate(spiral):
+        c = (56, 196, 172) if i < 3 else (130, 240, 220)
+        d.point((x, y), fill=with_a(c, 255))
+    # side fronds
+    for x, y in ((7, 12), (6, 11), (9, 11), (10, 10), (7, 9)):
+        d.point((x, y), fill=with_a((24, 140, 138), 255))
+    d.point((6, 13), fill=with_a(GRASS_MID, 255))
+    return img
+
+
+def t_tulip(index):
+    """twin tulip: two heads on a forked stem, magenta and amber."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(7, 15), (7, 10), (6, 7)], GRASS_DEEP)
+    _stem(d, [(8, 15), (8, 10), (10, 7)], GRASS_DEEP)
+    # left head (magenta)
+    for x, y in ((5, 5), (7, 5), (4, 6), (8, 6), (4, 7), (8, 7), (5, 8), (7, 8), (6, 8)):
+        d.point((x, y), fill=with_a((232, 84, 240), 255))
+    d.point((6, 6), fill=with_a((255, 150, 250), 255))
+    d.point((6, 5), fill=with_a((255, 150, 250), 255))
+    # right head (amber)
+    for x, y in ((9, 5), (11, 5), (9, 6), (12, 6), (9, 7), (12, 7), (10, 8), (11, 8)):
+        d.point((x, y), fill=with_a((255, 138, 40), 255))
+    d.point((10, 6), fill=with_a((255, 190, 84), 255))
+    d.point((11, 6), fill=with_a((255, 190, 84), 255))
+    d.point((5, 12), fill=with_a(GRASS_MID, 255))
+    d.point((10, 11), fill=with_a(GRASS_MID, 255))
+    return img
+
+
+def t_glowgrass(index):
+    """glow grass tuft: five blades with cold cyan tips."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(4, 15), (4, 11), (3, 8)], GRASS_DEEP, (56, 196, 172))
+    _stem(d, [(6, 15), (6, 10), (7, 6)], GRASS_DEEP, (118, 214, 164))
+    _stem(d, [(8, 15), (8, 9), (8, 4)], GRASS_DEEP, (64, 214, 255))
+    _stem(d, [(10, 15), (10, 10), (9, 6)], GRASS_DEEP, (118, 214, 164))
+    _stem(d, [(12, 15), (12, 11), (13, 8)], GRASS_DEEP, (56, 196, 172))
+    d.point((3, 7), fill=with_a((170, 244, 255), 255))
+    d.point((8, 3), fill=with_a((170, 244, 255), 255))
+    d.point((13, 7), fill=with_a((170, 244, 255), 255))
+    return img
+
+
+def t_lanternberry(index):
+    """lanternberry: arched stem bearing three glowing orange lanterns."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    _stem(d, [(8, 15), (8, 11), (9, 8), (10, 7)], GRASS_DEEP, GRASS_MID)
+    _stem(d, [(8, 12), (6, 10), (5, 9)], GRASS_DEEP, GRASS_MID)
+    _stem(d, [(9, 9), (11, 9)], GRASS_DEEP, GRASS_MID)
+    # three lanterns: gold core, orange ring, dim halo
+    for cx, cy in ((5, 8), (8, 6), (11, 8)):
+        d.point((cx, cy), fill=with_a((255, 240, 190), 255))
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            d.point((cx + dx, cy + dy), fill=with_a((255, 138, 40), 255))
+        for dx, dy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+            d.point((cx + dx, cy + dy), fill=with_a((196, 60, 40), 255))
+    d.point((8, 3), fill=with_a((255, 160, 60), 255))
+    return img
+
+
+def t_egg_shell(index):
+    """v54: alien egg shell - violet mottled hide with dark veins and a wet
+    highlight; used by the 3D cocoon mesh (opaque surface tile)."""
+    img = blank_tile()
+    px = img.load()
+    rnd = rng(index * 977 + 5)
+    TOP = (216, 156, 255)
+    MID = (176, 84, 255)
+    BOT = (110, 40, 190)
+    VEIN = (84, 26, 150)
+    for y in range(16):
+        t = y / 15.0
+        base = lerp(TOP, MID, min(1.0, t * 1.6)) if t < 0.55 else lerp(MID, BOT, (t - 0.55) / 0.45)
+        for x in range(16):
+            n = rnd.random()
+            c = base
+            if n > 0.86:
+                c = lerp(base, VEIN, 0.55)
+            elif n < 0.07:
+                c = lerp(base, (255, 230, 255), 0.45)
+            px[x, y] = (c[0], c[1], c[2], 255)
+    # dark branching veins
+    for vx, vy in ((3, 9), (11, 6), (7, 13)):
+        x, y = vx, vy
+        for _ in range(6):
+            px[x, y] = VEIN
+            x = max(0, min(15, x + rnd.choice((-1, 0, 1))))
+            y = max(0, min(15, y + rnd.choice((-1, 1))))
+    # wet highlight
+    for x, y in ((4, 3), (5, 3), (4, 4), (5, 4), (6, 4)):
+        px[x, y] = (240, 214, 255, 255)
     return img
 
 
@@ -533,8 +718,15 @@ def build_atlas():
         9: t_log_top(9),
         10: t_leaves(10),
         11: t_sand(11),
-        12: flower_tile(12, MAGENTA, (255, 150, 250), (255, 230, 120)),
-        13: flower_tile(13, CRYSTAL_MID, (150, 240, 255), (255, 255, 220)),
+        12: t_rose(12),
+        13: t_dandelion(13),
+        28: t_bellflower(28),
+        29: t_starbloom(29),
+        30: t_spiralfern(30),
+        31: t_tulip(31),
+        32: t_glowgrass(32),
+        33: t_lanternberry(33),
+        34: t_egg_shell(34),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

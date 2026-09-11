@@ -139,8 +139,36 @@ int main(int argc, char **argv) {
                         }
                     }
                 }
-        printf("v52 scan: barrels(26)=%d cocoons(25)=%d flowers(12/13)=%d island-blobs=%d\n",
-               barrels, cocoons, flowers, blobs);
+        /* v54: cocoons must never sit on flora; count species spread */
+        int cocoonOnFlower = 0;
+        int species[64] = { 0 };
+        for (int cz = 0; cz < 8; cz++)
+            for (int cx = 0; cx < 8; cx++)
+                for (int cy = 1; cy <= 8; cy++) {
+                    Chunk *c = ServerChunk_Create((Vector3){ (float)cx, (float)cy, (float)cz });
+                    Worldgen_Generate(c);
+                    for (int lz = 0; lz < CHUNK_SIZE_Z; lz++)
+                        for (int lx = 0; lx < CHUNK_SIZE_X; lx++)
+                            for (int ly = 0; ly < CHUNK_SIZE_Y; ly++) {
+                                int id = c->data[(ly * CHUNK_SIZE_Z + lz) * CHUNK_SIZE_X + lx];
+                                if (id == 25 && ly + 1 < CHUNK_SIZE_Y) {
+                                    int above = c->data[((ly + 1) * CHUNK_SIZE_Z + lz) * CHUNK_SIZE_X + lx];
+                                    if (above == 12 || above == 13 ||
+                                        (above >= 28 && above <= 33)) cocoonOnFlower++;
+                                }
+                                if ((id == 12 || id == 13) || (id >= 28 && id <= 33))
+                                    species[id]++;   /* v54: direct slots */
+                                    if (id >= 40 && id < 64) species[id]++;
+                            }
+                    ServerChunk_Destroy(c);
+                }
+        printf("v54 scan: cocoonOnFlower=%d species: rose=%d dandelion=%d bell=%d star=%d fern=%d tulip=%d grass=%d lantern=%d\n",
+               cocoonOnFlower, species[12], species[13],
+               species[28], species[29], species[30],
+               species[31], species[32], species[33]);
+        printf("v54 debug buckets 40..55:");
+        for (int db = 40; db < 56; db++) if (species[db]) printf(" %d:%d", db, species[db]);
+        printf("\n");
 
         if (!okStarter) { printf("STARTER ISLAND INCOMPLETE\n"); ok = false; }
     }

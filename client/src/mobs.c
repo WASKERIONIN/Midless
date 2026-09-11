@@ -515,6 +515,16 @@ bool Mobs_CocoonLaser(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPo
         int id = World_GetBlock(p);
         if (id != 0) {
             const Block *b = Block_GetDefinition(id);
+            /* v54: the beam sears island flora - cut it down */
+            if (b->modelType == BLOCK_MODEL_SPRITE && id != 15) {
+                Vector3 cell = { floorf(p.x), floorf(p.y), floorf(p.z) };
+                World_SetBlock(cell, 0, true);
+                Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.35f, cell.z + 0.5f });
+                Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.6f, cell.z + 0.5f });
+                SoundFx_PlayHunterHit();
+                if (hitPoint) *hitPoint = (Vector3){ cell.x + 0.5f, cell.y + 0.4f, cell.z + 0.5f };
+                return true;
+            }
             if (b->colliderType == BLOCK_COLLIDER_SOLID) return false;  /* wall stops the beam */
         }
         if (id == 25) {
@@ -616,6 +626,18 @@ bool Mobs_TryCollectMushroom(void) {
     return false;
 }
 
+/* v54: never two mushrooms on the same block */
+static bool Mushroom_CellTaken(int bx, int by, int bz) {
+    for (int i = 0; i < MUSH_MAX; i++) {
+        Mushroom *m = &mushrooms[i];
+        if (!m->active) continue;
+        if (fabsf(m->pos.x - (bx + 0.5f)) < 0.5f &&
+            fabsf(m->pos.z - (bz + 0.5f)) < 0.5f &&
+            fabsf(m->pos.y - (by + 1.0f)) < 0.5f) return true;
+    }
+    return false;
+}
+
 static void Mushroom_SpawnTry(Vector3 shellC) {
     for (int attempt = 0; attempt < 4; attempt++) {
         float ang = (float)GetRandomValue(0, 3599) * 0.001745f;
@@ -631,6 +653,7 @@ static void Mushroom_SpawnTry(Vector3 shellC) {
             if (id != 2 && id != 3) break;
             Vector3 above = { bx, y + 1, bz };
             if (World_GetBlock(above) != 0) break;
+            if (Mushroom_CellTaken(bx, y, bz)) break;   /* v54: cell busy */
             for (int i = 0; i < MUSH_MAX; i++) {
                 Mushroom *m = &mushrooms[i];
                 if (m->active) continue;
@@ -923,7 +946,10 @@ static void Mob_Band(Vector3 a, Vector3 b, Color c) {
 static void Mob_FloraCross(Vector3 base, float scale, int tile, unsigned char bright) {
     float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
     float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
-    float w = 0.26f * scale, h = 0.58f * scale;
+    /* v54: square quads - the 16x16 art must not stretch; both diagonals
+     * pass exactly through the base centre so the two planes line up */
+    float w = 0.55f * scale;
+    float h = w;   /* square: 16x16 art stays undistorted */
     float x = base.x, y = base.y, z = base.z;
     rlColor4ub(bright, bright, bright, 255);
     for (int pass = 0; pass < 2; pass++) {

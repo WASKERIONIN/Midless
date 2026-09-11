@@ -10,11 +10,14 @@
 static BlockMeshTemplate templates[256];
 static int verticesIndex[2], textureIndex[2], colorsIndex[2], indicesIndex[2];
 
+/* v54: cross quads inset to 2..14 - the plant planes pass through the cell
+ * centre hugging the stem (art is centred), no corner splay, and both
+ * windings per plane keep it double-sided. Order per quad: bl,tr,tl,br. */
 static const unsigned char spriteVertices[4][12] = {
-    {0,0,0, 16,16,16, 0,16,0, 16,0,16},
-    {16,0,16, 0,16,0, 16,16,16, 0,0,0},
-    {0,0,16, 16,16,0, 0,16,16, 16,0,0},
-    {16,0,0, 0,16,16, 16,16,0, 0,0,16}
+    {2,0,2, 14,16,14, 2,16,2, 14,0,14},
+    {14,0,14, 2,16,2, 14,16,14, 2,0,2},
+    {2,0,14, 14,16,2, 2,16,14, 14,0,2},
+    {14,0,2, 2,16,14, 14,16,2, 2,0,14}
 };
 
 static void BuildSolidVertices(const Block *block, BlockMeshTemplate *out) {
@@ -55,7 +58,15 @@ void BlockMesh_BuildTemplate(int id) {
                 maxY -= 16 - (int)block->maxBB.z; minY += (int)block->minBB.z;
             }
         }
-        unsigned short uv[8] = {minX,maxY, maxX,minY, minX,minY, maxX,maxY};
+        /* v54: half-texel inset in 2x fixed point (shader divides by 512).
+         * Without it the point sampler on the quad edge grabs the adjacent
+         * atlas tile - the long-standing "transparent holes" in blocks. */
+        unsigned short uv[8] = {
+            (unsigned short)(minX * 2 + 1), (unsigned short)(maxY * 2 - 1),
+            (unsigned short)(maxX * 2 - 1), (unsigned short)(minY * 2 + 1),
+            (unsigned short)(minX * 2 + 1), (unsigned short)(minY * 2 + 1),
+            (unsigned short)(maxX * 2 - 1), (unsigned short)(maxY * 2 - 1)
+        };
         memcpy(out->texcoords[face], uv, sizeof(uv));
     }
 }

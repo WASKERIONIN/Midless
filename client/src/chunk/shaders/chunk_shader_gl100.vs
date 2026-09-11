@@ -18,7 +18,7 @@
 "varying mediump float fogDistance;"
 "varying vec4 sunFragColor;"
 "void main() {"
-"    fragTexCoord = vertexTexCoord / 256.0;"
+"    fragTexCoord = vertexTexCoord / 512.0;   /* v54: 2x fixed-point, half-texel inset */"
 "    float fC = (float(int(vertexColor) / 16)) / 15.0;"
 "    float sC = (vertexColor - float(int(vertexColor / 16.0) * 16)) / 15.0;"
 "    fragColor = vec4(fC, fC, fC, 1.0);"

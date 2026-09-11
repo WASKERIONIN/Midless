@@ -1,4 +1,4 @@
--- Midless: Cosmic Edition worldgen (v10)
+-- Midless: Cosmic Edition worldgen (v11)
 -- Floating islands adrift in a starlit void, cone-tapered like hanging
 -- gardens. Water exists only inside glass basins. The starter island carries
 -- a launch pad, four warp-core obelisks and a glowing crystal basin.
@@ -53,12 +53,57 @@ midless.define_block(25, {
     textures = { all = 21 },
     model = block.model.GAS,
     collider = block.collider.NONE,
+    light = block.light.EMIT,
 })
 
 -- 26 volatile barrel: black-orange hazard, explodes on contact
 midless.define_block(26, {
     name = "Volatile Barrel",
     textures = { all = 26 },
+})
+
+-- v54: island flora species - each has its own silhouette art
+midless.define_block(28, {
+    name = "Void Bellflower",
+    textures = { all = 28 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(29, {
+    name = "Starbloom",
+    textures = { all = 29 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(30, {
+    name = "Spiral Fern",
+    textures = { all = 30 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(31, {
+    name = "Twin Tulip",
+    textures = { all = 31 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(32, {
+    name = "Glow Grass",
+    textures = { all = 32 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(33, {
+    name = "Lanternberry",
+    textures = { all = 33 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
 })
 
 ------------------------------------------------------------- utilities ----
@@ -164,7 +209,22 @@ local which_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
     octaves = 2, seed_offset = 555,
 })
-local flower_id = f.select(f.lt(0.2, which_n), 12, 13)
+-- v54: eight species in noise bands - whole patches share one species
+-- v54: eight species in noise bands - whole patches share one species.
+-- NOTE: fold must run from the LOWEST threshold up: the last select that
+-- fires wins, so higher thresholds (checked later) claim higher which_n.
+local flower_id = 33                                   -- lanternberry default
+for _, band in ipairs({
+    { -0.58, 12 }, -- rose
+    { -0.36, 13 }, -- dandelion
+    { -0.14, 28 }, -- bellflower
+    { 0.08, 29 },  -- starbloom
+    { 0.30, 30 },  -- spiral fern
+    { 0.52, 31 },  -- twin tulip
+    { 0.74, 32 },  -- glow grass
+}) do
+    flower_id = f.select(f.lt(band[1], which_n), band[2], flower_id)
+end
 
 -- stratified bodies: crystal turf over dirt over void rock over stone
 local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))
@@ -204,7 +264,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 10,
+    id = "midless:cosmic", version = 11,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),
@@ -349,7 +409,7 @@ wg.define_structure("midless:ruined_shrine", {
 -- Alien cocoons: eggs incubating on quiet islands. Approach and they open.
 wg.define_structure("midless:void_cocoon", {
     spacing = 8, chance = 0.5, min_y = 20, max_y = 150,
-    max_slope = 3, rotate = false, air_only = true,
+    max_slope = 3, rotate = false, air_only = false,   -- v54: replaces flora
     blocks = {
         { x = 0, y = 0, z = 0, block = 25 },
     },

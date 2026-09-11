@@ -16,7 +16,7 @@
 "out float fogDistance;"
 "out vec4 sunFragColor;"
 "void main() {"
-"    fragTexCoord = vertexTexCoord / 256.0;"
+"    fragTexCoord = vertexTexCoord / 512.0;   /* v54: 2x fixed-point, half-texel inset */"
 "    fragColor = vec4((int(vertexColor) >> 4) / 15.0, (int(vertexColor) >> 4) / 15.0, (int(vertexColor) >> 4) / 15.0, 1.0);"
 "    sunFragColor = vec4((int(vertexColor) & 15) / 15.0, (int(vertexColor) & 15) / 15.0, (int(vertexColor) & 15) / 15.0, 1.0);" 
 "    vec3 pos = vec3(vertexPosition.x / 15.0, vertexPosition.y / 15.0, vertexPosition.z / 15.0);"

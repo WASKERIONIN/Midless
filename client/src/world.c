@@ -599,38 +599,45 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
         DrawLine3D(a, b, c); DrawLine3D(b, d, c);
         DrawLine3D(d, e, c); DrawLine3D(e, a, c);
     } else {
-        /* v51: void cocoon - a breathing alien egg (kind 2) */
-        float breathe = 1.0f + 0.05f * sinf((float)t * 2.1f + phase * 2.0f);
-        float rx = 0.26f * breathe, ry = 0.44f * breathe;
-        Color c = { (unsigned char)(150.0f + 45.0f * sinf((float)t * 3.1f + phase * 2.0f)),
-                    80,
-                    (unsigned char)(205.0f + 40.0f * sinf((float)t * 2.2f + phase * 3.0f)), 255 };
-        /* three vertical ellipse loops rotated 0/60/120 degrees */
-        for (int k = 0; k < 3; k++) {
-            float a0 = (float)k * 1.0472f;
-            float ca = cosf(a0) * rx, sa = sinf(a0) * rx;
-            Vector3 prev = { center.x + ca, center.y - ry, center.z + sa };
-            for (int s = 1; s <= 10; s++) {
-                float th = -1.5708f + 3.1416f * (float)s / 10.0f;
-                Vector3 pt = { center.x + ca * cosf(th),
-                               center.y + ry * sinf(th) * 1.05f,
-                               center.z + sa * cosf(th) };
-                DrawLine3D(prev, pt, c);
-                prev = pt;
+        /* v54: void cocoon - a breathing alien egg rendered as a textured
+ * lat-long shell (atlas tile 34) instead of the old wireframe */
+        float breathe2 = 1.0f + 0.05f * sinf((float)t * 2.1f + phase * 2.0f);
+        float rx = 0.26f * breathe2, ry = 0.44f * breathe2;
+        Texture2D atlas = World_GetTerrainTexture();
+        if (atlas.id != 0) {
+            float u0 = (34 % 16) / 16.0f, v0 = (34 / 16) / 16.0f;
+            float du = 1.0f / 16.0f, dv = 1.0f / 16.0f;
+            unsigned char pr = (unsigned char)(205.0f + 40.0f * sinf((float)t * 3.0f + phase * 2.0f));
+            rlSetTexture(atlas.id);
+            rlBegin(RL_QUADS);
+            const int SEG = 4, BAND = 3;
+            for (int k = 0; k < SEG; k++) {
+                float phi0 = 6.2832f * k / SEG, phi1 = 6.2832f * (k + 1) / SEG;
+                for (int b = 0; b < BAND; b++) {
+                    float th0 = 3.1416f * b / BAND, th1 = 3.1416f * (b + 1) / BAND;
+                    Vector3 c00 = { center.x + sinf(th0) * cosf(phi0) * rx,
+                                    center.y + cosf(th0) * ry * 1.05f,
+                                    center.z + sinf(th0) * sinf(phi0) * rx };
+                    Vector3 c10 = { center.x + sinf(th0) * cosf(phi1) * rx,
+                                    center.y + cosf(th0) * ry * 1.05f,
+                                    center.z + sinf(th0) * sinf(phi1) * rx };
+                    Vector3 c01 = { center.x + sinf(th1) * cosf(phi0) * rx,
+                                    center.y + cosf(th1) * ry * 1.05f,
+                                    center.z + sinf(th1) * sinf(phi0) * rx };
+                    Vector3 c11 = { center.x + sinf(th1) * cosf(phi1) * rx,
+                                    center.y + cosf(th1) * ry * 1.05f,
+                                    center.z + sinf(th1) * sinf(phi1) * rx };
+                    float ua = u0 + du * k / SEG,      ub = u0 + du * (k + 1) / SEG;
+                    float va = v0 + dv * b / BAND,     vb = v0 + dv * (b + 1) / BAND;
+                    rlColor4ub(pr, 90, 235, 255);
+                    rlTexCoord2f(ua, va); rlVertex3f(c00.x, c00.y, c00.z);
+                    rlTexCoord2f(ub, va); rlVertex3f(c10.x, c10.y, c10.z);
+                    rlTexCoord2f(ub, vb); rlVertex3f(c11.x, c11.y, c11.z);
+                    rlTexCoord2f(ua, vb); rlVertex3f(c01.x, c01.y, c01.z);
+                }
             }
-        }
-        /* two horizontal rings: lower bulge and shoulder */
-        for (int r = 0; r < 2; r++) {
-            float yk = (r == 0) ? -0.32f : 0.18f;
-            float rr = rx * sqrtf(1.0f - yk * yk) * 1.1f;
-            float yy = center.y + ry * yk * 1.05f;
-            Vector3 prev = { center.x + rr, yy, center.z };
-            for (int s = 1; s <= 10; s++) {
-                float th = 6.2832f * (float)s / 10.0f;
-                Vector3 pt = { center.x + cosf(th) * rr, yy, center.z + sinf(th) * rr };
-                DrawLine3D(prev, pt, c);
-                prev = pt;
-            }
+            rlEnd();
+            rlSetTexture(0);
         }
     }
 }

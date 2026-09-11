@@ -107,6 +107,50 @@ void Block_BuildDefinition(void) {
     blockDefinitions[13].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[13].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[13].maxBB = (Vector3) {12, 10, 12};
+
+    /* v54: island flora - the mod defines these too (server sync), these
+     * defaults keep single-player menus working before the sync lands */
+    Block_Define(28, "bellflower", 28, 28, 28);
+    blockDefinitions[28].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[28].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[28].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[28].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[28].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(29, "starbloom", 29, 29, 29);
+    blockDefinitions[29].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[29].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[29].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[29].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[29].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(30, "spiralfern", 30, 30, 30);
+    blockDefinitions[30].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[30].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[30].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[30].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[30].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(31, "twin_tulip", 31, 31, 31);
+    blockDefinitions[31].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[31].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[31].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[31].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[31].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(32, "glow_grass", 32, 32, 32);
+    blockDefinitions[32].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[32].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[32].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[32].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[32].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(33, "lanternberry", 33, 33, 33);
+    blockDefinitions[33].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[33].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[33].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[33].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[33].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

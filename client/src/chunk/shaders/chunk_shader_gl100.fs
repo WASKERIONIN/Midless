@@ -18,7 +18,7 @@
 "uniform float fogEnd;"
 "void main() {"
 "   vec4 texelColor = texture2D(texture0, fragTexCoord);"
-"   if(texelColor.a == 0.0) discard;"
+"   if(texelColor.a < 0.5) discard;   /* v54: bilinear-safe cutout */"
 "   vec4 litColor = texelColor * clamp(sunFragColor * sunlightStrength + fragColor, vec4(0.1, 0.1, 0.1, 1), vec4(1,1,1,1));"
 "   float fogAmount = smoothstep(fogStart, fogEnd, fogDistance);"
 "   gl_FragColor = vec4(mix(litColor.rgb, fogColor, fogAmount), litColor.a);"
