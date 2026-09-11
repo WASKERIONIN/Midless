@@ -17,6 +17,7 @@ static Sound hunterHitSnd;
 static Sound hunterDieSnd;
 static Sound hurtSnd;
 static Sound webShootSnd;
+static Sound boomSnd;
 static Sound webAttachSnd;
 static bool ready;
 static float volume = 0.7f;
@@ -149,6 +150,21 @@ static void FillHurt(short *data, int frames) {
     }
 }
 
+/* v51 explosion: deep boom with debris rumble */
+static void FillExplosion(short *data, int frames) {
+    float phase = 0.0f, phase2 = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 5.5f);
+        float f = 150.0f * expf(-t * 7.0f) + 38.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        phase2 += 2.0f * PI * (f * 1.47f) / 22050.0f;
+        float v = sinf(phase) * 0.8f + sinf(phase2) * 0.25f
+                + NextNoise() * 0.5f * expf(-t * 10.0f);
+        data[i] = (short)(v * env * 12500.0f);
+    }
+}
+
 /* v46 web shoot: airy zip up */
 static void FillWebShoot(short *data, int frames) {
     float phase = 0.0f;
@@ -242,6 +258,7 @@ void SoundFx_Init(void) {
     hunterDieSnd = MakeSound(5100, FillHunterDie);
     hurtSnd = MakeSound(1700, FillHurt);
     webShootSnd = MakeSound(1800, FillWebShoot);
+    boomSnd = MakeSound(22050 * 2, FillExplosion);
     webAttachSnd = MakeSound(900, FillWebAttach);
     ready = true;
     if (ready && IsAudioDeviceReady()) {
@@ -265,6 +282,7 @@ void SoundFx_Shutdown(void) {
     UnloadSound(hurtSnd);
     UnloadSound(webShootSnd);
     UnloadSound(webAttachSnd);
+    UnloadSound(boomSnd);
     CloseAudioDevice();
     ready = false;
 }
@@ -303,6 +321,7 @@ void SoundFx_PlayHunterDie(void) { if (ready) PlaySound(hunterDieSnd); }
 void SoundFx_PlayPlayerHurt(void) { if (ready) PlaySound(hurtSnd); }
 void SoundFx_PlayWebShoot(void) { if (ready) PlaySound(webShootSnd); }
 void SoundFx_PlayWebAttach(void) { if (ready) PlaySound(webAttachSnd); }
+void SoundFx_PlayExplosion(void) { if (ready) PlaySound(boomSnd); }
 
 void SoundFx_SetVolume(float volume01) {
     volume = Clamp(volume01, 0.0f, 1.0f);

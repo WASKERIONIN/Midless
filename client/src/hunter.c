@@ -12,6 +12,7 @@
 #include "hunter.h"
 #include "player.h"
 #include "world.h"
+#include "chunk.h"
 #include "block.h"
 #include "soundfx.h"
 #include "particle.h"
@@ -148,6 +149,11 @@ static void Hunter_SpawnAttempt(void) {
         float dy = -5.0f + (float)GetRandomValue(0, 1200) / 100.0f;
         Vector3 p = { center.x + cosf(ang) * dist, center.y + dy, center.z + sinf(ang) * dist };
         if (!IsOpenSpace(p)) continue;
+        /* v51: never materialize in the player's face */
+        Vector3 toSpot = Vector3Subtract(p, center);
+        float sd = Vector3Length(toSpot);
+        if (sd < 14.0f && Vector3DotProduct(Vector3Scale(toSpot, 1.0f / (sd > 0.01f ? sd : 1.0f)),
+                                            Player_GetForwardVector()) > 0.5f) continue;
         for (int i = 0; i < HUNTER_MAX; i++) {
             Hunter *h = &hunters[i];
             if (h->active) continue;
@@ -249,6 +255,44 @@ static bool Hunter_MoveWithCollision(Hunter *h, Vector3 delta) {
     if (!Hunter_BodyBlocked(y)) { h->pos = y; moved = true; } else h->vel.y = -h->vel.y * 0.5f;
     if (!Hunter_BodyBlocked(z)) { h->pos = z; moved = true; } else h->vel.z = -h->vel.z * 0.5f;
     return moved;
+}
+
+/* v51: barrels cook off when an enemy overlaps them or passes overhead */
+static void Hunter_BarrelCheck(Hunter *h) {
+    int hx = (int)floorf(h->pos.x), hz = (int)floorf(h->pos.z);
+    int hy = (int)floorf(h->pos.y);
+    for (int dy = 1; dy <= 2; dy++) {
+        Vector3 cell = { hx, hy - dy, hz };
+        if (World_GetBlock(cell) == 26) { World_ExplodeAt(cell); return; }
+    }
+    /* overlap: the body occupies the barrel's cell */
+    if (World_GetBlock((Vector3){ hx, hy, hz }) == 26) {
+        World_ExplodeAt((Vector3){ hx, hy, hz });
+    }
+}
+
+/* v51: blast damage - knock hunters away, kill the ones too close */
+void Hunter_ExplosionDamage(Vector3 center, float radius, int damage) {
+    for (int i = 0; i < HUNTER_MAX; i++) {
+        Hunter *h = &hunters[i];
+        if (!h->active) continue;
+        Vector3 d = Vector3Subtract(h->pos, center);
+        float dist = Vector3Length(d);
+        if (dist > radius) continue;
+        h->hp -= (float)damage;
+        h->hitFlash = 0.25f;
+        h->aggroTimer = 2.5f;
+        Vector3 away = (dist > 0.01f) ? Vector3Scale(d, 1.0f / dist) : (Vector3){ 0, 1, 0 };
+        h->vel = Vector3Add(h->vel, Vector3Scale(away, 3.5f));
+        h->vel.y += 1.5f;
+        Particle_SpawnImpact(h->pos);
+        if (h->hp <= 0.0f) {
+            Burst_Spawn(h->pos);
+            Shard_Spawn(h->pos, Hunter_GetSurgeLevel() > 0.5f ? 2 : 1);
+            h->active = false;
+            bounty++;
+        }
+    }
 }
 
 void Hunter_Update(float deltaTime) {
@@ -386,6 +430,9 @@ void Hunter_Update(float deltaTime) {
         h->vel = Vector3Lerp(h->vel, desired, 1.0f - powf(0.12f, deltaTime));
         Hunter_MoveWithCollision(h, Vector3Scale(h->vel, deltaTime));
 
+        Hunter_BarrelCheck(h);
+        if (!h->active) continue;   /* walked onto a barrel */
+
         /* sting - only a hunter that actually noticed you */
         if (!player.flying && aggro && dist < STING_RANGE && now >= h->retreatUntil) {
             Vector3 push = Vector3Scale(Vector3Scale(toPlayer, -1.0f / (dist > 0.01f ? dist : 1.0f)), 1.0f);
@@ -460,8 +507,8 @@ bool Hunter_TryHit(Vector3 origin, Vector3 dir, float maxDist) {
     h->hitFlash = 0.15f;
     h->vel = Vector3Add(Vector3Scale(rd, 3.2f), (Vector3){ 0, 0.8f, 0 });
     h->retreatUntil = (float)GetTime() + 0.35f;
-    /* v49: impact reads like breaking a block - textured cube debris */
-    Particle_SpawnBlockBreak(h->pos, 20);
+    /* v51: impact = small bright sparks */
+    Particle_SpawnImpact(h->pos);
     Spark_Spawn(h->pos, (Color){ 255, 255, 255 }, 7);
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);
@@ -502,8 +549,8 @@ bool Hunter_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoi
     h->retreatUntil = (float)GetTime() + 0.25f;
     h->aggroTimer = 2.5f;   /* being shot gets its attention */
     if (hitPoint) *hitPoint = Vector3Add(origin, Vector3Scale(rd, bestT));
-    /* v49: cube debris burst, same language as breaking blocks */
-    Particle_SpawnBlockBreak(h->pos, 20);
+    /* v51: small bright sparks */
+    Particle_SpawnImpact(h->pos);
     Spark_Spawn(h->pos, (Color){ 255, 240, 200 }, 9);
     if (h->hp <= 0.0f) {
         Burst_Spawn(h->pos);
@@ -541,9 +588,28 @@ static Vector3 Hn_RotateXZ(Vector3 v, float ang) {
 }
 
 static void Hn_Edge(Vector3 a, Vector3 b, unsigned char bright) {
+    /* v51: enemies must read on bright terrain - each edge is drawn as a
+     * 3-line band (center + two perpendicular offsets). */
     rlColor4ub(bright, bright, bright, 255);
-    rlVertex3f(a.x, a.y, a.z);
-    rlVertex3f(b.x, b.y, b.z);
+    Vector3 mid = Vector3Scale(Vector3Add(a, b), 0.5f);
+    Vector3 dir = Vector3Subtract(b, a);
+    float len = Vector3Length(dir);
+    Vector3 side = { 0, 1, 0 };
+    if (len > 0.001f) {
+        dir = Vector3Scale(dir, 1.0f / len);
+        Vector3 view = Vector3Subtract(player.camera.position, mid);
+        if (Vector3Length(view) > 0.001f) {
+            side = Vector3CrossProduct(dir, Vector3Normalize(view));
+            if (Vector3Length(side) > 0.001f) side = Vector3Normalize(side);
+            else side = (Vector3){ 0, 1, 0 };
+        }
+    }
+    float w = 0.022f;
+    Vector3 o1 = Vector3Scale(side, w);
+    rlVertex3f(a.x, a.y, a.z);            rlVertex3f(b.x, b.y, b.z);
+    rlColor4ub((unsigned char)(bright * 3 / 4), (unsigned char)(bright * 3 / 4), (unsigned char)(bright * 3 / 4), 255);
+    rlVertex3f(a.x + o1.x, a.y + o1.y, a.z + o1.z);  rlVertex3f(b.x + o1.x, b.y + o1.y, b.z + o1.z);
+    rlVertex3f(a.x - o1.x, a.y - o1.y, a.z - o1.z);  rlVertex3f(b.x - o1.x, b.y - o1.y, b.z - o1.z);
 }
 
 static const int SHARD_OCTA[12][2] = {

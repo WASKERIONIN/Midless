@@ -90,6 +90,30 @@ void Particle_SpawnBlockBreak(Vector3 blockPosition, int blockId) {
     }
 }
 
+/* v51: small bright hit sparks - tiny, light, from the white tile */
+void Particle_SpawnImpact(Vector3 position) {
+    for (int i = 0; i < 14; i++) {
+        BlockParticle *particle = &particles[nextParticle];
+        nextParticle = (nextParticle + 1) % MAX_BLOCK_PARTICLES;
+        int textureId = 24;  /* pure white tile: reads as a spark */
+        particle->position = (Vector3){
+            position.x + Particle_RandomFloat(-0.25f, 0.25f),
+            position.y + Particle_RandomFloat(-0.25f, 0.25f),
+            position.z + Particle_RandomFloat(-0.25f, 0.25f)
+        };
+        particle->velocity = (Vector3){
+            Particle_RandomFloat(-1.6f, 1.6f), Particle_RandomFloat(1.2f, 3.2f), Particle_RandomFloat(-1.6f, 1.6f)
+        };
+        particle->textureRegion = (Rectangle){
+            (float)((textureId % 16) * 16 + GetRandomValue(0, 3) * 4),
+            (float)((textureId / 16) * 16 + GetRandomValue(0, 3) * 4), 4.0f, 4.0f
+        };
+        particle->size = Particle_RandomFloat(0.06f, 0.11f);
+        particle->lifetime = Particle_RandomFloat(0.35f, 0.7f);
+        particle->active = true;
+    }
+}
+
 void Particle_Update(float deltaTime) {
     for (int i = 0; i < MAX_BLOCK_PARTICLES; i++) {
         BlockParticle *particle = &particles[i];

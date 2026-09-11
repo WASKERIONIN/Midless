@@ -89,6 +89,23 @@ int main(int argc, char **argv) {
         printf("belt scan: %d solid blocks across %d chunks (%d y-layers each)\n",
                totalSolid, totalChunks, 6);
 
+        /* v51: volatile barrels + void cocoons must exist in the world */
+        int barrels = 0, cocoons = 0;
+        for (int cz = 0; cz < 8; cz++) {
+            for (int cx = 0; cx < 8; cx++) {
+                for (int cy = 1; cy <= 8; cy++) {
+                    Chunk *c = ServerChunk_Create((Vector3){ (float)cx, (float)cy, (float)cz });
+                    Worldgen_Generate(c);
+                    for (int i = 0; i < CHUNK_SIZE; i++) {
+                        if (c->data[i] == 26) barrels++;
+                        else if (c->data[i] == 25) cocoons++;
+                    }
+                    ServerChunk_Destroy(c);
+                }
+            }
+        }
+        printf("v51 scan: barrels(26)=%d cocoons(25)=%d\n", barrels, cocoons);
+
         if (!okStarter) { printf("STARTER ISLAND INCOMPLETE\n"); ok = false; }
     }
 

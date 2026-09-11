@@ -1,4 +1,4 @@
--- Midless: Cosmic Edition worldgen (v7)
+-- Midless: Cosmic Edition worldgen (v9)
 -- Floating islands adrift in a starlit void, cone-tapered like hanging
 -- gardens. Water exists only inside glass basins. The starter island carries
 -- a launch pad, four warp-core obelisks and a glowing crystal basin.
@@ -45,6 +45,20 @@ midless.define_block(23, {
 midless.define_block(24, {
     name = "Gold Plate",
     textures = { all = 5 },
+})
+
+-- 25 cocoon: alien egg (invisible cube; the client draws a proper egg over it)
+midless.define_block(25, {
+    name = "Void Cocoon",
+    textures = { all = 21 },
+    model = block.model.GAS,
+    collider = block.collider.NONE,
+})
+
+-- 26 volatile barrel: black-orange hazard, explodes on contact
+midless.define_block(26, {
+    name = "Volatile Barrel",
+    textures = { all = 26 },
 })
 
 ------------------------------------------------------------- utilities ----
@@ -159,7 +173,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 7,
+    id = "midless:cosmic", version = 9,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = inside, skylight = inside,
@@ -185,6 +199,13 @@ wg.define_ore("void_shard", {
 wg.define_ore("gloom_amber", {
     block = 7, replaces = { 19, 1 },
     min_y = 20, max_y = 130, size = 4, spacing = 22, chance = 0.3,
+    distribution = "clusters",
+})
+
+-- volatile barrels: rare near the surface where careless feet find them
+wg.define_ore("volatile_barrels", {
+    block = 26, replaces = { 3, 2, 19, 1 },
+    min_y = 60, max_y = 130, size = 2, spacing = 18, chance = 0.22,
     distribution = "clusters",
 })
 
@@ -291,6 +312,15 @@ wg.define_structure("midless:ruined_shrine", {
     max_slope = 2, rotate = true, air_only = false,
     foundation = 19, foundation_depth = 3,
     blocks = shrine,
+})
+
+-- Alien cocoons: eggs incubating on quiet islands. Approach and they open.
+wg.define_structure("midless:void_cocoon", {
+    spacing = 8, chance = 0.5, min_y = 20, max_y = 150,
+    max_slope = 3, rotate = false, air_only = true,
+    blocks = {
+        { x = 0, y = 0, z = 0, block = 25 },
+    },
 })
 
 -- Memory float: little levitating clusters of chrome and crystal drifting

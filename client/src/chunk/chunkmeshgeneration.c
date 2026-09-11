@@ -202,6 +202,7 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
     chunk->onlyAir = true;
     chunk->specialCount[0] = 0;
     chunk->specialCount[1] = 0;
+    chunk->specialCount[2] = 0;
 
     for (int y = 0; y < CHUNK_SIZE_Y; y++) {
         for (int z = 0; z < CHUNK_SIZE_Z; z++) {
@@ -209,11 +210,11 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
             for (int x = 0; x < CHUNK_SIZE_X; x++, index++) {
                 unsigned int blockId = chunk->data[index];
                 const Block *block = &blockDefinitions[blockId];
-                if (block->modelType == BLOCK_MODEL_GAS) continue;
-                chunk->onlyAir = false;
-                /* v44: track special blocks for the wireframe aura pass */
-                if (blockId == 22 || blockId == 21) {
-                    int slot = (blockId == 22) ? 0 : 1;
+                /* v44: track special blocks for the wireframe aura pass.
+                 * v51: must run BEFORE the gas skip - the void cocoon is an
+                 * invisible gas block that still needs its egg aura. */
+                if (blockId == 22 || blockId == 21 || blockId == 25) {
+                    int slot = (blockId == 22) ? 0 : (blockId == 21) ? 1 : 2;
                     if (chunk->specialCount[slot] < 24) {
                         chunk->specialPos[slot][chunk->specialCount[slot]++] =
                             (Vector3){ chunk->blockPosition.x + x + 0.5f,
@@ -221,6 +222,8 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
                                        chunk->blockPosition.z + z + 0.5f };
                     }
                 }
+                if (block->modelType == BLOCK_MODEL_GAS) continue;
+                chunk->onlyAir = false;
                 if (block->renderType == BLOCK_RENDER_TRANSLUCENT) chunk->hasTransparency = true;
                 int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;
                 for (int face = 0; face < faceCount; face++) AddFace(chunk, index, x, y, z, (BlockFace)face, block);

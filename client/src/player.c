@@ -49,6 +49,13 @@ static float respawnFade = 0.0f;
 /* v49: laser upgrade tracks - shards buy range and rate at warp cores */
 static int laserRangeLvl = 0;   /* 0..3 */
 static int laserRateLvl = 0;    /* 0..3 */
+/* v51: burst-fire upgrade - hold the trigger, the rifle fires volleys;
+ * at max level it keeps firing while held until the coil overheats */
+static int burstLvl = 0;        /* 0..3 */
+static float laserHeat = 0.0f;      /* 0..1, only builds at burst lvl 3 */
+static bool laserOverheated = false;
+static int burstQueue = 0;          /* shots left in the current volley */
+static double burstNextShot = 0.0;
 #define LASER_UPGRADE_COST 5
 
 static double laserReadyTime = 0.0;
@@ -70,8 +77,8 @@ void Player_SaveProgress(void) {
     const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
     FILE *f = fopen(path, "w");
     if (!f) return;
-    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\n",
-            voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl);
+    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\n",
+            voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl, burstLvl);
     fclose(f);
 }
 
@@ -86,6 +93,7 @@ void Player_LoadProgress(void) {
         else if (sscanf(line, "bounty=%d", &b) == 1) { (void)b; }
         else if (sscanf(line, "laserRange=%d", &s) == 1) laserRangeLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "laserRate=%d", &s) == 1) laserRateLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "burst=%d", &s) == 1) burstLvl = (s >= 0 && s <= 3) ? s : 0;
     }
     fclose(f);
     if (voidShards < 0) voidShards = 0;
@@ -93,6 +101,7 @@ void Player_LoadProgress(void) {
 
 int Player_GetLaserRangeLvl(void) { return laserRangeLvl; }
 int Player_GetLaserRateLvl(void) { return laserRateLvl; }
+int Player_GetBurstLvl(void) { return burstLvl; }
 int Player_GetLaserRange(void) { return 18 + 6 * laserRangeLvl; }
 float Player_GetLaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
 
@@ -115,17 +124,65 @@ bool Player_BuyLaserUpgrade(int kind) {
     } else if (kind == 1 && laserRateLvl < 3) {
         laserRateLvl++;
         Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
+    } else if (kind == 2 && burstLvl < 3) {
+        burstLvl++;
+        if (burstLvl == 1)
+            Chat_AddLine("Volley forge: hold the trigger for 3-shot bursts.");
+        else if (burstLvl == 2)
+            Chat_AddLine("Volley forge: bursts of five now.");
+        else
+            Chat_AddLine("The coil sings: hold fire for endless shots - until it overheats.");
     } else if (laserRangeLvl < 3) {
         laserRangeLvl++;
         Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
                                 Player_GetLaserRange(), voidShards));
-    } else {
+    } else if (laserRateLvl < 3) {
         laserRateLvl++;
         Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
+    } else {
+        burstLvl++;
+        Chat_AddLine(TextFormat("Volley forge lvl %d. Shards left: %d.", burstLvl, voidShards));
     }
     SoundFx_PlayWebAttach();
     Player_SaveProgress();
     return true;
+}
+
+/* v51: one laser shot, shared by click fire, volleys and continuous hold */
+static void Player_FireLaserShot(Vector3 eyePosition, Vector3 forward, float cx90, float sx90) {
+    Vector3 hitPoint;
+    int range = Player_GetLaserRange();
+    laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
+    Vector3 mobHitPoint;
+    if (Hunter_LaserHit(eyePosition, forward, (float)range, &hitPoint)) {
+        laserTo = hitPoint;
+    } else if (Mobs_LaserHit(eyePosition, forward, (float)range, &mobHitPoint)) {
+        laserTo = mobHitPoint;
+    } else if (Mobs_CocoonLaser(eyePosition, forward, (float)range, &mobHitPoint)) {
+        laserTo = mobHitPoint;   /* pops cocoons and volatile barrels in flight */
+    } else {
+        laserTo = Vector3Add(eyePosition, Vector3Scale(forward, (float)range));
+    }
+    laserBeamUntil = GetTime() + 0.09;
+    SoundFx_PlayWebShoot();
+}
+
+/* v51: death has teeth - one random upgrade level burns out */
+static const char *Player_LoseRandomUpgrade(void) {
+    int pool[3];
+    int n = 0;
+    if (laserRangeLvl > 0) pool[n++] = 0;
+    if (laserRateLvl > 0) pool[n++] = 1;
+    if (burstLvl > 0) pool[n++] = 2;
+    if (n == 0) return NULL;
+    int pick = pool[GetRandomValue(0, n - 1)];
+    if (pick == 0) { laserRangeLvl--; return "lens"; }
+    if (pick == 1) { laserRateLvl--; return "coil"; }
+    burstLvl--;
+    laserOverheated = false;
+    laserHeat = 0.0f;
+    burstQueue = 0;
+    return "burst coil";
 }
 
 float Player_GetRespawnFade(void) { return respawnFade; }
@@ -205,11 +262,18 @@ void Player_Damage(int amount, Vector3 fromDir) {
     player.velocity.z += fromDir.z * 0.28f;
     SoundFx_PlayPlayerHurt();
     if (player.hp <= 0) {
+        /* v51: dying to an enemy blast burns out one random upgrade */
+        const char *lost = Player_LoseRandomUpgrade();
         player.hp = 10;
         Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
         respawnFade = 1.0f;
         SoundFx_PlayTeleport();
-        Chat_AddLine("The hunters got you. Wake up on the starter island.");
+        if (lost) {
+            Player_SaveProgress();
+            Chat_AddLine(TextFormat("You fall apart - the void devours the %s upgrade. Wake up on the starter island.", lost));
+        } else {
+            Chat_AddLine("The hunters got you. Wake up on the starter island.");
+        }
     }
 }
 
@@ -476,6 +540,12 @@ void Player_CheckInputs() {
         /* v47: warp network ------------------------------------------------
          * Launch pad: press Space while standing on one to skyshot upward.
          * Warp core: press F within reach to jump to the nearest other core. */
+        /* v51: stepping on a volatile barrel sets it off */
+        if (!player.webActive) {
+            Vector3 stepCell = { player.position.x, player.position.y - 0.1f, player.position.z };
+            if (World_GetBlock(stepCell) == 26) World_ExplodeAt(stepCell);
+        }
+
         Vector3 feetBlock = { player.position.x, player.position.y - 0.1f, player.position.z };
         if (!player.webActive && player.canJump &&
             World_GetBlock(feetBlock) == 21 && IsKeyPressed(KEY_SPACE)) {
@@ -492,13 +562,15 @@ void Player_CheckInputs() {
         /* v48.2: R switches weapon - blade <-> laser */
         if (IsKeyPressed(KEY_R)) {
             player.weaponMode ^= 1;
+            burstQueue = 0;   /* v51: don't spill a half-fired volley */
             SoundFx_PlayClick();
             Chat_AddLine(player.weaponMode ? "Laser rifle armed." : "Blade readied.");
         }
 
         /* v47.1: interactions live on E (standing rule). Warping requires
          * actually standing within reach of a warp core - no global F teleport. */
-        if (IsKeyPressed(KEY_E) && !player.webActive && Player_NearWarpCore()) {
+        if (IsKeyPressed(KEY_E) && !player.webActive) {
+          if (Player_NearWarpCore()) {
             Vector3 warpTarget;
             if (Player_FindWarpTarget(&warpTarget)) {
                 /* v48: each jump through the network burns one void shard */
@@ -513,6 +585,17 @@ void Player_CheckInputs() {
                     SoundFx_PlayClick();
                     Chat_AddLine("The core demands a void shard. Fell hunters to gather more.");
                 }
+            }
+          } else if (Mobs_TryCollectMushroom()) {
+            /* v51: E near a void mushroom stores it */
+          }
+        }
+
+        /* v51: G eats a stored mushroom */
+        if (IsKeyPressed(KEY_G) && !player.webActive) {
+            if (!Mobs_EatMushroom()) {
+                SoundFx_PlayClick();
+                if (Mobs_GetMushrooms() > 0) Chat_AddLine("HP is already full.");
             }
         }
 
@@ -595,23 +678,57 @@ void Player_CheckInputs() {
         eyePosition.y -= 0.4f * player.crouchT;   /* v46.1: crouch lowers the eye */
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && player.weaponMode == 1) { //Laser rifle
+        if (player.weaponMode == 1 &&
+            ((burstLvl > 0) ? IsMouseButtonDown(MOUSE_LEFT_BUTTON)
+                            : IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) { //Laser rifle
             double nowL = GetTime();
-            if (nowL >= laserReadyTime) {
-                laserReadyTime = nowL + Player_GetLaserCooldown();
-                Vector3 hitPoint;
-                int range = Player_GetLaserRange();
-                laserFrom = (Vector3){ eyePosition.x + cx90 * 0.22f, eyePosition.y - 0.12f, eyePosition.z + sx90 * 0.22f };
-                Vector3 mobHitPoint;
-                if (Hunter_LaserHit(eyePosition, forward, (float)range, &hitPoint)) {
-                    laserTo = hitPoint;
-                } else if (Mobs_LaserHit(eyePosition, forward, (float)range, &mobHitPoint)) {
-                    laserTo = mobHitPoint;
+            /* v51: burst upgrade - holding fires volleys; lvl 3 fires
+             * continuously but builds coil heat and jams when overheated */
+            bool mayFire = true;
+            if (burstLvl >= 3) {
+                if (laserOverheated) {
+                    laserHeat -= 0.30f * GetFrameTime();
+                    if (laserHeat <= 0.30f) {
+                        laserHeat = 0.30f;
+                        laserOverheated = false;
+                        Chat_AddLine("The coil breathes cold again.");
+                    }
+                    mayFire = false;
                 } else {
-                    laserTo = Vector3Add(eyePosition, Vector3Scale(forward, (float)range));
+                    laserHeat -= 0.20f * GetFrameTime();
+                    if (laserHeat < 0.0f) laserHeat = 0.0f;
                 }
-                laserBeamUntil = nowL + 0.09;
-                SoundFx_PlayWebShoot();
+            }
+            if (mayFire && burstQueue > 0 && nowL >= burstNextShot) {
+                burstQueue--;
+                burstNextShot = nowL + 0.07;
+                Player_FireLaserShot(eyePosition, forward, cx90, sx90);
+                if (burstLvl >= 3) {
+                    laserHeat += 0.09f;
+                    if (laserHeat >= 1.0f) {
+                        laserHeat = 1.0f;
+                        laserOverheated = true;
+                        burstQueue = 0;
+                        SoundFx_PlayPlayerHurt();
+                        Chat_AddLine("The laser coil overheats!");
+                    }
+                }
+                if (burstQueue == 0 && burstLvl == 1) laserReadyTime = nowL + 0.9f;
+                if (burstQueue == 0 && burstLvl == 2) laserReadyTime = nowL + 0.7f;
+            } else if (mayFire && burstQueue == 0 && nowL >= laserReadyTime) {
+                if (burstLvl == 1) burstQueue = 2;        /* 3-shot volley */
+                else if (burstLvl == 2) burstQueue = 4;   /* 5-shot volley */
+                Player_FireLaserShot(eyePosition, forward, cx90, sx90);
+                if (burstLvl >= 3) {
+                    laserHeat += 0.09f;
+                    laserReadyTime = nowL + Player_GetLaserCooldown() * 0.55f;
+                    if (laserHeat >= 1.0f) {
+                        laserHeat = 1.0f;
+                        laserOverheated = true;
+                        SoundFx_PlayPlayerHurt();
+                        Chat_AddLine("The laser coil overheats!");
+                    }
+                }
             }
         } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
@@ -735,10 +852,17 @@ void Player_Update(void) {
     }
 
     if (player.position.y < COSMIC_VOID_Y) {
+        /* v51: a long fall costs one random upgrade too */
+        const char *lost = Player_LoseRandomUpgrade();
         Player_Teleport((Vector3){ COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z });
         respawnFade = 1.0f;
         SoundFx_PlayTeleport();
-        Chat_AddLine("The void lets you go. Returned to the starter island.");
+        if (lost) {
+            Player_SaveProgress();
+            Chat_AddLine(TextFormat("The void lets you go - and keeps the %s upgrade.", lost));
+        } else {
+            Chat_AddLine("The void lets you go. Returned to the starter island.");
+        }
     }
     if (respawnFade > 0.0f) respawnFade = fmaxf(0.0f, respawnFade - GetFrameTime() * 1.3f);
     

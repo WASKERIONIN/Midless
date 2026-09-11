@@ -33,6 +33,9 @@
 #include "localserver.h"
 #include "particle.h"
 #include "asteroid.h"
+#include "mobs.h"
+#include "hunter.h"
+#include "soundfx.h"
 #include "dropshadow.h"
 #include "starfield.h"
 #include "settings.h"
@@ -500,6 +503,45 @@ bool World_IsCoreVisited(Vector3 pos) {
     return false;
 }
 
+/* ---- v51: volatile barrels --------------------------------------------
+ * Detonate a barrel: destroys its own cell, two above and two below, chunks
+ * out debris, and hurts anything nearby. Chained barrels cook off too. */
+void World_ExplodeAt(Vector3 blockPos) {
+    static int explodeDepth = 0;
+    if (explodeDepth > 4) return;   /* v51: cook-off chain guard */
+    explodeDepth++;
+    int bx = (int)floorf(blockPos.x), by = (int)floorf(blockPos.y), bz = (int)floorf(blockPos.z);
+    SoundFx_PlayExplosion();
+    Vector3 center = { bx + 0.5f, by + 0.5f, bz + 0.5f };
+
+    for (int dy = 2; dy >= -2; dy--) {
+        Vector3 p = { bx, by + dy, bz };
+        int id = World_GetBlock(p);
+        if (id == 0) continue;
+        if (id == 26 && dy != 0) {
+            /* v51: another barrel caught in the column cooks off; its own
+             * blast clears its cell first, so the chain always terminates */
+            World_ExplodeAt(p);
+            continue;
+        }
+        Particle_SpawnBlockBreak(p, id == 0 ? 1 : id);
+        World_SetBlock(p, 0, true);
+    }
+    Particle_SpawnBlockBreak(center, 26);
+    Particle_SpawnImpact(center);
+
+    /* hurt everything nearby */
+    Hunter_ExplosionDamage(center, 3.0f, 2);
+    Mobs_ExplosionDamage(center, 3.0f, 2);
+    Vector3 playerC = { player.position.x + 0.5f, player.position.y + 0.9f, player.position.z + 0.5f };
+    float pd = Vector3Distance(playerC, center);
+    if (pd < 3.2f) {
+        Vector3 away = Vector3Scale(Vector3Subtract(playerC, center), 1.0f / (pd > 0.01f ? pd : 1.0f));
+        Player_Damage(3, away);
+    }
+    explodeDepth--;
+}
+
 /* ---- v44: black & white wireframe auras --------------------------------
  * Special world objects get animated vector frames: warp cores carry a
  * slowly spinning octahedron, launch pads emit an expanding ring. Drawn
@@ -536,7 +578,7 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
                    (Vector3){center.x, center.y + ry, center.z}, c);
         DrawLine3D((Vector3){center.x, center.y - ry, center.z},
                    (Vector3){center.x, center.y - ry - 0.12f, center.z}, c);
-    } else {
+    } else if (kind == 1) {
         /* launch pad: square ring expanding from the pad surface */
         float period = 1.8f;
         float k = (float)fmod(t, period) / period;      /* 0..1 */
@@ -551,6 +593,40 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
         Vector3 e = (Vector3){ center.x - half, y, center.z + half };
         DrawLine3D(a, b, c); DrawLine3D(b, d, c);
         DrawLine3D(d, e, c); DrawLine3D(e, a, c);
+    } else {
+        /* v51: void cocoon - a breathing alien egg (kind 2) */
+        float breathe = 1.0f + 0.05f * sinf((float)t * 2.1f + phase * 2.0f);
+        float rx = 0.26f * breathe, ry = 0.44f * breathe;
+        Color c = { (unsigned char)(150.0f + 45.0f * sinf((float)t * 3.1f + phase * 2.0f)),
+                    80,
+                    (unsigned char)(205.0f + 40.0f * sinf((float)t * 2.2f + phase * 3.0f)), 255 };
+        /* three vertical ellipse loops rotated 0/60/120 degrees */
+        for (int k = 0; k < 3; k++) {
+            float a0 = (float)k * 1.0472f;
+            float ca = cosf(a0) * rx, sa = sinf(a0) * rx;
+            Vector3 prev = { center.x + ca, center.y - ry, center.z + sa };
+            for (int s = 1; s <= 10; s++) {
+                float th = -1.5708f + 3.1416f * (float)s / 10.0f;
+                Vector3 pt = { center.x + ca * cosf(th),
+                               center.y + ry * sinf(th) * 1.05f,
+                               center.z + sa * cosf(th) };
+                DrawLine3D(prev, pt, c);
+                prev = pt;
+            }
+        }
+        /* two horizontal rings: lower bulge and shoulder */
+        for (int r = 0; r < 2; r++) {
+            float yk = (r == 0) ? -0.32f : 0.18f;
+            float rr = rx * sqrtf(1.0f - yk * yk) * 1.1f;
+            float yy = center.y + ry * yk * 1.05f;
+            Vector3 prev = { center.x + rr, yy, center.z };
+            for (int s = 1; s <= 10; s++) {
+                float th = 6.2832f * (float)s / 10.0f;
+                Vector3 pt = { center.x + cosf(th) * rr, yy, center.z + sinf(th) * rr };
+                DrawLine3D(prev, pt, c);
+                prev = pt;
+            }
+        }
     }
 }
 
@@ -559,10 +635,12 @@ void World_DrawWireAuras(void) {
     Matrix projection = rlGetMatrixProjection();
     for (int i = 0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
-        if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0) continue;
+        if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0 &&
+            chunk->specialCount[2] == 0) continue;
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
         for (int s = 0; s < chunk->specialCount[0]; s++) World_DrawWireAurasAt(chunk->specialPos[0][s], 0);
         for (int s = 0; s < chunk->specialCount[1]; s++) World_DrawWireAurasAt(chunk->specialPos[1][s], 1);
+        for (int s = 0; s < chunk->specialCount[2]; s++) World_DrawWireAurasAt(chunk->specialPos[2][s], 2);
     }
 }
 

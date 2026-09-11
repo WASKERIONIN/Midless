@@ -102,16 +102,7 @@ typedef struct Wisp {
 } Wisp;
 static Wisp wisps[WISP_MAX];
 
-void Mobs_Init(void) {
-    for (int i = 0; i < CRAWLER_MAX; i++) crawlers[i].active = false;
-    for (int i = 0; i < WISP_MAX; i++) wisps[i].active = false;
-    crawlerAnnounced = false;
-}
 
-void Mobs_Shutdown(void) {
-    for (int i = 0; i < CRAWLER_MAX; i++) crawlers[i].active = false;
-    for (int i = 0; i < WISP_MAX; i++) wisps[i].active = false;
-}
 
 int Mobs_CrawlerCount(void) {
     int n = 0;
@@ -314,6 +305,434 @@ static void Wisp_Update(float deltaTime, double now) {
     }
 }
 
+/* ---------------------------------------------------------------- spiders */
+/* v51: hatch from void cocoons. Two legs and a segmented tail it whips
+ * around; attacks by leaping at the player, then bounces back. */
+#define SPIDER_MAX 2
+#define SPIDER_HP 3
+#define SPIDER_SPEED 2.1f
+#define SPIDER_SIGHT 10.0f
+#define SPIDER_LEAP_RANGE 3.4f
+
+typedef struct Spider {
+    bool active;
+    Vector3 pos;
+    Vector3 vel;
+    float hp;
+    float phase;
+    float faceAng;
+    float aggroTimer;
+    float jumpCd;
+    float stingCd;
+    float bounceBackUntil;
+    bool airborne;
+    bool grounded;
+    float age;
+} Spider;
+static Spider spiders[SPIDER_MAX];
+static bool spiderAnnounced;
+
+void Mobs_SpawnSpider(Vector3 pos) {
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        Spider *s = &spiders[i];
+        if (s->active) continue;
+        s->active = true;
+        s->pos = pos;
+        s->vel = (Vector3){ 0, 1.2f, 0 };   /* bursts out of the cocoon */
+        s->hp = SPIDER_HP;
+        s->phase = (float)GetRandomValue(0, 628) / 100.0f;
+        s->faceAng = (float)GetRandomValue(0, 3599) * 0.001745f;
+        s->aggroTimer = 8.0f;               /* freshly hatched: furious */
+        s->jumpCd = 0.8f;
+        s->stingCd = 0.0f;
+        s->bounceBackUntil = 0.0f;
+        s->airborne = false;
+        s->grounded = false;
+        s->age = 0.0f;
+        SoundFx_PlayExplosion();
+        Particle_SpawnImpact(pos);
+        if (!spiderAnnounced) {
+            spiderAnnounced = true;
+            Chat_AddLine("The cocoon splits open. Something many-legged rises.");
+        }
+        return;
+    }
+}
+
+static void Spider_Damage(Spider *s, Vector3 rd) {
+    s->hp -= 1.0f;
+    s->vel = Vector3Add(Vector3Scale(rd, 2.4f), (Vector3){ 0, 0.4f, 0 });
+    Particle_SpawnImpact(s->pos);
+    s->aggroTimer = 4.0f;
+    if (s->hp <= 0.0f) {
+        s->active = false;
+        Particle_SpawnBlockBreak(s->pos, 20);
+        Player_AddShards(2);
+        Player_Heal(1);
+        SoundFx_PlayHunterDie();
+        Chat_AddLine("The hatchling collapses into shards.");
+    } else {
+        SoundFx_PlayHunterHit();
+    }
+}
+
+static void Spider_Update(float deltaTime, double now) {
+    Vector3 center = Mob_PlayerCenter();
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        Spider *s = &spiders[i];
+        if (!s->active) continue;
+        s->age += deltaTime;
+        if (s->jumpCd > 0.0f) s->jumpCd -= deltaTime;
+        if (s->stingCd > 0.0f) s->stingCd -= deltaTime;
+
+        Vector3 toPlayer = Vector3Subtract(center, s->pos);
+        toPlayer.y = 0;
+        float hdist = Vector3Length(toPlayer);
+        float dist3 = Vector3Distance(center, s->pos);
+        if (s->age > 240.0f || dist3 > 40.0f) { s->active = false; continue; }
+
+        if (hdist < SPIDER_SIGHT && Mob_HasLOS(s->pos, center)) s->aggroTimer = 3.0f;
+        else if (s->aggroTimer > 0.0f) s->aggroTimer -= deltaTime;
+        bool aggro = s->aggroTimer > 0.0f;
+
+        Vector3 desired = (Vector3){ 0 };
+        if (aggro && (double)s->bounceBackUntil > now) {
+            /* just landed from a leap: bounce back out of reach */
+            if (hdist > 0.05f) desired = Vector3Scale(toPlayer, -SPIDER_SPEED * 1.3f / hdist);
+        } else if (aggro && hdist > 0.05f) {
+            desired = Vector3Scale(toPlayer, SPIDER_SPEED / hdist);
+        } else if (hdist > 0.05f) {
+            float t = (float)now * 0.35f + s->phase;
+            desired = (Vector3){ cosf(t) * 0.5f, 0, sinf(t * 0.8f) * 0.5f };
+        }
+
+        /* leap attack: from up to three blocks away it jumps at the player */
+        if (aggro && s->grounded && s->jumpCd <= 0.0f &&
+            dist3 > 1.3f && dist3 < SPIDER_LEAP_RANGE && now >= s->bounceBackUntil) {
+            Vector3 dir = (hdist > 0.05f) ? Vector3Scale(toPlayer, 1.0f / hdist) : (Vector3){ 0, 0, 1 };
+            s->vel = (Vector3){ dir.x * 3.3f, 1.55f, dir.z * 3.3f };
+            s->airborne = true;
+            s->grounded = false;
+            s->jumpCd = 1.7f;
+            SoundFx_PlayJump();
+        }
+
+        if (!s->airborne) {
+            s->vel.x = s->vel.x + (desired.x - s->vel.x) * (1.0f - powf(0.05f, deltaTime));
+            s->vel.z = s->vel.z + (desired.z - s->vel.z) * (1.0f - powf(0.05f, deltaTime));
+        }
+        s->vel.y -= 0.02f * deltaTime * 60.0f;
+        if (s->vel.y < -0.5f) s->vel.y = -0.5f;
+
+        /* face where we are going */
+        float spd2 = s->vel.x * s->vel.x + s->vel.z * s->vel.z;
+        if (spd2 > 0.02f) {
+            float want = atan2f(s->vel.z, s->vel.x);
+            float d = want - s->faceAng;
+            while (d > 3.1416f) d -= 6.2832f;
+            while (d < -3.1416f) d += 6.2832f;
+            s->faceAng += d * (1.0f - powf(0.001f, deltaTime));
+        }
+
+        if (!s->airborne) {
+            Vector3 want = Vector3Add(s->pos, Vector3Scale((Vector3){ s->vel.x, 0, s->vel.z }, deltaTime));
+            if (!Mob_BodyBlocked(want)) {
+                s->pos = want;
+            } else if (s->grounded) {
+                Vector3 stepUp = s->pos;
+                stepUp.y += 1.05f;
+                Vector3 stepOver = Vector3Add(stepUp, Vector3Scale((Vector3){ s->vel.x, 0, s->vel.z }, deltaTime * 2.0f));
+                if (!Mob_BodyBlocked(stepOver)) { s->pos = stepOver; s->vel.y = 0.1f; }
+                else { s->vel.x *= -0.4f; s->vel.z *= -0.4f; }
+            }
+        } else {
+            Vector3 fly = Vector3Add(s->pos, Vector3Scale(s->vel, deltaTime));
+            if (!Mob_BodyBlocked(fly)) s->pos = fly;
+            else { s->airborne = false; s->vel.x = 0; s->vel.z = 0; }
+        }
+
+        /* vertical */
+        Vector3 down = Vector3Add(s->pos, Vector3Scale((Vector3){ 0, s->vel.y, 0 }, deltaTime));
+        if (!Mob_BodyBlocked(down)) {
+            s->pos = down;
+            s->grounded = false;
+        } else {
+            if (s->airborne) {
+                /* landing after a leap -> bounce back */
+                s->airborne = false;
+                s->bounceBackUntil = now + 0.7;
+            }
+            if (s->vel.y < 0) s->grounded = true;
+            s->vel.y = 0;
+        }
+
+        /* sting on contact */
+        if (aggro && dist3 < 1.2f && s->stingCd <= 0.0f) {
+            Vector3 push = Vector3Scale(toPlayer, -1.0f / (hdist > 0.05f ? hdist : 1.0f));
+            Player_Damage(2, push);
+            s->stingCd = 1.2f;
+            s->bounceBackUntil = now + 0.6;
+        }
+    }
+}
+
+/* ---------------------------------------------------------------- cocoons */
+static void Cocoon_Hatch(Vector3 cell) {
+    World_SetBlock(cell, 0, true);
+    Vector3 spawn = { cell.x + 0.5f, cell.y + 0.35f, cell.z + 0.5f };
+    Particle_SpawnBlockBreak((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f }, 21);
+    Mobs_SpawnSpider(spawn);
+}
+
+static void Cocoon_Scan(float deltaTime) {
+    /* proximity collapse: any cocoon within three blocks bursts open */
+    static double scanTimer = 0.0;
+    scanTimer -= deltaTime;
+    if (scanTimer > 0.0f) return;
+    scanTimer = 0.5;
+    Vector3 pc = Mob_PlayerCenter();
+    int px = (int)floorf(pc.x), py = (int)floorf(pc.y), pz = (int)floorf(pc.z);
+    for (int dy = 3; dy >= -3; dy--)
+        for (int dz = -3; dz <= 3; dz++)
+            for (int dx = -3; dx <= 3; dx++) {
+                Vector3 cell = { px + dx, py + dy, pz + dz };
+                if (World_GetBlock(cell) == 25) {
+                    Cocoon_Hatch(cell);
+                    return;   /* one hatch per scan keeps the moment readable */
+                }
+            }
+}
+
+/* laser pops cocoons from a distance; also detonates barrels in the path */
+bool Mobs_CocoonLaser(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint) {
+    float rayLen = Vector3Length(dir);
+    if (rayLen < 0.0001f) return false;
+    Vector3 rd = Vector3Scale(dir, 1.0f / rayLen);
+    for (float t = 1.0f; t < maxDist; t += 0.7f) {
+        Vector3 p = Vector3Add(origin, Vector3Scale(rd, t));
+        int id = World_GetBlock(p);
+        if (id != 0) {
+            const Block *b = Block_GetDefinition(id);
+            if (b->colliderType == BLOCK_COLLIDER_SOLID) return false;  /* wall stops the beam */
+        }
+        if (id == 25) {
+            Vector3 cell = { floorf(p.x), floorf(p.y), floorf(p.z) };
+            World_SetBlock(cell, 0, true);
+            Particle_SpawnBlockBreak((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f }, 21);
+            Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
+            SoundFx_PlayHunterHit();
+            Chat_AddLine("The cocoon bursts under the beam. Silence... for now.");
+            if (hitPoint) *hitPoint = (Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f };
+            return true;
+        }
+        if (id == 26) {
+            Vector3 cell = { floorf(p.x), floorf(p.y), floorf(p.z) };
+            if (hitPoint) *hitPoint = (Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f };
+            World_ExplodeAt(cell);
+            return true;
+        }
+    }
+    return false;
+}
+
+/* v51: any mob standing on / flying through a volatile barrel sets it off */
+static void Mob_BarrelCheck(Vector3 pos, bool flying) {
+    int bx = (int)floorf(pos.x), bz = (int)floorf(pos.z);
+    int feetY = (int)floorf(pos.y - (flying ? 0.0f : 0.45f));
+    /* body cell, and for flyers also the cells below: passing even one
+     * block above a barrel cooks it off */
+    int maxY = feetY, minY = flying ? feetY - 2 : feetY - 1;
+    for (int y = minY; y <= maxY; y++) {
+        if (World_GetBlock((Vector3){ bx, y, bz }) == 26) {
+            World_ExplodeAt((Vector3){ bx, y, bz });
+            return;
+        }
+    }
+}
+
+/* -------------------------------------------------------------- mushrooms */
+#define MUSH_MAX 24
+typedef struct Mushroom {
+    bool active;
+    Vector3 pos;
+    double expireAt;   /* 10 real minutes */
+    float scale;
+} Mushroom;
+static Mushroom mushrooms[MUSH_MAX];
+static int mushroomsStored = 0;   /* inventory count */
+static bool mushHintShown;
+
+/* violet shell event: a shimmering dome parks over a nearby island and
+ * rains void spores; mushrooms sprout on plain dirt while it rains */
+static bool shellActive;
+static double shellUntil;
+static Vector3 shellCenter;
+static double shellEventAt = 0.0;
+static double mushGrowTimer;
+static bool shellAnnounced;
+
+int Mobs_GetMushrooms(void) { return mushroomsStored; }
+
+bool Mobs_EatMushroom(void) {
+    if (mushroomsStored <= 0 || player.hp >= 10) return false;
+    mushroomsStored--;
+    Player_Heal(3);
+    SoundFx_PlayWebAttach();
+    Chat_AddLine(TextFormat("The mushroom hums warmly. HP %d/10. Left: %d.", player.hp, mushroomsStored));
+    return true;
+}
+
+bool Mobs_TryCollectMushroom(void) {
+    Vector3 pc = Mob_PlayerCenter();
+    for (int i = 0; i < MUSH_MAX; i++) {
+        Mushroom *m = &mushrooms[i];
+        if (!m->active) continue;
+        if (Vector3Distance(m->pos, pc) < 1.7f) {
+            m->active = false;
+            mushroomsStored++;
+            SoundFx_PlayPlace();
+            if (!mushHintShown) {
+                mushHintShown = true;
+                Chat_AddLine("Void mushroom stored. Press G to eat it (+3 HP).");
+            } else {
+                Chat_AddLine(TextFormat("Void mushroom stored (%d).", mushroomsStored));
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+static void Mushroom_SpawnTry(Vector3 shellC) {
+    for (int attempt = 0; attempt < 4; attempt++) {
+        float ang = (float)GetRandomValue(0, 3599) * 0.001745f;
+        float rad = sqrtf((float)GetRandomValue(0, 1000) / 1000.0f) * 8.5f;
+        int bx = (int)floorf(shellC.x + cosf(ang) * rad);
+        int bz = (int)floorf(shellC.z + sinf(ang) * rad);
+        for (int y = 150; y >= 2; y--) {
+            Vector3 p = { bx, y, bz };
+            int id = World_GetBlock(p);
+            if (id == 0) continue;
+            if (id != 2) break;   /* only plain dirt */
+            Vector3 above = { bx, y + 1, bz };
+            if (World_GetBlock(above) != 0) break;
+            for (int i = 0; i < MUSH_MAX; i++) {
+                Mushroom *m = &mushrooms[i];
+                if (m->active) continue;
+                m->active = true;
+                m->pos = (Vector3){ bx + 0.5f, y + 1.0f, bz + 0.5f };
+                m->expireAt = (double)GetTime() + 600.0;
+                m->scale = 0.8f + (float)GetRandomValue(0, 50) / 100.0f;
+                return;
+            }
+            return;
+        }
+    }
+}
+
+static void Shell_Update(float deltaTime, double now) {
+    if (!shellActive) {
+        if (shellEventAt <= 0.0) shellEventAt = now + 75.0;
+        if (now >= shellEventAt) {
+            Vector3 spot;
+            if (Mob_FindSurfaceSpot(Mob_PlayerCenter(), 14.0f, 26.0f, &spot)) {
+                shellCenter = (Vector3){ spot.x, spot.y + 11.0f, spot.z };
+                shellActive = true;
+                shellUntil = now + 80.0;
+                mushGrowTimer = 1.0f;
+                if (!shellAnnounced) {
+                    shellAnnounced = true;
+                    Chat_AddLine("A violet shell shimmers over the islands... it is raining light.");
+                } else {
+                    Chat_AddLine("The violet shell returns.");
+                }
+                SoundFx_PlayTeleport();
+            } else {
+                shellEventAt = now + 30.0;
+            }
+        }
+        return;
+    }
+
+    if (now >= shellUntil) {
+        shellActive = false;
+        shellEventAt = now + 210.0 + (double)GetRandomValue(0, 180);
+        Chat_AddLine("The shell folds away into the nebula.");
+        return;
+    }
+
+    mushGrowTimer -= deltaTime;
+    if (mushGrowTimer <= 0.0f) {
+        mushGrowTimer = 0.7f;
+        Mushroom_SpawnTry(shellCenter);
+    }
+}
+
+static void Mushrooms_Update(double now) {
+    for (int i = 0; i < MUSH_MAX; i++) {
+        Mushroom *m = &mushrooms[i];
+        if (m->active && now > m->expireAt) m->active = false;
+    }
+}
+
+void Mobs_ExplosionDamage(Vector3 center, float radius, int damage) {
+    for (int i = 0; i < CRAWLER_MAX; i++) {
+        Crawler *c = &crawlers[i];
+        if (!c->active) continue;
+        if (Vector3Distance(c->pos, center) > radius) continue;
+        c->hp -= (float)damage;
+        c->vel.y += 1.2f;
+        Particle_SpawnImpact(c->pos);
+        if (c->hp <= 0.0f) {
+            c->active = false;
+            Particle_SpawnBlockBreak(c->pos, 20);
+            SoundFx_PlayHunterDie();
+        }
+    }
+    for (int i = 0; i < WISP_MAX; i++) {
+        Wisp *w = &wisps[i];
+        if (!w->active) continue;
+        if (Vector3Distance(w->pos, center) > radius) continue;
+        w->active = false;
+        Particle_SpawnBlockBreak(w->pos, 22);
+        Player_AddShards(2);
+        SoundFx_PlayHunterDie();
+    }
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        Spider *s = &spiders[i];
+        if (!s->active) continue;
+        if (Vector3Distance(s->pos, center) > radius) continue;
+        s->hp -= (float)damage;
+        s->vel.y += 1.2f;
+        Particle_SpawnImpact(s->pos);
+        if (s->hp <= 0.0f) {
+            s->active = false;
+            Particle_SpawnBlockBreak(s->pos, 20);
+            Player_AddShards(2);
+            SoundFx_PlayHunterDie();
+        }
+    }
+}
+
+void Mobs_Init(void) {
+    for (int i = 0; i < CRAWLER_MAX; i++) crawlers[i].active = false;
+    for (int i = 0; i < WISP_MAX; i++) wisps[i].active = false;
+    for (int i = 0; i < SPIDER_MAX; i++) spiders[i].active = false;
+    for (int i = 0; i < MUSH_MAX; i++) mushrooms[i].active = false;
+    crawlerAnnounced = false;
+    spiderAnnounced = false;
+    shellActive = false;
+    shellEventAt = 0.0;
+    mushroomsStored = 0;
+}
+
+void Mobs_Shutdown(void) {
+    for (int i = 0; i < CRAWLER_MAX; i++) crawlers[i].active = false;
+    for (int i = 0; i < WISP_MAX; i++) wisps[i].active = false;
+    for (int i = 0; i < SPIDER_MAX; i++) spiders[i].active = false;
+    for (int i = 0; i < MUSH_MAX; i++) mushrooms[i].active = false;
+}
+
 void Mobs_Update(float deltaTime) {
     double now = (double)GetTime();
     static double crawlerTimer = 5.0, wispTimer = 9.0;
@@ -332,6 +751,18 @@ void Mobs_Update(float deltaTime) {
 
     Crawler_Update(deltaTime, surge, now);
     Wisp_Update(deltaTime, now);
+    Spider_Update(deltaTime, now);
+    Cocoon_Scan(deltaTime);
+    Shell_Update(deltaTime, now);
+    Mushrooms_Update(now);
+
+    /* v51: mobs set off volatile barrels under (or inside) them */
+    for (int i = 0; i < CRAWLER_MAX; i++)
+        if (crawlers[i].active) Mob_BarrelCheck(crawlers[i].pos, false);
+    for (int i = 0; i < SPIDER_MAX; i++)
+        if (spiders[i].active) Mob_BarrelCheck(spiders[i].pos, false);
+    for (int i = 0; i < WISP_MAX; i++)
+        if (wisps[i].active) Mob_BarrelCheck(wisps[i].pos, true);
 }
 
 /* --------------------------------------------------------------- combat */
@@ -363,6 +794,15 @@ static MobHit Mobs_Raypick(Vector3 origin, Vector3 dir, float maxDist) {
         if (t < 0.0f || t > hit.t) continue;
         if (Vector3LengthSqr(Vector3Subtract(oc, Vector3Scale(rd, t))) < 0.5f * 0.5f) {
             hit.kind = 2; hit.index = i; hit.t = t;
+        }
+    }
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        if (!spiders[i].active) continue;
+        Vector3 oc = Vector3Subtract(spiders[i].pos, origin);
+        float t = Vector3DotProduct(oc, rd);
+        if (t < 0.0f || t > hit.t) continue;
+        if (Vector3LengthSqr(Vector3Subtract(oc, Vector3Scale(rd, t))) < 0.7f * 0.7f) {
+            hit.kind = 3; hit.index = i; hit.t = t;
         }
     }
     return hit;
@@ -400,6 +840,11 @@ bool Mobs_MeleeHit(Vector3 origin, Vector3 dir, float maxDist) {
         Chat_AddLine("The wisp releases its shards.");
         return true;
     }
+    if (hit.kind == 3) {
+        Spider *s = &spiders[hit.index];
+        Spider_Damage(s, Vector3Normalize(dir));
+        return true;
+    }
     return false;
 }
 
@@ -412,6 +857,8 @@ bool Mobs_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint
         Crawler *c = &crawlers[hit.index];
         Vector3 rd = Vector3Normalize(dir);
         Mob_CrawlerDamage(c, rd);
+    } else if (hit.kind == 3) {
+        Spider_Damage(&spiders[hit.index], Vector3Normalize(dir));
     } else {
         Wisp *w = &wisps[hit.index];
         w->active = false;
@@ -425,11 +872,6 @@ bool Mobs_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint
 }
 
 /* ---------------------------------------------------------------- draw */
-static void Mob_Edge(Vector3 a, Vector3 b, unsigned char bright) {
-    rlColor4ub(bright, bright, bright, 255);
-    rlVertex3f(a.x, a.y, a.z);
-    rlVertex3f(b.x, b.y, b.z);
-}
 
 void Mobs_Draw(void) {
     double now = (double)GetTime();
@@ -501,6 +943,161 @@ void Mobs_Draw(void) {
         rlColor4ub(70, 200, 180, 220);
         rlVertex3f(o0.x, o0.y, o0.z);
         rlVertex3f(o1.x, o1.y, o1.z);
+    }
+
+    /* v51 spiders: elongated body, two striding legs, a whipping tail */
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        Spider *s = &spiders[i];
+        if (!s->active) continue;
+        bool aggro = s->aggroTimer > 0.0f;
+        Vector3 c0 = s->pos;
+        float ca = cosf(s->faceAng), sa = sinf(s->faceAng);
+        unsigned char rC = aggro ? 255 : 205, gC = aggro ? 55 : 165, bC = aggro ? 170 : 235;
+        float pulse = 0.82f + 0.18f * sinf((float)now * (aggro ? 9.0f : 2.4f) + s->phase);
+        unsigned char rr = (unsigned char)(rC * pulse), gg = (unsigned char)(gC * pulse), bb = (unsigned char)(bC * pulse);
+
+        /* body: horizontal ellipse along facing + head node */
+        Vector3 ring[8];
+        for (int k = 0; k < 8; k++) {
+            float th = 6.2832f * k / 8.0f;
+            ring[k] = (Vector3){ c0.x + (cosf(th) * 0.40f) * ca - (sinf(th) * 0.22f) * sa,
+                                 c0.y + sinf(th) * 0.13f,
+                                 c0.z + (cosf(th) * 0.40f) * sa + (sinf(th) * 0.22f) * ca };
+        }
+        rlColor4ub(rr, gg, bb, 255);
+        for (int k = 0; k < 8; k++) {
+            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
+            rlVertex3f(ring[(k + 1) % 8].x, ring[(k + 1) % 8].y, ring[(k + 1) % 8].z);
+        }
+        Vector3 head = { c0.x + ca * 0.46f, c0.y + 0.06f, c0.z + sa * 0.46f };
+        rlColor4ub(aggro ? 255 : 230, aggro ? 40 : 190, aggro ? 90 : 250, 255);
+        rlVertex3f(head.x - 0.07f, head.y, head.z);
+        rlVertex3f(head.x + 0.07f, head.y, head.z);
+
+        /* two legs: knee up, foot down, striding out of phase */
+        for (int k = 0; k < 2; k++) {
+            float side = (k == 0) ? 1.0f : -1.0f;
+            float gait = sinf((float)now * 10.0f + s->phase + k * 3.1416f);
+            float stride = gait * 0.22f;
+            float lx = -sa * side, lz = ca * side;
+            Vector3 hip  = { c0.x + lx * 0.18f, c0.y + 0.05f, c0.z + lz * 0.18f };
+            Vector3 knee = { c0.x + lx * 0.42f + ca * stride, c0.y + 0.34f, c0.z + lz * 0.42f + sa * stride };
+            Vector3 foot = { c0.x + lx * 0.46f + ca * stride * 1.6f,
+                             c0.y - MOB_BODY_HALF_H - 0.02f,
+                             c0.z + lz * 0.46f + sa * stride * 1.6f };
+            rlColor4ub(rr, gg, bb, 255);
+            rlVertex3f(hip.x, hip.y, hip.z);  rlVertex3f(knee.x, knee.y, knee.z);
+            rlVertex3f(knee.x, knee.y, knee.z); rlVertex3f(foot.x, foot.y, foot.z);
+        }
+
+        /* tail: three segments rising from the rear, whipping */
+        Vector3 tailPt = { c0.x - ca * 0.40f, c0.y, c0.z - sa * 0.40f };
+        rlColor4ub(rr, gg, bb, 255);
+        rlVertex3f(c0.x - ca * 0.30f, c0.y, c0.z - sa * 0.30f);
+        rlVertex3f(tailPt.x, tailPt.y, tailPt.z);
+        float whip = sinf((float)now * 3.4f + s->phase);
+        for (int k = 1; k <= 3; k++) {
+            float len = 0.22f;
+            float up = 0.30f + 0.10f * k;
+            Vector3 next = { tailPt.x - ca * len + sinf(whip + k) * 0.05f,
+                             tailPt.y + up,
+                             tailPt.z - sa * len + cosf(whip + k) * 0.05f };
+            rlColor4ub((unsigned char)(rr - k * 15), (unsigned char)(gg - k * 8), bb, 255);
+            rlVertex3f(tailPt.x, tailPt.y, tailPt.z);
+            rlVertex3f(next.x, next.y, next.z);
+            tailPt = next;
+        }
+    }
+
+    /* v51 void mushrooms: violet caps rooted on dirt */
+    for (int i = 0; i < MUSH_MAX; i++) {
+        Mushroom *m = &mushrooms[i];
+        if (!m->active) continue;
+        double left = m->expireAt - now;
+        bool fading = left < 30.0;
+        if (fading && ((int)(now * 2.0)) % 2 == 0) continue;   /* blink out warning */
+        float sc = m->scale;
+        unsigned char bright = (unsigned char)(170.0f + 60.0f * sinf((float)now * 2.0f + i));
+        rlColor4ub(210, 170, bright, 255);
+        /* stem */
+        float hx = 0.055f * sc, hz = 0.055f * sc, sh = 0.30f * sc;
+        Vector3 stem[4][2] = {
+            { { m->pos.x - hx, m->pos.y, m->pos.z - hz }, { m->pos.x - hx * 0.7f, m->pos.y + sh, m->pos.z - hz * 0.7f } },
+            { { m->pos.x + hx, m->pos.y, m->pos.z - hz }, { m->pos.x + hx * 0.7f, m->pos.y + sh, m->pos.z - hz * 0.7f } },
+            { { m->pos.x + hx, m->pos.y, m->pos.z + hz }, { m->pos.x + hx * 0.7f, m->pos.y + sh, m->pos.z + hz * 0.7f } },
+            { { m->pos.x - hx, m->pos.y, m->pos.z + hz }, { m->pos.x - hx * 0.7f, m->pos.y + sh, m->pos.z + hz * 0.7f } }
+        };
+        for (int k = 0; k < 4; k++) {
+            rlVertex3f(stem[k][0].x, stem[k][0].y, stem[k][0].z);
+            rlVertex3f(stem[k][1].x, stem[k][1].y, stem[k][1].z);
+        }
+        /* cap: shallow dome + rim ring */
+        float capR = 0.20f * sc, capH = 0.13f * sc;
+        float cy = m->pos.y + sh;
+        for (int k = 0; k < 6; k++) {
+            float th0 = 6.2832f * k / 6.0f, th1 = 6.2832f * (k + 1) / 6.0f;
+            rlColor4ub((unsigned char)(225), (unsigned char)(110 + 40 * sinf((float)now * 3.0f + k)), 255, 255);
+            rlVertex3f(m->pos.x, cy + capH, m->pos.z);
+            rlVertex3f(m->pos.x + cosf(th0) * capR, cy + capH * 0.35f, m->pos.z + sinf(th0) * capR);
+            rlVertex3f(m->pos.x + cosf(th0) * capR, cy + capH * 0.35f, m->pos.z + sinf(th0) * capR);
+            rlVertex3f(m->pos.x + cosf(th1) * capR, cy + capH * 0.35f, m->pos.z + sinf(th1) * capR);
+        }
+    }
+
+    /* v51 violet shell event: iridescent dome + falling light rain */
+    if (shellActive) {
+        float t0 = (float)now;
+        float R = 9.0f, cy2 = shellCenter.y;
+        float blend = 0.5f + 0.5f * sinf(t0 * 0.6f);
+        unsigned char cr = (unsigned char)(150.0f + 90.0f * sinf(t0 * 0.9f));
+        unsigned char cg = (unsigned char)(60.0f + 70.0f * blend);
+        unsigned char cb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 0.7f + 2.0f));
+        Color shellC = { cr, cg, cb, 255 };
+        /* latitude rings */
+        for (int k = 0; k < 4; k++) {
+            float ph = 0.35f + k * 0.38f;
+            float rr2 = R * sinf(ph * 1.5708f / 1.6f);
+            float yy = cy2 + R * cosf(ph * 1.5708f / 1.6f) * 0.55f;
+            float px = shellCenter.x + rr2, py = yy, pz = shellCenter.z;
+            for (int sIdx = 1; sIdx <= 18; sIdx++) {
+                float th = 6.2832f * sIdx / 18.0f;
+                float nx = shellCenter.x + cosf(th) * rr2;
+                float nz = shellCenter.z + sinf(th) * rr2;
+                rlColor4ub(shellC.r, shellC.g, shellC.b, shellC.a);
+                rlVertex3f(px, py, pz);
+                rlVertex3f(nx, py, nz);
+                px = nx; pz = nz;
+            }
+        }
+        /* meridian arcs */
+        for (int k = 0; k < 8; k++) {
+            float th = 6.2832f * k / 8.0f + t0 * 0.05f;
+            float px = shellCenter.x, py = cy2 + R * 0.55f, pz = shellCenter.z;
+            for (int sIdx = 1; sIdx <= 8; sIdx++) {
+                float ph = 1.5708f * sIdx / 8.0f;
+                float nx = shellCenter.x + cosf(th) * R * sinf(ph);
+                float ny = cy2 + R * cosf(ph) * 0.55f;
+                float nz = shellCenter.z + sinf(th) * R * sinf(ph);
+                rlColor4ub(shellC.r, shellC.g, shellC.b, shellC.a);
+                rlVertex3f(px, py, pz);
+                rlVertex3f(nx, ny, nz);
+                px = nx; py = ny; pz = nz;
+            }
+        }
+        /* rain: streaks of light sliding down under the dome */
+        for (int k = 0; k < 48; k++) {
+            float seed = k * 7.13f;
+            float ang = fmodf(seed * 1.7f, 6.2832f);
+            float rad = (0.25f + 0.75f * fmodf(seed * 0.317f, 1.0f)) * R;
+            float drop = fmodf(t0 * (2.0f + fmodf(seed, 2.0f)) + seed, 14.0f);
+            float x = shellCenter.x + cosf(ang) * rad;
+            float z = shellCenter.z + sinf(ang) * rad;
+            float yTop = cy2 + R * 0.35f - drop;
+            if (yTop < shellCenter.y - 12.0f) continue;
+            rlColor4ub(190, 235, 255, 255);
+            rlVertex3f(x, yTop, z);
+            rlVertex3f(x, yTop - 0.45f, z);
+        }
     }
 
     rlEnd();

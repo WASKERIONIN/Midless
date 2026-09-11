@@ -20,6 +20,7 @@ check_pair() {
 check_pair client/src/world.h client/src/world.c
 check_pair client/src/player.h client/src/player.c
 check_pair client/src/hunter.h client/src/hunter.c
+check_pair client/src/mobs.h client/src/mobs.c
 check_pair client/src/soundfx.h client/src/soundfx.c
 check_pair client/src/starfield.h client/src/starfield.c
 check_pair client/src/asteroid.h client/src/asteroid.c

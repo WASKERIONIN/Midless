@@ -90,6 +90,7 @@ void Player_Heal(int amount);
 int Player_GetHp(void);
 int Player_GetShards(void);
 int Player_GetLaserRangeLvl(void);
+int Player_GetBurstLvl(void);      /* v51 volley fire 0..3 */
 int Player_GetLaserRateLvl(void);
 int Player_GetLaserRange(void);
 float Player_GetLaserCooldown(void);

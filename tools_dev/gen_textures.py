@@ -453,6 +453,29 @@ def flower_tile(index, petal_a, petal_b, core):
     return img
 
 
+def t_explosive(index):
+    """v51: volatile void barrel - black with hazard-orange stripes."""
+    img = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rectangle([0, 0, 15, 15], fill=(22, 20, 26))
+    d.rectangle([0, 0, 15, 15], outline=(10, 9, 14))
+    # diagonal hazard stripes
+    for y in range(-16, 17, 8):
+        for i in range(16):
+            yy = y + i
+            if 0 <= yy < 16:
+                d.point((i, yy), fill=(255, 140, 30))
+                d.point((i, yy + 1), fill=(255, 140, 30))
+                d.point(((i + 8) % 16, yy), fill=(255, 140, 30))
+                d.point(((i + 8) % 16, yy + 1), fill=(255, 140, 30))
+    # rivets / glow dots
+    d.rectangle([3, 3, 4, 4], fill=(255, 200, 60))
+    d.rectangle([11, 11, 12, 12], fill=(255, 200, 60))
+    d.rectangle([11, 3, 12, 4], fill=(120, 60, 10))
+    d.rectangle([3, 11, 4, 12], fill=(120, 60, 10))
+    return img
+
+
 def t_white(index):
     img = blank_tile()
     for y in range(TILE):
@@ -489,8 +512,9 @@ def build_atlas():
         22: t_crystal(22),
         23: t_launch_pad_side(23),
         24: t_white(24),
+        26: t_explosive(26),
     }
-    for index in range(1, 25):
+    for index in sorted(tiles):
         paste(atlas, index, tiles[index])
     return atlas
 

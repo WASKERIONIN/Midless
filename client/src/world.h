@@ -59,6 +59,7 @@ void World_Shutdown(void);
 void World_Reload(void);
 //Draw the world.
 void World_DrawWireAuras(void);
+void World_ExplodeAt(Vector3 blockPos);
 void World_MarkCoreVisited(Vector3 pos);
 bool World_IsCoreVisited(Vector3 pos);
 void World_Draw(Vector3 camPosition);

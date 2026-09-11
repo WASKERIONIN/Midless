@@ -16,6 +16,7 @@
 #include "chat.h"
 #include "player.h"
 #include "../hunter.h"
+#include "../mobs.h"
 #include "world.h"
 #include "block.h"
 #include "networkhandler.h"
@@ -239,6 +240,8 @@ void Screen_DrawGame(void) {
             moveText = TextFormat("%s WEB: hold SHIFT to reel   SPACE release   F detach", weaponTag);
         else if (Player_NearWarpCore())
             moveText = TextFormat("%s E - WARP   B - UPGRADE LASER (5 shards)", weaponTag);
+        else if (Mobs_GetMushrooms() > 0)
+            moveText = TextFormat("%s G - EAT MUSHROOM x%d (+3 HP)", weaponTag, Mobs_GetMushrooms());
         else if (World_GetBlock(padCheck) == 21)
             moveText = TextFormat("%s SPACE - LAUNCH from the pad", weaponTag);
         else if (dashCharges > 0)
@@ -323,9 +326,9 @@ void Screen_DrawGame(void) {
                  * below catches it - nothing else to do here */
             } else {
                 int mx = screenWidth / 2 - 170;
-                int my = screenHeight / 2 - 130;
+                int my = screenHeight / 2 - 150;
                 DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
-                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 300 });
+                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 372 });
 
                 const char *title = "WARP CORE FORGE";
                 DrawText(title, mx + 2, my + 2, 24, BLACK);
@@ -336,36 +339,51 @@ void Screen_DrawGame(void) {
 
                 int rl = Player_GetLaserRangeLvl();
                 int lv = Player_GetLaserRateLvl();
-                const char *rangeLine = TextFormat("LENS   range %d m   %s", Player_GetLaserRange(),
-                                                   rl >= 3 ? "MAX" : TextFormat("lvl %d/3", rl));
+                int bl = Player_GetBurstLvl();
+                /* v49.4 fix: nested TextFormat shares one static buffer and
+                 * garbled these lines - snprintf into locals instead */
+                char rangeLine[96], rateLine[96], burstLine[96];
+                if (rl >= 3) snprintf(rangeLine, sizeof(rangeLine), "LENS   range %d m   MAX", Player_GetLaserRange());
+                else snprintf(rangeLine, sizeof(rangeLine), "LENS   range %d m   lvl %d/3", Player_GetLaserRange(), rl);
+                if (lv >= 3) snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   MAX", Player_GetLaserCooldown());
+                else snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   lvl %d/3", Player_GetLaserCooldown(), lv);
+                if (bl >= 3) snprintf(burstLine, sizeof(burstLine), "BURST  hold fire: endless, but it overheats");
+                else if (bl == 2) snprintf(burstLine, sizeof(burstLine), "BURST  5-shot volleys   lvl 2/3");
+                else if (bl == 1) snprintf(burstLine, sizeof(burstLine), "BURST  3-shot volleys   lvl 1/3");
+                else snprintf(burstLine, sizeof(burstLine), "BURST  volley fire   not forged");
                 DrawText(rangeLine, mx + 2, my + 62, 15, BLACK);
                 DrawText(rangeLine, mx, my + 60, 15, WHITE);
-                const char *rateLine = TextFormat("COIL   %.2f s   %s", Player_GetLaserCooldown(),
-                                                 lv >= 3 ? "MAX" : TextFormat("lvl %d/3", lv));
                 DrawText(rateLine, mx + 2, my + 84, 15, BLACK);
                 DrawText(rateLine, mx, my + 82, 15, WHITE);
+                DrawText(burstLine, mx + 2, my + 106, 15, BLACK);
+                DrawText(burstLine, mx, my + 104, 15, WHITE);
 
-                bool full = (rl >= 3 && lv >= 3);
+                bool full = (rl >= 3 && lv >= 3 && bl >= 3);
                 if (full) {
                     const char *done = "The laser is fully forged.";
-                    DrawText(done, mx + 2, my + 116, 16, BLACK);
-                    DrawText(done, mx, my + 114, 16, (Color){ 96, 255, 214, 255 });
+                    DrawText(done, mx + 2, my + 138, 16, BLACK);
+                    DrawText(done, mx, my + 136, 16, (Color){ 96, 255, 214, 255 });
                 } else {
-                    char rb[64], cb[64];
+                    char rb[64], cb[64], bb[64];
                     if (rl >= 3) snprintf(rb, sizeof(rb), "LENS  MAX");
                     else snprintf(rb, sizeof(rb), "UPGRADE LENS  (%d shards)", 5);
                     if (lv >= 3) snprintf(cb, sizeof(cb), "COIL  MAX");
                     else snprintf(cb, sizeof(cb), "UPGRADE COIL  (%d shards)", 5);
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 110, 340, 36 }, rb)) {
+                    if (bl >= 3) snprintf(bb, sizeof(bb), "BURST  MAX");
+                    else snprintf(bb, sizeof(bb), "UPGRADE BURST  (%d shards)", 5);
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 132, 340, 36 }, rb)) {
                         Player_BuyLaserUpgrade(0);
                     }
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 154, 340, 36 }, cb)) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 176, 340, 36 }, cb)) {
                         Player_BuyLaserUpgrade(1);
+                    }
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 220, 340, 36 }, bb)) {
+                        Player_BuyLaserUpgrade(2);
                     }
                 }
                 const char *hint = "B / ESC - close";
-                DrawText(hint, mx + 2, my + 206, 14, BLACK);
-                DrawText(hint, mx, my + 204, 14, (Color){ 170, 170, 190, 255 });
+                DrawText(hint, mx + 2, my + 268, 14, BLACK);
+                DrawText(hint, mx, my + 266, 14, (Color){ 170, 170, 190, 255 });
             }
         }
     }

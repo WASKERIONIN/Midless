@@ -594,7 +594,9 @@ static int DefineStructure(lua_State *luaState) {
     structure.salt = Worldgen_Hash(name);
     structure.minDY = 64;
     structure.maxDY = -64;
-    structure.spacing = ReadInteger(luaState, 2, "spacing", 64, 16, 4096);
+    /* v51: floor lowered 16 -> 6 so compact encounter structures (void
+     * cocoons) can be placed on a village-like grid, not once per 256 chunks */
+    structure.spacing = ReadInteger(luaState, 2, "spacing", 64, 6, 4096);
     structure.chance = ReadNumber(luaState, 2, "chance", 0.25, 0, 1);
     structure.minY = ReadInteger(luaState, 2, "min_y", 49, -4096, 4096);
     structure.maxY = ReadInteger(luaState, 2, "max_y", 256, structure.minY, 4096);

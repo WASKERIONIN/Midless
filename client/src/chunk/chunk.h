@@ -26,6 +26,10 @@ typedef struct Chunk{
     Vector3 blockPosition; //Position of the chunk in block unit
     struct Chunk *neighbours[26];
 
+    //Special decorative blocks tracked per layer (0 hunter web,1 shards? legacy,2 void cocoon)
+    Vector3 specialPos[3][24];
+    int specialCount[3];
+
     //Loading/Generation flags
     bool isBuilt;
     bool isGenerating;
@@ -43,11 +47,6 @@ typedef struct Chunk{
     //mesh flags
     bool hasTransparency;
     bool onlyAir;
-
-    /* v44: world positions of special blocks for wireframe auras.
-     * [0] = warp core, [1] = launch pad. Capped per chunk. */
-    Vector3 specialPos[2][24];
-    int specialCount[2];
 } Chunk;
 
 typedef struct LightNode{

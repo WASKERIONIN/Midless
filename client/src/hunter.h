@@ -23,6 +23,7 @@ int Hunter_AliveCount(void);
 int Hunter_GetBounty(void);            /* kills this session */
 float Hunter_GetSurgeLevel(void);      /* 0..1 void-tide intensity */
 float Hunter_GetSurgeTimeLeft(void);   /* seconds left of the current tide */
-float Hunter_GetCalmTimeLeft(void);    /* countdown while the tide warning is up */
+float Hunter_GetCalmTimeLeft(void);
+void Hunter_ExplosionDamage(Vector3 center, float radius, int damage);    /* countdown while the tide warning is up */
 
 #endif
