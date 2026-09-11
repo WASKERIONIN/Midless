@@ -332,7 +332,9 @@ typedef struct Spider {
 static Spider spiders[SPIDER_MAX];
 static bool spiderAnnounced;
 
-void Mobs_SpawnSpider(Vector3 pos) {
+/* v55: returns false when both hatches are busy - the caller must then
+ * leave the cocoon intact so somebody can actually hatch later */
+bool Mobs_SpawnSpider(Vector3 pos) {
     for (int i = 0; i < SPIDER_MAX; i++) {
         Spider *s = &spiders[i];
         if (s->active) continue;
@@ -355,8 +357,9 @@ void Mobs_SpawnSpider(Vector3 pos) {
             spiderAnnounced = true;
             Chat_AddLine("The cocoon splits open. Something many-legged rises.");
         }
-        return;
+        return true;
     }
+    return false;
 }
 
 static void Spider_Damage(Spider *s, Vector3 rd) {
@@ -390,7 +393,8 @@ static void Spider_Update(float deltaTime, double now) {
         toPlayer.y = 0;
         float hdist = Vector3Length(toPlayer);
         float dist3 = Vector3Distance(center, s->pos);
-        if (s->age > 240.0f || dist3 > 40.0f) { s->active = false; continue; }
+        /* v55: hatchlings roam for 90 s at most, so cocoons never feel dead */
+        if (s->age > 90.0f || dist3 > 32.0f) { s->active = false; continue; }
 
         if (hdist < SPIDER_SIGHT && Mob_HasLOS(s->pos, center)) s->aggroTimer = 3.0f;
         else if (s->aggroTimer > 0.0f) s->aggroTimer -= deltaTime;
@@ -479,11 +483,13 @@ static void Spider_Update(float deltaTime, double now) {
 
 /* ---------------------------------------------------------------- cocoons */
 static void Cocoon_Hatch(Vector3 cell) {
-    World_SetBlock(cell, 0, true);
     Vector3 spawn = { cell.x + 0.5f, cell.y + 0.35f, cell.z + 0.5f };
+    /* v55 fix: only consume the cocoon when a spider actually spawns -
+     * with both hatch slots busy the old code destroyed the egg for nobody */
+    if (!Mobs_SpawnSpider(spawn)) return;
+    World_SetBlock(cell, 0, true);
     Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
     Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
-    Mobs_SpawnSpider(spawn);
 }
 
 static void Cocoon_Scan(float deltaTime) {
@@ -942,35 +948,88 @@ static void Mob_Band(Vector3 a, Vector3 b, Color c) {
     rlVertex3f(a2.x, a2.y, a2.z); rlVertex3f(b2.x, b2.y, b2.z);
 }
 
-/* v52: crossed textured sprite quad pair (both windings), atlas tile based */
-static void Mob_FloraCross(Vector3 base, float scale, int tile, unsigned char bright) {
+/* v55: single camera-facing sprite - one clean mushroom instead of the
+ * splayed crossed quads; square quad, world-up, right edge from the view
+ * matrix so it always looks at the viewer */
+static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned char bright) {
     float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
     float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
-    /* v54: square quads - the 16x16 art must not stretch; both diagonals
-     * pass exactly through the base centre so the two planes line up */
-    float w = 0.55f * scale;
-    float h = w;   /* square: 16x16 art stays undistorted */
-    float x = base.x, y = base.y, z = base.z;
+    float w = 0.30f * scale;      /* half width on the ground */
+    float h = 0.60f * scale;      /* square sprite: 2*w tall */
+    Matrix view = rlGetMatrixModelview();
+    Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
+    Vector3 bl = Vector3Subtract(base, Vector3Scale(right, w));
+    Vector3 br = Vector3Add(base, Vector3Scale(right, w));
+    Vector3 up = { 0, h, 0 };
+    Vector3 tl = Vector3Add(bl, up);
+    Vector3 tr = Vector3Add(br, up);
     rlColor4ub(bright, bright, bright, 255);
-    for (int pass = 0; pass < 2; pass++) {
-        float sx = w, sz = (pass == 0) ? w : -w;
-        Vector3 bl = { x - sx, y, z - sz };
-        Vector3 br = { x + sx, y, z + sz };
-        Vector3 tl = { x - sx, y + h, z - sz };
-        Vector3 tr = { x + sx, y + h, z + sz };
-        rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
-        rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
-        rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
-        rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
-        rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
-        rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
-        rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
-        rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
+    rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
+    rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
+    rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
+    rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
+}
+
+/* v55: textured lat-long blob - the spider's carapace (atlas tile based);
+ * faceAng rotates the long axis so the abdomen points where it walks */
+static void Mob_TexturedBlob(Vector3 c, float rx, float ry, float rz, float faceAng,
+                             int tile, unsigned char r, unsigned char g, unsigned char b) {
+    const int SEG = 4, BAND = 3;
+    float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
+    float du = 1.0f / 16.0f, dv = 1.0f / 16.0f;
+    float ca = cosf(faceAng), sa = sinf(faceAng);
+    Vector3 pt[SEG + 1][BAND + 1];
+    for (int k = 0; k <= SEG; k++) {
+        float phi = 6.2832f * k / SEG;
+        for (int q = 0; q <= BAND; q++) {
+            float th = 3.1416f * q / BAND;
+            float lx = sinf(th) * cosf(phi) * rx;
+            float ly = cosf(th) * ry;
+            float lz = sinf(th) * sinf(phi) * rz;
+            pt[k][q] = (Vector3){ c.x + lx * ca - lz * sa, c.y + ly, c.z + lx * sa + lz * ca };
+        }
     }
+    for (int k = 0; k < SEG; k++)
+        for (int q = 0; q < BAND; q++) {
+            float ua = u0 + du * k / SEG, ub = u0 + du * (k + 1) / SEG;
+            float va = v0 + dv * q / BAND, vb = v0 + dv * (q + 1) / BAND;
+            rlColor4ub(r, g, b, 255);
+            rlTexCoord2f(ua, va); rlVertex3f(pt[k][q].x, pt[k][q].y, pt[k][q].z);
+            rlTexCoord2f(ub, va); rlVertex3f(pt[k + 1][q].x, pt[k + 1][q].y, pt[k + 1][q].z);
+            rlTexCoord2f(ub, vb); rlVertex3f(pt[k + 1][q + 1].x, pt[k + 1][q + 1].y, pt[k + 1][q + 1].z);
+            rlTexCoord2f(ua, vb); rlVertex3f(pt[k][q + 1].x, pt[k][q + 1].y, pt[k][q + 1].z);
+        }
 }
 
 void Mobs_Draw(void) {
     double now = (double)GetTime();
+
+    /* v55: spider bodies are textured chitin (own textured batch first) */
+    Texture2D atlasS = World_GetTerrainTexture();
+    if (atlasS.id != 0) {
+        rlSetTexture(atlasS.id);
+        rlBegin(RL_QUADS);
+        for (int i = 0; i < SPIDER_MAX; i++) {
+            Spider *s = &spiders[i];
+            if (!s->active) continue;
+            bool aggro = s->aggroTimer > 0.0f;
+            Vector3 c0 = s->pos;
+            unsigned char tr = aggro ? 255 : 215, tg = aggro ? 130 : 215, tb = aggro ? 130 : 255;
+            float bob = sinf((float)now * 6.0f + s->phase) * 0.02f;
+            /* abdomen along the facing axis, head sphere up front */
+            Mob_TexturedBlob((Vector3){ c0.x, c0.y + 0.02f + bob, c0.z },
+                             0.42f, 0.26f, 0.22f, s->faceAng, 36, tr, tg, tb);
+            Mob_TexturedBlob((Vector3){ c0.x + cosf(s->faceAng) * 0.46f,
+                                        c0.y + 0.06f + bob,
+                                        c0.z + sinf(s->faceAng) * 0.46f },
+                             0.15f, 0.14f, 0.14f, s->faceAng, 36,
+                             (unsigned char)(tr * 9 / 10), (unsigned char)(tg * 8 / 10),
+                             (unsigned char)(tb * 9 / 10));
+        }
+        rlEnd();
+        rlSetTexture(0);
+        rlDrawRenderBatchActive();
+    }
 
     rlDrawRenderBatchActive();
     rlBegin(RL_LINES);
@@ -1045,18 +1104,9 @@ void Mobs_Draw(void) {
         float pulse = 0.82f + 0.18f * sinf((float)now * (aggro ? 9.0f : 2.4f) + s->phase);
         unsigned char rr = (unsigned char)(rC * pulse), gg = (unsigned char)(gC * pulse), bb = (unsigned char)(bC * pulse);
 
-        /* body: horizontal ellipse along facing + head node */
-        Vector3 ring[8];
-        for (int k = 0; k < 8; k++) {
-            float th = 6.2832f * k / 8.0f;
-            ring[k] = (Vector3){ c0.x + (cosf(th) * 0.40f) * ca - (sinf(th) * 0.22f) * sa,
-                                 c0.y + sinf(th) * 0.13f,
-                                 c0.z + (cosf(th) * 0.40f) * sa + (sinf(th) * 0.22f) * ca };
-        }
+        /* body: textured (drawn above); wire legs/tail only */
         Color bodyC = { rr, gg, bb, 255 };
-        for (int k = 0; k < 8; k++) {
-            Mob_Band(ring[k], ring[(k + 1) % 8], bodyC);
-        }
+        /* v55: the body itself is textured now - only legs/tail/eyes stay wire */
         Vector3 head = { c0.x + ca * 0.46f, c0.y + 0.06f, c0.z + sa * 0.46f };
         rlColor4ub(aggro ? 255 : 240, aggro ? 40 : 200, aggro ? 90 : 255, 255);
         rlVertex3f(head.x - 0.07f, head.y, head.z);
@@ -1163,7 +1213,7 @@ void Mobs_Draw(void) {
             double left = m->expireAt - now;
             if (left < 30.0 && ((int)(now * 2.0)) % 2 == 0) continue;  /* expiry blink */
             unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
-            Mob_FloraCross(m->pos, m->scale, 27, br);
+            Mob_FloraBillboard(m->pos, m->scale, 27, br);
         }
         rlEnd();
         rlSetTexture(0);

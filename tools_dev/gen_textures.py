@@ -604,6 +604,57 @@ def t_lanternberry(index):
     return img
 
 
+def t_void_shard(index):
+    """v55: inventory icon - a teal void shard crystal."""
+    img = blank_tile()
+    d = ImageDraw.Draw(img)
+    TEAL = (96, 231, 214)
+    TEAL_L = (200, 255, 246)
+    TEAL_D = (24, 120, 110)
+    d.polygon([(8, 1), (12, 8), (8, 15), (4, 8)], fill=TEAL)
+    d.polygon([(8, 1), (12, 8), (8, 15)], fill=TEAL_D)
+    d.line([(8, 1), (8, 15)], fill=TEAL_L)
+    d.line([(4, 8), (8, 3)], fill=TEAL_L)
+    d.point((7, 4), fill=TEAL_L)
+    d.point((9, 9), fill=(170, 244, 235))
+    return img
+
+
+def t_spider_hide(index):
+    """v55: spider carapace - dark violet chitin plates, magenta veins."""
+    img = blank_tile()
+    px = img.load()
+    rnd = rng(index * 131 + 17)
+    TOP = (86, 44, 130)
+    MID = (56, 28, 92)
+    BOT = (34, 16, 62)
+    PLATE = (110, 62, 160)
+    VEIN = (196, 60, 140)
+    for y in range(16):
+        t = y / 15.0
+        base = lerp(TOP, MID, min(1.0, t * 1.4)) if t < 0.5 else lerp(MID, BOT, (t - 0.5) / 0.5)
+        for x in range(16):
+            n = rnd.random()
+            c = base
+            if n > 0.82:
+                c = lerp(base, PLATE, 0.6)
+            elif n < 0.06:
+                c = lerp(base, (230, 200, 255), 0.3)
+            px[x, y] = (c[0], c[1], c[2], 255)
+    for vy in (3, 8, 12):
+        for x in range(16):
+            if (x + vy) % 3 != 0:
+                continue
+            px[x, vy] = VEIN
+            if x % 2 == 0 and vy + 1 < 16:
+                px[x, vy + 1] = lerp(VEIN, MID, 0.4)
+    for x in range(16):
+        px[x, 6] = lerp(PLATE, (255, 255, 255), 0.25)
+    for x, y in ((3, 2), (4, 2), (10, 9), (11, 9)):
+        px[x, y] = (214, 180, 255, 255)
+    return img
+
+
 def t_egg_shell(index):
     """v54: alien egg shell - violet mottled hide with dark veins and a wet
     highlight; used by the 3D cocoon mesh (opaque surface tile)."""
@@ -727,6 +778,8 @@ def build_atlas():
         32: t_glowgrass(32),
         33: t_lanternberry(33),
         34: t_egg_shell(34),
+        35: t_void_shard(35),
+        36: t_spider_hide(36),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

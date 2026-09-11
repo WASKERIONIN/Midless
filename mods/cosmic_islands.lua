@@ -1,4 +1,4 @@
--- Midless: Cosmic Edition worldgen (v11)
+-- Midless: Cosmic Edition worldgen (v12)
 -- Floating islands adrift in a starlit void, cone-tapered like hanging
 -- gardens. Water exists only inside glass basins. The starter island carries
 -- a launch pad, four warp-core obelisks and a glowing crystal basin.
@@ -53,7 +53,9 @@ midless.define_block(25, {
     textures = { all = 21 },
     model = block.model.GAS,
     collider = block.collider.NONE,
-    light = block.light.EMIT,
+    -- v55: transparent for light - the egg must not cast a shadow column
+    -- (v54 made it glow instead; the pulsing light pop on removal felt wrong)
+    render = block.render.TRANSPARENT,
 })
 
 -- 26 volatile barrel: black-orange hazard, explodes on contact
@@ -264,7 +266,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 11,
+    id = "midless:cosmic", version = 12,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),

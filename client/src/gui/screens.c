@@ -60,28 +60,51 @@ void Screens_UpgradeMenuToggle(void) {
 
 bool Screens_UpgradeMenuIsOpen(void) { return upgradeMenuOpen; }
 
-/* v54: satchel helpers - a real inventory grid, not a text list */
-static void Satchel_Cell(int x, int y, int size, bool highlighted) {
+/* v55: hand-drawn buttons with hover feedback - consistent 18px labels,
+ * disabled state, palette borders. Replaces the tiny raygui defaults in
+ * the game-facing menus. */
+static bool CosmicButton(Rectangle bounds, const char *label, bool enabled) {
+    Vector2 mp = GetMousePosition();
+    bool hover = enabled && CheckCollisionPointRec(mp, bounds);
+    DrawRectangleRec(bounds, enabled ? (Color){ 24, 12, 48, 235 } : (Color){ 14, 9, 26, 210 });
+    DrawRectangleLinesEx(bounds, hover ? 2 : 1,
+        !enabled ? (Color){ 90, 92, 120, 150 } :
+        hover   ? (Color){ 96, 255, 214, 255 } : (Color){ 94, 231, 255, 110 });
+    int fs = 18;
+    int tw = MeasureText(label, fs);
+    Color tc = !enabled ? (Color){ 125, 125, 150, 255 }
+             : hover   ? (Color){ 225, 255, 250, 255 }
+                       : (Color){ 170, 235, 225, 255 };
+    DrawText(label, (int)(bounds.x + bounds.width / 2.0f - tw / 2.0f),
+             (int)(bounds.y + bounds.height / 2.0f - fs / 2.0f), fs, tc);
+    return hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+}
+
+static void CosmicCell(int x, int y, int size, bool highlighted) {
     DrawRectangle(x, y, size, size, (Color){ 14, 8, 30, 235 });
-    Color border = highlighted ? (Color){ 96, 255, 214, 220 } : (Color){ 94, 231, 255, 80 };
+    Color border = highlighted ? (Color){ 96, 255, 214, 230 } : (Color){ 94, 231, 255, 85 };
     DrawRectangleLinesEx((Rectangle){ (float)x, (float)y, (float)size, (float)size }, 1, border);
     DrawRectangleLinesEx((Rectangle){ (float)x - 1, (float)y - 1, (float)size + 2, (float)size + 2 }, 1,
-                         (Color){ 200, 60, 255, 40 });
+                         (Color){ 200, 60, 255, 45 });
 }
 
-static void Satchel_Count(int x, int y, int size, int n) {
-    if (n <= 0) return;
-    const char *t = TextFormat("%d", n);
-    int w = MeasureText(t, 14);
-    DrawText(t, x + size - w - 4 + 1, y + size - 17 + 1, 14, BLACK);
-    DrawText(t, x + size - w - 4, y + size - 17, 14, (Color){ 255, 240, 200, 255 });
+/* atlas tile drawn as an inventory icon (crisp point-scaled pixel art) */
+static void CosmicTileIcon(Texture2D atlas, int tile, int x, int y, int size) {
+    if (atlas.id == 0) return;
+    Rectangle src = { (float)((tile % 16) * 16), (float)((tile / 16) * 16), 16.0f, 16.0f };
+    Rectangle dst = { (float)x, (float)y, (float)size, (float)size };
+    DrawTexturePro(atlas, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
 }
 
-static void Satchel_Pips(int cx, int cy, int lvl) {
+static void CosmicPips(int cx, int cy, int lvl) {
     for (int i = 0; i < 3; i++) {
-        int px = cx - 14 + i * 10;
-        if (i < lvl) DrawRectangle(px, cy, 7, 4, (Color){ 96, 255, 214, 255 });
-        else DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy, 7, 4 }, 1, (Color){ 120, 140, 170, 160 });
+        int px = cx - 23 + i * 16;
+        if (i < lvl) {
+            DrawRectangle(px, cy, 12, 6, (Color){ 96, 255, 214, 255 });
+            DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy, 12, 6 }, 1, (Color){ 220, 255, 250, 200 });
+        } else {
+            DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy, 12, 6 }, 1, (Color){ 120, 140, 170, 170 });
+        }
     }
 }
 
@@ -198,6 +221,9 @@ static void DrawPanel(Rectangle bounds) {
 
 void Screen_Init(Texture2D terrain, bool *exit) {
     exitGame = exit;
+    /* v55: raygui defaults to a 10px font - the reason every menu felt tiny */
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 20);
+    GuiSetStyle(BUTTON, TEXT_ALIGNMENT, TEXT_ALIGN_CENTER);
     BlockItemRenderer_Init(terrain);
     maxFPSChoice = gameSettings.maxFpsChoice;
     if (maxFPSChoice == 1) maxFPS = "120";
@@ -361,196 +387,185 @@ void Screen_DrawGame(void) {
         }
     }
 
-    /* v49.1: laser upgrade menu */
+    /* v49.1/v55: the warp core forge - upgrade cards with sockets */
     if (upgradeMenuOpen) {
-        /* pause/ESC closes it (cursor was taken away) */
         if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
             upgradeMenuOpen = false;
         } else {
-            if (IsKeyPressed(KEY_ESCAPE)) {
-                /* player.c's ESC handler disables the cursor; the auto-close
-                 * below catches it - nothing else to do here */
-            } else {
-                int mx = screenWidth / 2 - 170;
-                int my = screenHeight / 2 - 196;
-                DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
-                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 408 });
+            int mx = screenWidth / 2 - 360;
+            int my = screenHeight / 2 - 224;
+            DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 165 });
+            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 752, 480 });
 
-                const char *title = "WARP CORE FORGE";
-                DrawText(title, mx + 2, my + 2, 24, BLACK);
-                DrawText(title, mx, my, 24, (Color){ 96, 255, 214, 255 });
-                const char *shardLine = TextFormat("Void shards: %d", Player_GetShards());
-                DrawText(shardLine, mx + 2, my + 32, 16, BLACK);
-                DrawText(shardLine, mx, my + 30, 16, (Color){ 200, 160, 255, 255 });
+            const char *title = "WARP CORE FORGE";
+            DrawText(title, mx + 2, my + 3, 28, BLACK);
+            DrawText(title, mx, my, 28, (Color){ 96, 255, 214, 255 });
+            DrawLineEx((Vector2){ (float)mx, (float)my + 40 }, (Vector2){ (float)(mx + 720), (float)my + 40 },
+                       1, (Color){ 94, 231, 255, 60 });
 
-                int rl = Player_GetLaserRangeLvl();
-                int lv = Player_GetLaserRateLvl();
-                int bl = Player_GetBurstLvl();
-                int cl = Player_GetCoolLvl();
-                /* v49.4 fix: nested TextFormat shares one static buffer and
-                 * garbled these lines - snprintf into locals instead */
-                char rangeLine[96], rateLine[96], burstLine[96];
-                if (rl >= 3) snprintf(rangeLine, sizeof(rangeLine), "LENS   range %d m   MAX", Player_GetLaserRange());
-                else snprintf(rangeLine, sizeof(rangeLine), "LENS   range %d m   lvl %d/3", Player_GetLaserRange(), rl);
-                if (lv >= 3) snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   MAX", Player_GetLaserCooldown());
-                else snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   lvl %d/3", Player_GetLaserCooldown(), lv);
-                if (bl >= 3) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = endless   MAX");
-                else if (bl == 2) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = 5-volleys   lvl 2/3");
-                else if (bl == 1) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = 3-volleys   lvl 1/3");
-                else snprintf(burstLine, sizeof(burstLine), "BURST  volley fire   not forged");
-                char coolLine[96];
-                if (cl >= 3) snprintf(coolLine, sizeof(coolLine), "COOL   arctic coil: pauses cool fast   MAX");
-                else if (cl > 0) snprintf(coolLine, sizeof(coolLine), "COOL   faster cooling + quicker shots   lvl %d/3", cl);
-                else snprintf(coolLine, sizeof(coolLine), "COOL   heat control   not forged");
-                DrawText(rangeLine, mx + 2, my + 62, 15, BLACK);
-                DrawText(rangeLine, mx, my + 60, 15, WHITE);
-                DrawText(rateLine, mx + 2, my + 84, 15, BLACK);
-                DrawText(rateLine, mx, my + 82, 15, WHITE);
-                DrawText(burstLine, mx + 2, my + 106, 15, BLACK);
-                DrawText(burstLine, mx, my + 104, 15, WHITE);
-                DrawText(coolLine, mx + 2, my + 128, 15, BLACK);
-                DrawText(coolLine, mx, my + 126, 15, WHITE);
+            /* shard chip, top right */
+            CosmicTileIcon(World_GetTerrainTexture(), 35, mx + 620, my + 8, 28);
+            const char *shardLine = TextFormat("x %d", Player_GetShards());
+            DrawText(shardLine, mx + 654, my + 14, 20, (Color){ 200, 160, 255, 255 });
 
-                bool full = (rl >= 3 && lv >= 3 && bl >= 3 && cl >= 3);
-                /* v52: MAXed tracks render as plain text, not dead buttons */
-                if (rl < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 152, 340, 36 }, "UPGRADE LENS  (5 shards)")) {
-                        Player_BuyLaserUpgrade(0);
+            int rl = Player_GetLaserRangeLvl();
+            int lv = Player_GetLaserRateLvl();
+            int bl = Player_GetBurstLvl();
+            int cl = Player_GetCoolLvl();
+            struct {
+                const char *name; const char *effect; int lvl; int kind;
+            } cards[4] = {
+                { "LENS",  "+6 m laser range",            rl, 0 },
+                { "COIL",  "faster shots",                lv, 1 },
+                { "BURST", "hold = volleys, endless at max", bl, 2 },
+                { "COOL",  "cooler coil, quicker shots",  cl, 3 },
+            };
+
+            int y0 = my + 56;
+            for (int c = 0; c < 4; c++) {
+                int cy = y0 + c * 94;
+                bool maxed = cards[c].lvl >= 3;
+
+                /* track socket cells */
+                for (int p = 0; p < 3; p++) {
+                    int px = mx + 430 + p * 40;
+                    if (p < cards[c].lvl) {
+                        DrawRectangle(px, cy + 22, 34, 18, (Color){ 30, 90, 80, 235 });
+                        DrawRectangle(px + 2, cy + 24, 30, 14, (Color){ 96, 255, 214, 255 });
+                    } else {
+                        DrawRectangle(px, cy + 22, 34, 18, (Color){ 14, 8, 30, 235 });
                     }
-                } else {
-                    DrawText("LENS  MAX", mx + 12, my + 162, 18, (Color){ 120, 190, 170, 255 });
+                    DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy + 22, 34, 18 }, 1,
+                                         p < cards[c].lvl ? (Color){ 220, 255, 250, 180 }
+                                                          : (Color){ 94, 231, 255, 70 });
                 }
-                if (lv < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 196, 340, 36 }, "UPGRADE COIL  (5 shards)")) {
-                        Player_BuyLaserUpgrade(1);
+
+                /* icon socket */
+                CosmicCell(mx + 24, cy + 6, 60, maxed);
+                int icx = mx + 54, icy = cy + 36;
+                if (cards[c].kind == 0) {          /* lens */
+                    DrawCircleLines(icx, icy, 16, (Color){ 96, 255, 214, 255 });
+                    DrawCircleLines(icx, icy, 9, (Color){ 160, 245, 235, 220 });
+                    DrawCircle(icx, icy, 4, (Color){ 225, 255, 250, 255 });
+                } else if (cards[c].kind == 1) {   /* coil */
+                    DrawCircleLines(icx, icy, 17, (Color){ 255, 190, 84, 255 });
+                    DrawCircleLines(icx, icy, 11, (Color){ 255, 220, 140, 230 });
+                    DrawCircleLines(icx, icy, 5, (Color){ 255, 240, 190, 210 });
+                } else if (cards[c].kind == 2) {   /* burst */
+                    DrawCircle(icx - 11, icy + 6, 4, (Color){ 232, 84, 240, 255 });
+                    DrawCircle(icx, icy - 4, 4, (Color){ 255, 150, 250, 255 });
+                    DrawCircle(icx + 11, icy + 6, 4, (Color){ 148, 64, 255, 255 });
+                } else {                            /* cool */
+                    for (int a = 0; a < 6; a++) {
+                        float an = 3.1416f * a / 3.0f;
+                        DrawLineEx((Vector2){ icx - cosf(an) * 16, icy - sinf(an) * 16 },
+                                   (Vector2){ icx + cosf(an) * 16, icy + sinf(an) * 16 },
+                                   2.0f, (Color){ 110, 230, 255, 255 });
                     }
-                } else {
-                    DrawText("COIL  MAX", mx + 12, my + 206, 18, (Color){ 120, 190, 170, 255 });
+                    DrawCircle(icx, icy, 4, (Color){ 220, 250, 255, 255 });
                 }
-                if (bl < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 240, 340, 36 }, "UPGRADE BURST  (5 shards)")) {
-                        Player_BuyLaserUpgrade(2);
+
+                /* name + effect */
+                DrawText(cards[c].name, mx + 104, cy + 10, 22, maxed ? (Color){ 120, 190, 170, 255 }
+                                                                     : (Color){ 225, 245, 255, 255 });
+                DrawText(cards[c].effect, mx + 104, cy + 38, 14, (Color){ 165, 165, 190, 255 });
+
+                /* buy button */
+                if (maxed) {
+                    CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 10), 124, 42 }, "MAX", false);
+                } else {
+                    char btxt[48];
+                    snprintf(btxt, sizeof(btxt), "FORGE  5");
+                    if (CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 10), 124, 42 }, btxt,
+                                     Player_GetShards() >= 5)) {
+                        Player_BuyLaserUpgrade(cards[c].kind);
                     }
-                } else {
-                    DrawText("BURST  MAX", mx + 12, my + 250, 18, (Color){ 120, 190, 170, 255 });
                 }
-                if (cl < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 284, 340, 36 }, "UPGRADE COOLING  (5 shards)")) {
-                        Player_BuyLaserUpgrade(3);
-                    }
-                } else {
-                    DrawText("COOLING  MAX", mx + 12, my + 294, 18, (Color){ 120, 190, 170, 255 });
-                }
-                if (full) {
-                    const char *done = "The laser is fully forged.";
-                    DrawText(done, mx + 2, my + 328, 15, BLACK);
-                    DrawText(done, mx, my + 326, 15, (Color){ 96, 255, 214, 255 });
-                } else if (Player_GetShards() < 5) {
-                    const char *need = "Not enough shards - fell hunters, crawlers, wisps, spiders.";
-                    DrawText(need, mx + 2, my + 328, 14, BLACK);
-                    DrawText(need, mx, my + 326, 14, (Color){ 255, 120, 140, 255 });
-                }
-                const char *hint = "B / ESC - close";
-                DrawText(hint, mx + 2, my + 356, 14, BLACK);
-                DrawText(hint, mx, my + 354, 14, (Color){ 170, 170, 190, 255 });
+                if (c < 3)
+                    DrawLineEx((Vector2){ (float)(mx + 24), (float)(cy + 86) },
+                               (Vector2){ (float)(mx + 700), (float)(cy + 86) }, 1, (Color){ 94, 231, 255, 30 });
             }
+
+            const char *hint = "B / ESC - close      falling or dying burns out one upgrade";
+            DrawText(hint, mx, my + 442, 14, (Color){ 150, 150, 175, 255 });
         }
     }
 
-    /* v53/v54: the satchel (I) - a slot-grid inventory */
+    /* v55: the satchel - item grid on the left, details on the right */
     if (inventoryOpen) {
         if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
             inventoryOpen = false;
         } else {
-            int mx = screenWidth / 2 - 175;
-            int my = screenHeight / 2 - 140;
-            DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
-            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 382, 300 });
+            int mx = screenWidth / 2 - 352;
+            int my = screenHeight / 2 - 186;
+            DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 165 });
+            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 736, 404 });
 
             const char *title = "VOID SATCHEL";
-            DrawText(title, mx + 2, my + 2, 22, BLACK);
-            DrawText(title, mx, my, 22, (Color){ 96, 255, 214, 255 });
+            DrawText(title, mx + 2, my + 3, 26, BLACK);
+            DrawText(title, mx, my, 26, (Color){ 96, 255, 214, 255 });
 
-            /* ---- row 1: carry items (56px cells) ---- */
-            int iy = my + 40;
-            int cell = 56;
+            Texture2D atlas = World_GetTerrainTexture();
 
-            /* shards: teal diamond */
-            Satchel_Cell(mx, iy, cell, true);
-            Vector2 sc = { mx + cell / 2.0f, iy + 22 };
-            DrawPoly(sc, 4, 13.0f, 45.0f, (Color){ 96, 231, 214, 255 });
-            DrawPolyLinesEx(sc, 4, 13.0f, 45.0f, 1, (Color){ 220, 255, 250, 255 });
-            Satchel_Count(mx, iy, cell, Player_GetShards());
-            DrawText("SHARDS", mx, iy + cell + 4, 11, (Color){ 150, 150, 180, 255 });
-
-            /* mushrooms: violet cap + pale stem */
-            int mx2 = mx + cell + 10;
-            Satchel_Cell(mx2, iy, cell, Mobs_GetMushrooms() > 0);
-            int hx = mx2 + cell / 2, hy = iy + 20;
-            DrawRectangle(hx - 4, hy + 6, 8, 13, (Color){ 226, 210, 250, 255 });
-            DrawCircle(hx, hy + 6, 13.0f, (Color){ 138, 52, 224, 255 });
-            DrawCircle(hx, hy + 6, 10.0f, (Color){ 190, 100, 255, 255 });
-            DrawCircle(hx - 4, hy + 3, 2.0f, (Color){ 255, 208, 120, 255 });
-            Satchel_Count(mx2, iy, cell, Mobs_GetMushrooms());
-            DrawText("MUSHROOMS", mx2, iy + cell + 4, 11, (Color){ 150, 150, 180, 255 });
-
-            /* three empty slots for the future */
-            for (int e = 0; e < 3; e++) {
-                Satchel_Cell(mx2 + (e + 1) * (cell + 10), iy, cell, false);
+            /* ---- item grid (left) ---- */
+            int gx = mx + 24, gy = my + 52;
+            int cell = 72, gap = 12;
+            struct { int tile; int count; } items[8] = {
+                { 35, Player_GetShards() },
+                { 27, Mobs_GetMushrooms() },
+                { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 },
+            };
+            for (int i = 0; i < 8; i++) {
+                int cx = gx + (i % 4) * (cell + gap);
+                int cy = gy + (i / 4) * (cell + gap);
+                CosmicCell(cx, cy, cell, items[i].tile >= 0);
+                if (items[i].tile >= 0) {
+                    CosmicTileIcon(atlas, items[i].tile, cx + 10, cy + 8, 52);
+                    const char *cnt = TextFormat("%d", items[i].count);
+                    int w = MeasureText(cnt, 18);
+                    DrawText(cnt, cx + cell - w - 6 + 1, cy + cell - 22 + 1, 18, BLACK);
+                    DrawText(cnt, cx + cell - w - 6, cy + cell - 22, 18, (Color){ 255, 240, 200, 255 });
+                }
             }
-            DrawText("G - eat a mushroom   E - pick one in the field",
-                     mx, iy + cell + 18, 13, (Color){ 170, 170, 195, 255 });
+            DrawText("carried", gx + 2, gy + 2 * cell + gap + 8, 14, (Color){ 130, 130, 160, 255 });
 
-            /* ---- row 2: laser upgrade chips (46px cells with pips) ---- */
-            int uy = iy + cell + 40;
-            int ucell = 46;
-            struct { const char *name; int lvl; } chips[4] = {
+            /* ---- details (right side) ---- */
+            int sx = gx + 4 * (cell + gap) + 26;
+            DrawLineEx((Vector2){ (float)(sx - 14), (float)gy - 6 },
+                       (Vector2){ (float)(sx - 14), (float)gy + 2 * cell + gap + 2 }, 1,
+                       (Color){ 94, 231, 255, 45 });
+
+            DrawText("LASER FORGE", sx, gy - 4, 15, (Color){ 120, 190, 175, 255 });
+            struct { const char *name; int lvl; } ups[4] = {
                 { "LENS", Player_GetLaserRangeLvl() },
                 { "COIL", Player_GetLaserRateLvl() },
                 { "BURST", Player_GetBurstLvl() },
                 { "COOL", Player_GetCoolLvl() },
             };
-            for (int c = 0; c < 4; c++) {
-                int cx = mx + c * (ucell + 10);
-                bool maxed = chips[c].lvl >= 3;
-                Satchel_Cell(cx, uy, ucell, maxed);
-                int ccx = cx + ucell / 2, ccy = uy + 18;
-                if (c == 0) {                      /* lens: ring + dot */
-                    DrawCircleLines(ccx, ccy, 9, (Color){ 96, 255, 214, 255 });
-                    DrawCircle(ccx, ccy, 3, (Color){ 220, 255, 250, 255 });
-                } else if (c == 1) {               /* coil: two rings */
-                    DrawCircleLines(ccx, ccy, 10, (Color){ 255, 190, 84, 255 });
-                    DrawCircleLines(ccx, ccy, 5, (Color){ 255, 230, 150, 255 });
-                } else if (c == 2) {               /* burst: three dots */
-                    DrawCircle(ccx - 7, ccy + 4, 2.5f, (Color){ 232, 84, 240, 255 });
-                    DrawCircle(ccx, ccy - 2, 2.5f, (Color){ 255, 150, 250, 255 });
-                    DrawCircle(ccx + 7, ccy + 4, 2.5f, (Color){ 148, 64, 255, 255 });
-                } else {                            /* cool: asterisk */
-                    for (int a = 0; a < 6; a++) {
-                        float an = 3.1416f * a / 3.0f;
-                        DrawLineEx((Vector2){ ccx - cosf(an) * 9, ccy - sinf(an) * 9 },
-                                   (Vector2){ ccx + cosf(an) * 9, ccy + sinf(an) * 9 },
-                                   1.5f, (Color){ 110, 230, 255, 255 });
-                    }
-                }
-                Satchel_Pips(ccx, uy + ucell - 9, chips[c].lvl);
-                int tw = MeasureText(chips[c].name, 11);
-                DrawText(chips[c].name, ccx - tw / 2, uy + ucell + 4, 11,
-                         maxed ? (Color){ 120, 190, 170, 255 } : (Color){ 150, 150, 180, 255 });
+            for (int u = 0; u < 4; u++) {
+                int uy = gy + 20 + u * 34;
+                DrawText(ups[u].name, sx, uy + 2, 17, ups[u].lvl >= 3 ? (Color){ 120, 190, 170, 255 }
+                                                                      : (Color){ 225, 245, 255, 255 });
+                CosmicPips(sx + 90, uy + 6, ups[u].lvl);
+                const char *lv = TextFormat("%d/3", ups[u].lvl);
+                DrawText(lv, sx + 172, uy + 2, 15, (Color){ 150, 150, 180, 255 });
             }
-            DrawText("Forge the laser at a warp core (B, 5 shards each)",
-                     mx, uy + ucell + 18, 13, (Color){ 170, 170, 195, 255 });
+            DrawText("forge at warp cores - B, 5 shards each", sx, gy + 162, 14, (Color){ 140, 140, 165, 255 });
 
-            /* ---- footer: trophies + senses ---- */
-            int fy = uy + ucell + 38;
-            char line[128];
-            snprintf(line, sizeof(line), "Hunters felled: %d      Nearby: %d crawlers, %d wisps, %d spiders",
-                     Hunter_GetBounty(), Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
-            DrawText(line, mx + 2, fy + 1, 13, BLACK);
-            DrawText(line, mx, fy, 13, (Color){ 255, 170, 130, 255 });
+            DrawLineEx((Vector2){ (float)sx, (float)gy + 186 }, (Vector2){ (float)(sx + 270), (float)gy + 186 }, 1,
+                       (Color){ 94, 231, 255, 45 });
+            DrawText("FIELD LOG", sx, gy + 196, 15, (Color){ 120, 190, 175, 255 });
+            const char *log1 = TextFormat("Hunters felled: %d", Hunter_GetBounty());
+            DrawText(log1, sx, gy + 218, 16, (Color){ 255, 200, 120, 255 });
+            const char *log2 = TextFormat("Nearby: %d crawlers, %d wisps, %d spiders",
+                                          Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
+            DrawText(log2, sx, gy + 242, 16, (Color){ 255, 140, 160, 255 });
 
-            const char *hint = "I / ESC - close";
-            DrawText(hint, mx, fy + 20, 13, (Color){ 150, 150, 175, 255 });
+            /* footer */
+            int fy = my + 352;
+            DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
+                     mx + 24, fy, 15, (Color){ 170, 170, 195, 255 });
+            DrawText("I / ESC - close", mx + 24, fy + 22, 14, (Color){ 140, 140, 165, 255 });
         }
     }
 
@@ -588,14 +603,19 @@ void Screen_BeginSingleplayer(void) {
 void Screen_DrawPause(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 2, 14, 120});
 
-    int offsetY = screenHeight / 2 - 120;
-    int offsetX = screenWidth / 2 - 100;
-    DrawPanel((Rectangle){offsetX - 14, offsetY - 14, 228, (float)(5 * 35 + 26)});
+    /* v55: readable pause menu - big buttons, clear title */
+    int offsetY = screenHeight / 2 - 150;
+    int offsetX = screenWidth / 2 - 150;
+    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(52 + 5 * 52 + 14)});
 
-    int index = 0;
+    const char *ptitle = "PAUSED";
+    DrawText(ptitle, offsetX + 165 - MeasureText(ptitle, 26) / 2 + 1, offsetY + 8 + 1, 26, BLACK);
+    DrawText(ptitle, offsetX + 165 - MeasureText(ptitle, 26) / 2, offsetY + 8, 26, (Color){ 96, 255, 214, 255 });
+
+    int index = 1;   /* row 0 is the title */
 
     //Continue Button
-    if (MenuButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
+    if (CosmicButton((Rectangle) {offsetX , offsetY + (index++ * 52), 300, 42 }, "Continue", true)) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
         screenCursorEnabled = false;
@@ -603,12 +623,12 @@ void Screen_DrawPause(void) {
     }
 
     //Options Button
-    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY + (index++ * 52), 300, 42 }, "Options", true)) {
         Screen_Switch(SCREEN_OPTIONS);
     }
 
     if (LocalServer_IsRunning()) {
-        if (MenuButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "New World")) {
+        if (CosmicButton((Rectangle){offsetX, offsetY + (index++ * 52), 300, 42}, "New World", true)) {
             LocalServer_Stop();
             LocalServer_WipeWorld(false);
             player.flying = false;
@@ -618,7 +638,7 @@ void Screen_DrawPause(void) {
             Screen_BeginSingleplayer();
             return;
         }
-        if (MenuButton((Rectangle){offsetX, offsetY + (index++ * 35), 200, 30}, "Regenerate World")) {
+        if (CosmicButton((Rectangle){offsetX, offsetY + (index++ * 52), 300, 42}, "Regenerate World", true)) {
             LocalServer_Stop();
             LocalServer_WipeWorld(true);
             player.flying = false;
@@ -630,7 +650,7 @@ void Screen_DrawPause(void) {
     }
 
     //Main Menu Button
-    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY + (index++ * 52), 300, 42 }, "Main Menu", true)) {
         if (networkConnectedToServer) {
             Network_Disconnect();
         } else {
@@ -641,7 +661,7 @@ void Screen_DrawPause(void) {
     }
 
     //Quit Button
-    if (MenuButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY + (index++ * 52), 300, 42 }, "Quit", true)) {
         *exitGame = true;
     }
 }
@@ -649,32 +669,37 @@ void Screen_DrawPause(void) {
 void Screen_DrawOptions(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){5, 2, 14, 120});
 
-    int offsetY = screenHeight / 2 - 130;
-    int offsetX = screenWidth / 2 - 100;
-    DrawPanel((Rectangle){offsetX - 14, offsetY - 14, 228, (float)(8 * 35 + 20)});
+    /* v55: options at a readable size */
+    int offsetY = screenHeight / 2 - 196;
+    int offsetX = screenWidth / 2 - 150;
+    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 7 * 50 + 10)});
+
+    const char *otitle = "OPTIONS";
+    DrawText(otitle, offsetX + 150 - MeasureText(otitle, 24) / 2 + 1, offsetY + 6 + 1, 24, BLACK);
+    DrawText(otitle, offsetX + 150 - MeasureText(otitle, 24) / 2, offsetY + 6, 24, (Color){ 96, 255, 214, 255 });
+
+    int index = 1;
+    offsetY += index * 48;
 
     const char* drawDistanceTxt = "Draw Distance: 20 (fixed)";
+    DrawText(drawDistanceTxt, offsetX + 150 - MeasureText(drawDistanceTxt, 16) / 2 + 1, offsetY + 13 + 1, 16, BLACK);
+    DrawText(drawDistanceTxt, offsetX + 150 - MeasureText(drawDistanceTxt, 16) / 2, offsetY + 13, 16, (Color){ 200, 200, 220, 255 });
 
-    //Draw distance: fixed label (v47.1)
-    Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY + 15 - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
-
-    offsetY += 35;
+    offsetY += 50;
 
     //Draw Debug Button
     const char* debugStateTxt = "OFF";
     if (screenShowDebug) debugStateTxt = "ON";
     const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
-    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, showDebugTxt, true)) {
         screenShowDebug = !screenShowDebug;
     }
 
-    offsetY += 35;
+    offsetY += 50;
 
     //Draw Max FPS
     const char* maxFPSTxt = TextFormat("Max FPS: %s", maxFPS);
-    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, maxFPSTxt, true)) {
         maxFPSChoice++;
         if (maxFPSChoice == 3) maxFPSChoice = 0;
         if (maxFPSChoice == 0) {
@@ -691,39 +716,36 @@ void Screen_DrawOptions(void) {
         Settings_Save();
     }
 
-    offsetY += 35;
+    offsetY += 50;
 
     const char *fullTxt = TextFormat("Fullscreen: %s  (F11)", gameSettings.fullscreen ? "ON" : "OFF");
-    if (MenuButton((Rectangle){offsetX, offsetY, 200, 30}, fullTxt)) {
+    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, fullTxt, true)) {
         Settings_ToggleFullscreen();
     }
 
-    offsetY += 35;
+    offsetY += 50;
 
     const char *resTxt = TextFormat("Resolution: %s", Settings_ResolutionLabel());
-    if (MenuButton((Rectangle){offsetX, offsetY, 200, 30}, resTxt)) {
+    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, resTxt, true)) {
         Settings_CycleResolution();
     }
 
-    offsetY += 35;
+    offsetY += 50;
 
     float vol = SoundFx_GetVolume();
-    GuiSlider((Rectangle){offsetX, offsetY, 200, 30}, "", "", &vol, 0.0f, 1.0f);
+    GuiSlider((Rectangle){offsetX, offsetY, 300, 38}, "", "", &vol, 0.0f, 1.0f);
     const char *volTxt = TextFormat("Volume: %i%%", (int)(vol * 100.0f + 0.5f));
-    Vector2 volSize = MeasureTextEx(GetFontDefault(), volTxt, 10.0f, 1);
-    DrawTextEx(GetFontDefault(), volTxt,
-               (Vector2){offsetX + 100 - volSize.x / 2 + 1, offsetY + 15 - volSize.y / 2 + 1}, 10.0f, 1, BLACK);
-    DrawTextEx(GetFontDefault(), volTxt,
-               (Vector2){offsetX + 100 - volSize.x / 2, offsetY + 15 - volSize.y / 2}, 10.0f, 1, WHITE);
+    DrawText(volTxt, offsetX + 150 - MeasureText(volTxt, 16) / 2 + 1, offsetY + 42 + 1, 16, BLACK);
+    DrawText(volTxt, offsetX + 150 - MeasureText(volTxt, 16) / 2, offsetY + 42, 16, (Color){ 200, 200, 220, 255 });
     if (fabsf(vol - SoundFx_GetVolume()) > 0.001f) {
         SoundFx_SetVolume(vol);
         gameSettings.volume = (int)(vol * 100.0f + 0.5f);
         Settings_Save();
     }
 
-    offsetY += 35;
+    offsetY += 74;
 
-    if (MenuButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
+    if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, "Back", true)) {
         Screen_Switch(SCREEN_PAUSE);
     }
 
