@@ -108,6 +108,23 @@ midless.define_block(33, {
     collider = block.collider.NONE,
 })
 
+-- v57: tall flora - one block footprint, the client draws the billboard
+-- two blocks high; laser-searable like every other flower
+midless.define_block(37, {
+    name = "Star Reed",
+    textures = { all = 37 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(38, {
+    name = "Moon Bell",
+    textures = { all = 38 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -196,6 +213,14 @@ local low_m1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y - 1)
 local starter_m1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                    f.lt(y - 1, 76) * f.lt(starter_bottom, y - 1)
 local solid_below = f.max(f.max(mid_m1, high_m1), f.max(low_m1, starter_m1))
+-- v57: the cell above must ALSO be open - on slopes the old rule stacked
+-- flower blocks two or three high (and cocoons ended up under a flower)
+local mid_a1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y + 1)
+local high_a1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y + 1)
+local low_a1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y + 1)
+local starter_a1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
+                   f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
+local open_above = 1 - f.max(f.max(mid_a1, high_a1), f.max(low_a1, starter_a1))
 local patch_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.045,
     octaves = 2, seed_offset = 313,
@@ -205,7 +230,7 @@ local fine_n = f.noise2d({
     octaves = 1, seed_offset = 777,
 })
 local flora_cell = f.lt(3.0, f.max(f.abs(x - 8), f.abs(z - 8))) *
-                   f.lt(0.4, solid_below * (1 - inside)) *
+                   f.lt(0.4, solid_below * (1 - inside) * open_above) *
                    f.lt(0.05, patch_n) * f.lt(0.1, fine_n)
 local which_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
@@ -227,6 +252,13 @@ for _, band in ipairs({
 }) do
     flower_id = f.select(f.lt(band[1], which_n), band[2], flower_id)
 end
+-- v57: tall flora grows as rare giants inside starbloom patches - where the
+-- patch is at its densest (high fine_n) the ordinary bloom becomes a
+-- two-block moon bell, and the very densest spots grow a star reed
+-- v57: tall flora - rare giants keyed on the fine noise (which_n's top
+-- tail is too thin to bank on); moon bells and star reeds rise singly
+flower_id = f.select(f.lt(0.72, fine_n) * f.lt(fine_n, 0.82), 38, flower_id)
+flower_id = f.select(f.lt(0.82, fine_n), 37, flower_id)
 
 -- stratified bodies: crystal turf over dirt over void rock over stone
 local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))
@@ -266,7 +298,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 12,
+    id = "midless:cosmic", version = 13,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),
@@ -411,7 +443,8 @@ wg.define_structure("midless:ruined_shrine", {
 -- Alien cocoons: eggs incubating on quiet islands. Approach and they open.
 wg.define_structure("midless:void_cocoon", {
     spacing = 8, chance = 0.5, min_y = 20, max_y = 150,
-    max_slope = 3, rotate = false, air_only = false,   -- v54: replaces flora
+    max_slope = 3, rotate = false,
+    air_only = true,   -- v57: a flower cell is skipped, never turned into an egg
     blocks = {
         { x = 0, y = 0, z = 0, block = 25 },
     },

@@ -214,6 +214,7 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
     chunk->specialCount[0] = 0;
     chunk->specialCount[1] = 0;
     chunk->specialCount[2] = 0;
+    chunk->floraCount = 0;
 
     for (int y = 0; y < CHUNK_SIZE_Y; y++) {
         for (int z = 0; z < CHUNK_SIZE_Z; z++) {
@@ -234,6 +235,20 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
                     }
                 }
                 if (block->modelType == BLOCK_MODEL_GAS) continue;
+                /* v57: island flora becomes a single view-facing billboard
+                 * (like the void mushrooms) instead of static crossed quads;
+                 * fire keeps its crossed quads - it needs the volume */
+                if (block->modelType == BLOCK_MODEL_SPRITE && blockId != 15) {
+                    if (chunk->floraCount < 80) {
+                        chunk->floraPos[chunk->floraCount] =
+                            (Vector3){ chunk->blockPosition.x + x + 0.5f,
+                                       chunk->blockPosition.y + y,
+                                       chunk->blockPosition.z + z + 0.5f };
+                        chunk->floraBlock[chunk->floraCount] = (unsigned char)blockId;
+                        chunk->floraCount++;
+                    }
+                    continue;
+                }
                 chunk->onlyAir = false;
                 if (block->renderType == BLOCK_RENDER_TRANSLUCENT) chunk->hasTransparency = true;
                 int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;

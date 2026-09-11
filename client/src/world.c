@@ -648,17 +648,51 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
     }
 }
 
+/* v57: per-block billboard silhouette - halfW + full height */
+static void World_FloraBillboardAt(Vector3 base, int id) {
+    float halfW = 0.30f, h = 0.60f;
+    switch (id) {
+        case 12: halfW = 0.30f; h = 0.60f; break;   /* rose */
+        case 13: halfW = 0.30f; h = 0.60f; break;   /* dandelion */
+        case 28: halfW = 0.33f; h = 0.66f; break;   /* bellflower */
+        case 29: halfW = 0.32f; h = 0.64f; break;   /* starbloom */
+        case 30: halfW = 0.36f; h = 0.60f; break;   /* spiral fern */
+        case 31: halfW = 0.32f; h = 0.68f; break;   /* twin tulip */
+        case 32: halfW = 0.34f; h = 0.48f; break;   /* glow grass */
+        case 33: halfW = 0.36f; h = 0.68f; break;   /* lanternberry */
+        case 37: halfW = 0.55f; h = 1.90f; break;   /* star reed - two blocks tall */
+        case 38: halfW = 0.70f; h = 1.70f; break;   /* moon bell - two blocks tall */
+        default: return;
+    }
+    float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });
+    unsigned char bright = (unsigned char)(Clamp(brightF, 0.0f, 1.0f) * 255.0f);
+    Mobs_DrawBillboard(base, halfW, h, id, bright);
+}
+
 void World_DrawWireAuras(void) {
     Matrix view = rlGetMatrixModelview();
     Matrix projection = rlGetMatrixProjection();
     for (int i = 0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
         if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0 &&
-            chunk->specialCount[2] == 0) continue;
+            chunk->specialCount[2] == 0 && chunk->floraCount == 0) continue;
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
         for (int s = 0; s < chunk->specialCount[0]; s++) World_DrawWireAurasAt(chunk->specialPos[0][s], 0);
         for (int s = 0; s < chunk->specialCount[1]; s++) World_DrawWireAurasAt(chunk->specialPos[1][s], 1);
         for (int s = 0; s < chunk->specialCount[2]; s++) World_DrawWireAurasAt(chunk->specialPos[2][s], 2);
+        /* v57: island flora - view-facing billboards, depth write off so the
+         * transparent corners never clip what is drawn after them */
+        if (chunk->floraCount > 0) {
+            Texture2D atlas = World_GetTerrainTexture();
+            if (atlas.id != 0) {
+                rlSetTexture(atlas.id);
+                rlDisableDepthMask();
+                for (int s = 0; s < chunk->floraCount; s++)
+                    World_FloraBillboardAt(chunk->floraPos[s], chunk->floraBlock[s]);
+                rlEnableDepthMask();
+                rlSetTexture(0);
+            }
+        }
     }
 }
 

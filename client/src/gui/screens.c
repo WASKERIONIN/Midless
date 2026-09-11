@@ -672,7 +672,7 @@ void Screen_DrawOptions(void) {
     /* v55: options at a readable size */
     int offsetY = screenHeight / 2 - 196;
     int offsetX = screenWidth / 2 - 150;
-    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 10 * 50 + 10)});
+    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 8 * 50 + 10)});
 
     const char *otitle = "OPTIONS";
     DrawText(otitle, offsetX + 150 - MeasureText(otitle, 24) / 2 + 1, offsetY + 6 + 1, 24, BLACK);
@@ -728,24 +728,6 @@ void Screen_DrawOptions(void) {
     const char *resTxt = TextFormat("Resolution: %s", Settings_ResolutionLabel());
     if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, resTxt, true)) {
         Settings_CycleResolution();
-    }
-
-    offsetY += 50;
-
-    /* v56: FXAA - the practical AA (MSAA is lost inside the postfx pass) */
-    const char *fxaaTxt = TextFormat("Smoothing (FXAA): %s", gameSettings.fxaa ? "ON" : "OFF");
-    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, fxaaTxt, true)) {
-        gameSettings.fxaa = !gameSettings.fxaa;
-        Settings_Save();
-    }
-
-    offsetY += 50;
-
-    /* v56: anisotropic x8 on the terrain atlas */
-    const char *anTxt = TextFormat("Anisotropic x8: %s", gameSettings.aniso ? "ON" : "OFF");
-    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, anTxt, true)) {
-        gameSettings.aniso = !gameSettings.aniso;
-        Settings_Save();
     }
 
     offsetY += 50;

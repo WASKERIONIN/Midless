@@ -30,6 +30,12 @@ typedef struct Chunk{
     Vector3 specialPos[3][24];
     int specialCount[3];
 
+    //v57: flora blocks render as view-facing billboards, not crossed quads -
+    //positions are gathered at mesh build and drawn after the mesh pass
+    Vector3 floraPos[80];
+    unsigned char floraBlock[80];
+    int floraCount;
+
     //Loading/Generation flags
     bool isBuilt;
     bool isGenerating;

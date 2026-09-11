@@ -151,6 +151,21 @@ void Block_BuildDefinition(void) {
     blockDefinitions[33].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[33].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[33].maxBB = (Vector3) {12, 10, 12};
+
+    /* v57: tall flora - one block footprint, billboard drawn 2 blocks high */
+    Block_Define(37, "star_reed", 37, 37, 37);
+    blockDefinitions[37].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[37].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[37].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[37].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[37].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(38, "moon_bell", 38, 38, 38);
+    blockDefinitions[38].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[38].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[38].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[38].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[38].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

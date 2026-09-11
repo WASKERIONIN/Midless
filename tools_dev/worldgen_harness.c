@@ -156,9 +156,9 @@ int main(int argc, char **argv) {
                                     if (above == 12 || above == 13 ||
                                         (above >= 28 && above <= 33)) cocoonOnFlower++;
                                 }
-                                if ((id == 12 || id == 13) || (id >= 28 && id <= 33))
-                                    species[id]++;   /* v54: direct slots */
-                                    if (id >= 40 && id < 64) species[id]++;
+                                if ((id == 12 || id == 13) || (id >= 28 && id <= 33) ||
+                                    (id >= 37 && id < 64))
+                                    species[id]++;   /* v54: direct slots; v57: tall flora */
                             }
                     ServerChunk_Destroy(c);
                 }
@@ -166,6 +166,7 @@ int main(int argc, char **argv) {
                cocoonOnFlower, species[12], species[13],
                species[28], species[29], species[30],
                species[31], species[32], species[33]);
+        printf("v57 scan: starReed=%d moonBell=%d\n", species[37], species[38]);
         printf("v54 debug buckets 40..55:");
         for (int db = 40; db < 56; db++) if (species[db]) printf(" %d:%d", db, species[db]);
         printf("\n");

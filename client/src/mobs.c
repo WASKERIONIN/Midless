@@ -975,11 +975,13 @@ static void Mob_Band(Vector3 a, Vector3 b, Color c) {
 /* v55: single camera-facing sprite - one clean mushroom instead of the
  * splayed crossed quads; square quad, world-up, right edge from the view
  * matrix so it always looks at the viewer */
-static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned char bright) {
+/* v57: shared billboard emitter - halfW is half the quad width, h the full
+ * height above `base` (a block's bottom center). Used by the void mushrooms
+ * and, since v57, by every island flora block from the chunk flora lists. */
+void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright) {
     float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
     float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
-    float w = 0.30f * scale;      /* half width on the ground */
-    float h = 0.60f * scale;      /* square sprite: 2*w tall */
+    float w = halfW;
     Matrix view = rlGetMatrixModelview();
     Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
     Vector3 bl = Vector3Subtract(base, Vector3Scale(right, w));
@@ -999,6 +1001,11 @@ static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned cha
     rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
     rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
     rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
+}
+
+/* v55 void mushrooms keep their square, scale-driven billboard */
+static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned char bright) {
+    Mobs_DrawBillboard(base, 0.30f * scale, 0.60f * scale, tile, bright);
 }
 
 /* v55: textured lat-long blob - the spider's carapace (atlas tile based);

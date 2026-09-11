@@ -360,6 +360,11 @@ void Player_Draw(void) {
 static void Player_WebDetach(void) {
     if (!player.webActive) return;
     player.webActive = false;
+    /* v57: a snapped hook used to leave the player jumpless - the air jump
+     * was spent on the release press and coyote had long expired. Refill
+     * the budget so there is ALWAYS a jump right after the web lets go. */
+    player.airJumpsUsed = 0;
+    lastGroundedTime = GetTime();
 }
 
 /* long-range ray for the web; returns the pull point and the anchored cell */

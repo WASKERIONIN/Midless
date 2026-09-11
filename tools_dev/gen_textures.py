@@ -620,6 +620,103 @@ def t_void_shard(index):
     return img
 
 
+def t_star_reed(index):
+    """v57: star reed - tall teal stalk topped with a gold four-point star.
+    Drawn for a billboard twice as tall as wide-ish (1.1 x 1.9 blocks)."""
+    img = blank_tile()
+    px = img.load()
+    ST_D = (24, 78, 96)
+    ST = (46, 138, 150)
+    ST_L = (96, 226, 220)
+    GOLD = (255, 206, 96)
+    GOLD_L = (255, 240, 170)
+    # stalk: 2 px wide, brighter toward the top
+    for y in range(5, 16):
+        for x in (7, 8):
+            c = ST
+            if y >= 12:
+                c = ST_D
+            elif y <= 7:
+                c = ST_L if x == 8 else ST
+            px[x, y] = c
+    # node rings
+    px[6, 9] = ST_D
+    px[9, 9] = ST_D
+    px[6, 12] = ST_D
+    px[9, 12] = ST_D
+    # little side leaves
+    px[5, 10] = ST
+    px[4, 9] = ST_D
+    px[10, 13] = ST
+    px[11, 12] = ST_D
+    # gold four-point star bulb
+    star_rows = {
+        1: (7, 8),
+        2: (6, 9),
+        3: (4, 11),
+        4: (6, 9),
+    }
+    for y, (x0, x1) in star_rows.items():
+        for x in range(x0, x1 + 1):
+            px[x, y] = GOLD
+    px[5, 3] = GOLD_L
+    px[10, 3] = GOLD_L
+    px[7, 3] = GOLD_L
+    px[8, 3] = GOLD_L
+    px[7, 2] = GOLD_L
+    px[8, 2] = GOLD_L
+    return img
+
+
+def t_moon_bell(index):
+    """v57: moon bell - arching stem with a heavy drooping violet bell,
+    gold stamens and teal glow dots (1.4 x 1.7 blocks)."""
+    img = blank_tile()
+    px = img.load()
+    STEM = (172, 150, 205)
+    STEM_D = (128, 108, 165)
+    BELL = (198, 74, 235)
+    BELL_D = (146, 40, 185)
+    BELL_L = (232, 150, 255)
+    GOLD = (255, 208, 110)
+    GLOW = (120, 255, 230)
+    # arched stem: bottom right -> upper left
+    stem_path = [(11, 15), (11, 14), (10, 13), (10, 12), (9, 11), (8, 10),
+                 (7, 9), (6, 8), (6, 7), (5, 6), (5, 5), (5, 4)]
+    for i, (x, y) in enumerate(stem_path):
+        px[x, y] = STEM if i > 2 else STEM_D
+    # drooping bell: attaches at (5,4), flares toward the bottom
+    bell_rows = {
+        4: (4, 7),
+        5: (3, 8),
+        6: (3, 9),
+        7: (2, 10),
+        8: (2, 10),
+        9: (3, 9),
+    }
+    for y, (x0, x1) in bell_rows.items():
+        for x in range(x0, x1 + 1):
+            c = BELL
+            if x in (x0, x1) or y >= 8:
+                c = BELL_D
+            px[x, y] = c
+    # highlights and glow
+    px[4, 5] = BELL_L
+    px[6, 5] = BELL_L
+    px[5, 7] = GLOW
+    px[8, 7] = GLOW
+    # gold stamens peeking under the rim
+    px[4, 10] = GOLD
+    px[6, 10] = GOLD
+    px[8, 10] = GOLD
+    px[5, 11] = GOLD
+    px[7, 11] = GOLD
+    # drifting moon dust
+    px[12, 4] = BELL_L
+    px[3, 13] = GLOW
+    px[13, 9] = GOLD
+    return img
+
 def t_spider_hide(index):
     """v55: spider carapace - dark violet chitin plates, magenta veins."""
     img = blank_tile()
@@ -780,6 +877,8 @@ def build_atlas():
         34: t_egg_shell(34),
         35: t_void_shard(35),
         36: t_spider_hide(36),
+        37: t_star_reed(37),
+        38: t_moon_bell(38),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),
