@@ -89,22 +89,58 @@ int main(int argc, char **argv) {
         printf("belt scan: %d solid blocks across %d chunks (%d y-layers each)\n",
                totalSolid, totalChunks, 6);
 
-        /* v51: volatile barrels + void cocoons must exist in the world */
-        int barrels = 0, cocoons = 0;
+        /* v51: volatile barrels + void cocoons must exist in the world;
+         * v52: island flora (12/13) and a coarse island-blob count */
+        int barrels = 0, cocoons = 0, flowers = 0;
+        int solidGrid[8][8][8];
+        memset(solidGrid, 0, sizeof(solidGrid));
         for (int cz = 0; cz < 8; cz++) {
             for (int cx = 0; cx < 8; cx++) {
                 for (int cy = 1; cy <= 8; cy++) {
                     Chunk *c = ServerChunk_Create((Vector3){ (float)cx, (float)cy, (float)cz });
                     Worldgen_Generate(c);
+                    int solidCount = 0;
                     for (int i = 0; i < CHUNK_SIZE; i++) {
                         if (c->data[i] == 26) barrels++;
                         else if (c->data[i] == 25) cocoons++;
+                        else if (c->data[i] == 12 || c->data[i] == 13) flowers++;
+                        if (c->data[i]) solidCount++;
                     }
+                    solidGrid[cx][cy - 1][cz] = solidCount > 40;
                     ServerChunk_Destroy(c);
                 }
             }
         }
-        printf("v51 scan: barrels(26)=%d cocoons(25)=%d\n", barrels, cocoons);
+        /* coarse island count: 6-connected components of solid chunks */
+        int blobs = 0;
+        for (int cz = 0; cz < 8; cz++)
+            for (int cy = 0; cy < 8; cy++)
+                for (int cx = 0; cx < 8; cx++) {
+                    if (!solidGrid[cx][cy][cz]) continue;
+                    blobs++;
+                    /* flood fill iteratively */
+                    solidGrid[cx][cy][cz] = 0;
+                    int stack[512][3];
+                    int sp = 0;
+                    stack[sp][0] = cx; stack[sp][1] = cy; stack[sp][2] = cz; sp++;
+                    while (sp > 0) {
+                        sp--;
+                        int x = stack[sp][0], yy = stack[sp][1], zz = stack[sp][2];
+                        int nx[6] = { x - 1, x + 1, x, x, x, x };
+                        int ny[6] = { yy, yy, yy - 1, yy + 1, yy, yy };
+                        int nz[6] = { zz, zz, zz, zz, zz - 1, zz + 1 };
+                        for (int n = 0; n < 6; n++) {
+                            if (nx[n] < 0 || nx[n] > 7 || ny[n] < 0 || ny[n] > 7 ||
+                                nz[n] < 0 || nz[n] > 7) continue;
+                            if (!solidGrid[nx[n]][ny[n]][nz[n]]) continue;
+                            solidGrid[nx[n]][ny[n]][nz[n]] = 0;
+                            stack[sp][0] = nx[n]; stack[sp][1] = ny[n]; stack[sp][2] = nz[n];
+                            sp++;
+                        }
+                    }
+                }
+        printf("v52 scan: barrels(26)=%d cocoons(25)=%d flowers(12/13)=%d island-blobs=%d\n",
+               barrels, cocoons, flowers, blobs);
 
         if (!okStarter) { printf("STARTER ISLAND INCOMPLETE\n"); ok = false; }
     }

@@ -65,6 +65,7 @@ bool World_IsCoreVisited(Vector3 pos);
 void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);
+Texture2D World_GetTerrainTexture(void);   /* v52: atlas for flora sprites */
 //Apply a shader to the world.
 void World_ApplyShader(Shader shader);
 //Set block at a given position and reload affected meshes.

@@ -1,4 +1,4 @@
--- Midless: Cosmic Edition worldgen (v9)
+-- Midless: Cosmic Edition worldgen (v10)
 -- Floating islands adrift in a starlit void, cone-tapered like hanging
 -- gardens. Water exists only inside glass basins. The starter island carries
 -- a launch pad, four warp-core obelisks and a glowing crystal basin.
@@ -112,9 +112,13 @@ end
 
 --------------------------------------------------------------- islands ----
 -- three belts of drifting islands
-local mid  = layer(1,  0.0088, 0.37, 74,  8, 46)
-local high = layer(40, 0.0115, 0.50, 116, 7, 28)
-local low  = layer(90, 0.0105, 0.46, 38,  6, 24)
+-- v52: frequencies up / thresholds down - a denser archipelago
+local MID_F, MID_T   = 0.0112, 0.34
+local HIGH_F, HIGH_T = 0.0144, 0.47
+local LOW_F, LOW_T   = 0.0130, 0.43
+local mid  = layer(1,  MID_F,  MID_T,  74,  8, 46)
+local high = layer(40, HIGH_F, HIGH_T, 116, 7, 28)
+local low  = layer(90, LOW_F,  LOW_T,  38,  6, 24)
 
 -- the guaranteed starter island: a rounded cone slab centred on (8, 8)
 local sd = f.max(f.abs(x - 8), f.abs(z - 8))
@@ -128,17 +132,44 @@ local starter = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
 
 local inside = f.max(f.max(mid, high), f.max(low, starter))
 
-local mid1  = layer_at(1,  0.0088, 0.37, 74,  8, 46, y + 1)
-local high1 = layer_at(40, 0.0115, 0.50, 116, 7, 28, y + 1)
-local low1  = layer_at(90, 0.0105, 0.46, 38,  6, 24, y + 1)
+local mid1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y + 1)
+local high1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y + 1)
+local low1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y + 1)
 local starter1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                  f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
 local inside1 = f.max(f.max(mid1, high1), f.max(low1, starter1))
 local surface = inside * (1 - inside1)
 
+-- v52: island flora - cosmic roses (12) and crystal dandelions (13) patch
+-- the meadows. A flower cell is empty air with island density right below,
+-- gated by patch + fine noise; keeps off the launch pad area.
+local mid_m1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y - 1)
+local high_m1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y - 1)
+local low_m1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y - 1)
+local starter_m1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
+                   f.lt(y - 1, 76) * f.lt(starter_bottom, y - 1)
+local solid_below = f.max(f.max(mid_m1, high_m1), f.max(low_m1, starter_m1))
+local patch_n = f.noise2d({
+    type = "opensimplex2s", fractal = "fbm", frequency = 0.045,
+    octaves = 2, seed_offset = 313,
+})
+local fine_n = f.noise2d({
+    type = "opensimplex2s", fractal = "fbm", frequency = 0.4,
+    octaves = 1, seed_offset = 777,
+})
+local flora_cell = f.lt(3.0, f.max(f.abs(x - 8), f.abs(z - 8))) *
+                   f.lt(0.4, solid_below * (1 - inside)) *
+                   f.lt(0.05, patch_n) * f.lt(0.1, fine_n)
+local which_n = f.noise2d({
+    type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
+    octaves = 2, seed_offset = 555,
+})
+local flower_id = f.select(f.lt(0.2, which_n), 12, 13)
+
 -- stratified bodies: crystal turf over dirt over void rock over stone
 local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))
 local material = f.select(inside, body, 0)
+material = f.select(flora_cell, flower_id, material)
 
 ------------------------------------------- starter island decorations ----
 -- launch pad: 5x5 dark pads at y=76 framing the spawn point
@@ -173,10 +204,11 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 9,
+    id = "midless:cosmic", version = 10,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
-    material = material, density = inside, skylight = inside,
+    material = material, density = f.max(inside, flora_cell),
+    skylight = f.max(inside, flora_cell),
 })
 
 -- turf keeps a skin of dirt, void rock holds the cones together

@@ -24,6 +24,8 @@ int Hunter_GetBounty(void);            /* kills this session */
 float Hunter_GetSurgeLevel(void);      /* 0..1 void-tide intensity */
 float Hunter_GetSurgeTimeLeft(void);   /* seconds left of the current tide */
 float Hunter_GetCalmTimeLeft(void);
+void Hunter_DropShards(Vector3 pos, int count);   /* floating shard loot */
+void Hunter_WireBurst(Vector3 pos);               /* wireframe death burst */
 void Hunter_ExplosionDamage(Vector3 center, float radius, int damage);    /* countdown while the tide warning is up */
 
 #endif

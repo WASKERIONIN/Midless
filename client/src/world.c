@@ -297,6 +297,11 @@ void World_ApplyTexture(Texture2D texture) {
     SetMaterialTexture(&world.material, MATERIAL_MAP_DIFFUSE, texture);
 }
 
+/* v52: flora sprites (mushrooms) sample the same atlas the chunks use */
+Texture2D World_GetTerrainTexture(void) {
+    return world.material.maps[MATERIAL_MAP_DIFFUSE].texture;
+}
+
 void World_ApplyShader(Shader shader) {
     world.material.shader = shader;
 }

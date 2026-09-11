@@ -271,6 +271,11 @@ static void Hunter_BarrelCheck(Hunter *h) {
     }
 }
 
+/* v52: mob kills share the hunter loot pipeline - floating shard drops
+ * and the white wireframe death burst ("their own" debris) */
+void Hunter_DropShards(Vector3 pos, int count) { Shard_Spawn(pos, count); }
+void Hunter_WireBurst(Vector3 pos) { Burst_Spawn(pos); }
+
 /* v51: blast damage - knock hunters away, kill the ones too close */
 void Hunter_ExplosionDamage(Vector3 center, float radius, int damage) {
     for (int i = 0; i < HUNTER_MAX; i++) {

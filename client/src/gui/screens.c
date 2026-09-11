@@ -359,31 +359,40 @@ void Screen_DrawGame(void) {
                 DrawText(burstLine, mx, my + 104, 15, WHITE);
 
                 bool full = (rl >= 3 && lv >= 3 && bl >= 3);
-                if (full) {
-                    const char *done = "The laser is fully forged.";
-                    DrawText(done, mx + 2, my + 138, 16, BLACK);
-                    DrawText(done, mx, my + 136, 16, (Color){ 96, 255, 214, 255 });
-                } else {
-                    char rb[64], cb[64], bb[64];
-                    if (rl >= 3) snprintf(rb, sizeof(rb), "LENS  MAX");
-                    else snprintf(rb, sizeof(rb), "UPGRADE LENS  (%d shards)", 5);
-                    if (lv >= 3) snprintf(cb, sizeof(cb), "COIL  MAX");
-                    else snprintf(cb, sizeof(cb), "UPGRADE COIL  (%d shards)", 5);
-                    if (bl >= 3) snprintf(bb, sizeof(bb), "BURST  MAX");
-                    else snprintf(bb, sizeof(bb), "UPGRADE BURST  (%d shards)", 5);
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 132, 340, 36 }, rb)) {
+                /* v52: MAXed tracks render as plain text, not dead buttons */
+                if (rl < 3) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 132, 340, 36 }, "UPGRADE LENS  (5 shards)")) {
                         Player_BuyLaserUpgrade(0);
                     }
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 176, 340, 36 }, cb)) {
+                } else {
+                    DrawText("LENS  MAX", mx + 12, my + 144, 18, (Color){ 120, 190, 170, 255 });
+                }
+                if (lv < 3) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 176, 340, 36 }, "UPGRADE COIL  (5 shards)")) {
                         Player_BuyLaserUpgrade(1);
                     }
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 220, 340, 36 }, bb)) {
+                } else {
+                    DrawText("COIL  MAX", mx + 12, my + 188, 18, (Color){ 120, 190, 170, 255 });
+                }
+                if (bl < 3) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 220, 340, 36 }, "UPGRADE BURST  (5 shards)")) {
                         Player_BuyLaserUpgrade(2);
                     }
+                } else {
+                    DrawText("BURST  MAX", mx + 12, my + 232, 18, (Color){ 120, 190, 170, 255 });
+                }
+                if (full) {
+                    const char *done = "The laser is fully forged.";
+                    DrawText(done, mx + 2, my + 262, 15, BLACK);
+                    DrawText(done, mx, my + 260, 15, (Color){ 96, 255, 214, 255 });
+                } else if (Player_GetShards() < 5) {
+                    const char *need = "Not enough shards - fell hunters, crawlers, wisps, spiders.";
+                    DrawText(need, mx + 2, my + 262, 14, BLACK);
+                    DrawText(need, mx, my + 260, 14, (Color){ 255, 120, 140, 255 });
                 }
                 const char *hint = "B / ESC - close";
-                DrawText(hint, mx + 2, my + 268, 14, BLACK);
-                DrawText(hint, mx, my + 266, 14, (Color){ 170, 170, 190, 255 });
+                DrawText(hint, mx + 2, my + 288, 14, BLACK);
+                DrawText(hint, mx, my + 286, 14, (Color){ 170, 170, 190, 255 });
             }
         }
     }

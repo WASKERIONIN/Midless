@@ -476,6 +476,40 @@ def t_explosive(index):
     return img
 
 
+def t_void_mushroom(index):
+    """v52: void mushroom sprite - pale stem, violet cap, gold specks."""
+    img = blank_tile()
+    px = img.load()
+    STEM = (226, 210, 250)
+    STEM_D = (176, 156, 220)
+    CAP = (176, 84, 255)
+    CAP_D = (138, 52, 224)
+    CAP_L = (216, 156, 255)
+    SPECK = (255, 208, 120)
+    # stem
+    for y in range(8, 15):
+        for x in (7, 8):
+            px[x, y] = STEM_D if x == 7 else STEM
+    px[7, 15] = STEM_D
+    px[8, 15] = STEM
+    # cap dome
+    cap_rows = {
+        2: (5, 10), 3: (4, 11), 4: (3, 12), 5: (3, 12), 6: (4, 11), 7: (5, 10),
+    }
+    for y, (x0, x1) in cap_rows.items():
+        for x in range(x0, x1 + 1):
+            c = CAP
+            if y >= 6 or x in (x0, x1):
+                c = CAP_D
+            if y <= 3 and x in (x0 + 2, x0 + 3, x1 - 2):
+                c = CAP_L
+            px[x, y] = c
+    px[5, 4] = SPECK
+    px[9, 3] = SPECK
+    px[7, 6] = SPECK
+    return img
+
+
 def t_white(index):
     img = blank_tile()
     for y in range(TILE):
@@ -513,6 +547,7 @@ def build_atlas():
         23: t_launch_pad_side(23),
         24: t_white(24),
         26: t_explosive(26),
+        27: t_void_mushroom(27),
     }
     for index in sorted(tiles):
         paste(atlas, index, tiles[index])

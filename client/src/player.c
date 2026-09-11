@@ -107,13 +107,22 @@ float Player_GetLaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
 
 /* v49.1: one upgrade purchase; feedback lands in chat */
 bool Player_BuyLaserUpgrade(int kind) {
-    if (laserRangeLvl > 2 && laserRateLvl > 2) {
+    /* v52 fix: burst was unreachable - this early return fired for anyone
+     * with LENS and COIL maxed ("fully forged") before burst was checked */
+    if (laserRangeLvl > 2 && laserRateLvl > 2 && burstLvl > 2) {
         Chat_AddLine("The core hums: your laser is fully forged.");
+        return false;
+    }
+    if ((kind == 0 && laserRangeLvl >= 3) ||
+        (kind == 1 && laserRateLvl >= 3) ||
+        (kind == 2 && burstLvl >= 3)) {
+        SoundFx_PlayClick();
+        Chat_AddLine("That part of the laser is already maxed.");
         return false;
     }
     if (voidShards < LASER_UPGRADE_COST) {
         SoundFx_PlayClick();
-        Chat_AddLine(TextFormat("An upgrade needs %d shards. Fell hunters.", LASER_UPGRADE_COST));
+        Chat_AddLine(TextFormat("An upgrade needs %d shards. Fell hunters, crawlers, wisps, spiders.", LASER_UPGRADE_COST));
         return false;
     }
     Player_AddShards(-LASER_UPGRADE_COST);
@@ -139,9 +148,6 @@ bool Player_BuyLaserUpgrade(int kind) {
     } else if (laserRateLvl < 3) {
         laserRateLvl++;
         Chat_AddLine(TextFormat("Coil rewound - faster shots. Shards left: %d.", voidShards));
-    } else {
-        burstLvl++;
-        Chat_AddLine(TextFormat("Volley forge lvl %d. Shards left: %d.", burstLvl, voidShards));
     }
     SoundFx_PlayWebAttach();
     Player_SaveProgress();

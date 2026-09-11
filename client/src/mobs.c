@@ -131,7 +131,7 @@ static bool Mob_FindSurfaceSpot(Vector3 center, float minDist, float maxDist, Ve
             const Block *b = Block_GetDefinition(id);
             if (b->colliderType != BLOCK_COLLIDER_SOLID) continue;
             Vector3 spot = { bx + 0.5f, y + 1 + MOB_BODY_HALF_H + 0.02f, bz + 0.5f };
-            if (Mob_BodyBlocked(spot)) return false;
+            if (Mob_BodyBlocked(spot)) break;   /* v52: try the next attempt */
             *out = spot;
             return true;
         }
@@ -366,8 +366,9 @@ static void Spider_Damage(Spider *s, Vector3 rd) {
     s->aggroTimer = 4.0f;
     if (s->hp <= 0.0f) {
         s->active = false;
-        Particle_SpawnBlockBreak(s->pos, 20);
-        Player_AddShards(2);
+        Hunter_WireBurst(s->pos);
+        Particle_SpawnImpact(s->pos);
+        Hunter_DropShards(s->pos, 2);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
         Chat_AddLine("The hatchling collapses into shards.");
@@ -480,7 +481,8 @@ static void Spider_Update(float deltaTime, double now) {
 static void Cocoon_Hatch(Vector3 cell) {
     World_SetBlock(cell, 0, true);
     Vector3 spawn = { cell.x + 0.5f, cell.y + 0.35f, cell.z + 0.5f };
-    Particle_SpawnBlockBreak((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f }, 21);
+    Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
+    Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
     Mobs_SpawnSpider(spawn);
 }
 
@@ -518,7 +520,7 @@ bool Mobs_CocoonLaser(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPo
         if (id == 25) {
             Vector3 cell = { floorf(p.x), floorf(p.y), floorf(p.z) };
             World_SetBlock(cell, 0, true);
-            Particle_SpawnBlockBreak((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f }, 21);
+            Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
             Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
             SoundFx_PlayHunterHit();
             Chat_AddLine("The cocoon bursts under the beam. Silence... for now.");
@@ -613,7 +615,9 @@ static void Mushroom_SpawnTry(Vector3 shellC) {
             Vector3 p = { bx, y, bz };
             int id = World_GetBlock(p);
             if (id == 0) continue;
-            if (id != 2) break;   /* only plain dirt */
+            /* v52 fix: island tops are GRASS (3) over dirt (2) - the old
+             * dirt-only check broke every scan instantly: zero mushrooms */
+            if (id != 2 && id != 3) break;
             Vector3 above = { bx, y + 1, bz };
             if (World_GetBlock(above) != 0) break;
             for (int i = 0; i < MUSH_MAX; i++) {
@@ -685,7 +689,9 @@ void Mobs_ExplosionDamage(Vector3 center, float radius, int damage) {
         Particle_SpawnImpact(c->pos);
         if (c->hp <= 0.0f) {
             c->active = false;
-            Particle_SpawnBlockBreak(c->pos, 20);
+            Hunter_WireBurst(c->pos);
+            Particle_SpawnImpact(c->pos);
+            Hunter_DropShards(c->pos, 1);
             SoundFx_PlayHunterDie();
         }
     }
@@ -694,8 +700,9 @@ void Mobs_ExplosionDamage(Vector3 center, float radius, int damage) {
         if (!w->active) continue;
         if (Vector3Distance(w->pos, center) > radius) continue;
         w->active = false;
-        Particle_SpawnBlockBreak(w->pos, 22);
-        Player_AddShards(2);
+        Hunter_WireBurst(w->pos);
+        Particle_SpawnImpact(w->pos);
+        Hunter_DropShards(w->pos, 2);
         SoundFx_PlayHunterDie();
     }
     for (int i = 0; i < SPIDER_MAX; i++) {
@@ -707,8 +714,9 @@ void Mobs_ExplosionDamage(Vector3 center, float radius, int damage) {
         Particle_SpawnImpact(s->pos);
         if (s->hp <= 0.0f) {
             s->active = false;
-            Particle_SpawnBlockBreak(s->pos, 20);
-            Player_AddShards(2);
+            Hunter_WireBurst(s->pos);
+            Particle_SpawnImpact(s->pos);
+            Hunter_DropShards(s->pos, 2);
             SoundFx_PlayHunterDie();
         }
     }
@@ -811,10 +819,13 @@ static MobHit Mobs_Raypick(Vector3 origin, Vector3 dir, float maxDist) {
 static void Mob_CrawlerDamage(Crawler *c, Vector3 rd) {
     c->hp -= 1.0f;
     c->vel = Vector3Add(Vector3Scale(rd, 2.4f), (Vector3){ 0, 0.4f, 0 });
-    Particle_SpawnBlockBreak(c->pos, 20);
+    Particle_SpawnImpact(c->pos);
     c->aggroTimer = CRAWLER_SIGHT_MEM;
     if (c->hp <= 0.0f) {
         c->active = false;
+        Hunter_WireBurst(c->pos);          /* v52: its own wireframe burst */
+        Particle_SpawnImpact(c->pos);
+        Hunter_DropShards(c->pos, Hunter_GetSurgeLevel() > 0.5f ? 2 : 1);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
     } else {
@@ -833,8 +844,9 @@ bool Mobs_MeleeHit(Vector3 origin, Vector3 dir, float maxDist) {
     if (hit.kind == 2) {
         Wisp *w = &wisps[hit.index];
         w->active = false;
-        Particle_SpawnBlockBreak(w->pos, 22);
-        Player_AddShards(2);
+        Hunter_WireBurst(w->pos);
+        Particle_SpawnImpact(w->pos);
+        Hunter_DropShards(w->pos, 2);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
         Chat_AddLine("The wisp releases its shards.");
@@ -862,8 +874,9 @@ bool Mobs_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint
     } else {
         Wisp *w = &wisps[hit.index];
         w->active = false;
-        Particle_SpawnBlockBreak(w->pos, 22);
-        Player_AddShards(2);
+        Hunter_WireBurst(w->pos);
+        Particle_SpawnImpact(w->pos);
+        Hunter_DropShards(w->pos, 2);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
         Chat_AddLine("The wisp releases its shards.");
@@ -872,6 +885,52 @@ bool Mobs_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint
 }
 
 /* ---------------------------------------------------------------- draw */
+
+/* v52: three-line edge band (like the hunters got in v51) so every enemy
+ * reads on bright terrain: a bright center line plus two 3/4-bright
+ * offsets perpendicular to the view */
+static void Mob_Band(Vector3 a, Vector3 b, Color c) {
+    rlColor4ub(c.r, c.g, c.b, c.a);
+    rlVertex3f(a.x, a.y, a.z);
+    rlVertex3f(b.x, b.y, b.z);
+    Vector3 mid = Vector3Scale(Vector3Add(a, b), 0.5f);
+    Vector3 e = Vector3Subtract(b, a);
+    Vector3 v = Vector3Subtract(player.camera.position, mid);
+    Vector3 side = Vector3CrossProduct(e, v);
+    float len = Vector3Length(side);
+    if (len < 0.0001f) return;
+    side = Vector3Scale(side, 0.022f / len);
+    Vector3 a1 = Vector3Add(a, side), b1 = Vector3Add(b, side);
+    Vector3 a2 = Vector3Subtract(a, side), b2 = Vector3Subtract(b, side);
+    rlColor4ub((unsigned char)(c.r * 3 / 4), (unsigned char)(c.g * 3 / 4),
+               (unsigned char)(c.b * 3 / 4), c.a);
+    rlVertex3f(a1.x, a1.y, a1.z); rlVertex3f(b1.x, b1.y, b1.z);
+    rlVertex3f(a2.x, a2.y, a2.z); rlVertex3f(b2.x, b2.y, b2.z);
+}
+
+/* v52: crossed textured sprite quad pair (both windings), atlas tile based */
+static void Mob_FloraCross(Vector3 base, float scale, int tile, unsigned char bright) {
+    float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
+    float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
+    float w = 0.26f * scale, h = 0.58f * scale;
+    float x = base.x, y = base.y, z = base.z;
+    rlColor4ub(bright, bright, bright, 255);
+    for (int pass = 0; pass < 2; pass++) {
+        float sx = w, sz = (pass == 0) ? w : -w;
+        Vector3 bl = { x - sx, y, z - sz };
+        Vector3 br = { x + sx, y, z + sz };
+        Vector3 tl = { x - sx, y + h, z - sz };
+        Vector3 tr = { x + sx, y + h, z + sz };
+        rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
+        rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
+        rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
+        rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
+        rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
+        rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
+        rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
+        rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
+    }
+}
 
 void Mobs_Draw(void) {
     double now = (double)GetTime();
@@ -885,7 +944,7 @@ void Mobs_Draw(void) {
         if (!c->active) continue;
         bool aggro = (Hunter_GetSurgeLevel() > 0.5f) || c->aggroTimer > 0.0f;
         Vector3 c0 = c->pos;
-        unsigned char bright = aggro ? 255 : 190;
+        unsigned char bright = aggro ? 255 : 210;
         float bodyR = 0.34f, bodyH = 0.20f;
         float ang[4] = { 0.7854f, 2.3562f, 3.9270f, 5.4978f };
         Vector3 ring[4];
@@ -895,27 +954,23 @@ void Mobs_Draw(void) {
         }
         Vector3 top = { c0.x, c0.y + bodyH, c0.z };
         Vector3 bot = { c0.x, c0.y - bodyH, c0.z };
+        Color bodyC = { aggro ? 255 : bright, aggro ? 80 : bright, aggro ? 90 : bright, 255 };
         for (int k = 0; k < 4; k++) {
-            rlColor4ub(aggro ? 255 : bright, aggro ? 80 : bright, aggro ? 90 : bright, 255);
-            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
-            rlVertex3f(ring[(k + 1) % 4].x, ring[k].y, ring[(k + 1) % 4].z);
-            rlVertex3f(top.x, top.y, top.z);
-            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
-            rlVertex3f(bot.x, bot.y, bot.z);
-            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
+            Mob_Band(ring[k], ring[(k + 1) % 4], bodyC);
+            Mob_Band(top, ring[k], bodyC);
+            Mob_Band(bot, ring[k], bodyC);
         }
         /* legs: skitter to the ground */
+        Color legC = { aggro ? 255 : 195, aggro ? 90 : 195, aggro ? 100 : 205, 255 };
         for (int k = 0; k < 4; k++) {
             float wig = sinf((float)now * 11.0f + c->phase + k * 1.57f) * 0.09f;
             Vector3 foot = { ring[k].x + cosf(ang[k]) * 0.18f + wig,
                              c0.y - MOB_BODY_HALF_H - 0.02f,
                              ring[k].z + sinf(ang[k]) * 0.18f };
-            rlColor4ub(aggro ? 255 : 150, aggro ? 90 : 150, aggro ? 100 : 150, 255);
-            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
-            rlVertex3f(foot.x, foot.y, foot.z);
+            Mob_Band(ring[k], foot, legC);
         }
         /* eye tick */
-        rlColor4ub(aggro ? 255 : 210, aggro ? 60 : 210, aggro ? 70 : 210, 255);
+        rlColor4ub(aggro ? 255 : 240, aggro ? 60 : 240, aggro ? 70 : 240, 255);
         rlVertex3f(c0.x - 0.08f, c0.y + 0.05f, c0.z);
         rlVertex3f(c0.x + 0.08f, c0.y + 0.05f, c0.z);
     }
@@ -932,17 +987,14 @@ void Mobs_Draw(void) {
             { c0.x + r, c0.y, c0.z }, { c0.x - r, c0.y, c0.z },
             { c0.x, c0.y, c0.z + r }, { c0.x, c0.y, c0.z - r }
         };
-        rlColor4ub(110, 255, 220, 255);
+        Color wispC = { 150, 255, 230, 255 };
         for (int k = 0; k < 6; k++) {
-            rlVertex3f(v[0].x, v[0].y, v[0].z);
-            rlVertex3f(v[2 + (k % 4)].x, v[2 + (k % 4)].y, v[2 + (k % 4)].z);
+            Mob_Band(v[0], v[2 + (k % 4)], wispC);
         }
         float oa = (float)now * 1.8f + w->phase;
         Vector3 o0 = { c0.x + cosf(oa) * 0.38f, c0.y, c0.z + sinf(oa) * 0.38f };
         Vector3 o1 = { c0.x + cosf(oa + 3.1416f) * 0.38f, c0.y, c0.z + sinf(oa + 3.1416f) * 0.38f };
-        rlColor4ub(70, 200, 180, 220);
-        rlVertex3f(o0.x, o0.y, o0.z);
-        rlVertex3f(o1.x, o1.y, o1.z);
+        Mob_Band(o0, o1, (Color){ 110, 230, 210, 220 });
     }
 
     /* v51 spiders: elongated body, two striding legs, a whipping tail */
@@ -964,13 +1016,12 @@ void Mobs_Draw(void) {
                                  c0.y + sinf(th) * 0.13f,
                                  c0.z + (cosf(th) * 0.40f) * sa + (sinf(th) * 0.22f) * ca };
         }
-        rlColor4ub(rr, gg, bb, 255);
+        Color bodyC = { rr, gg, bb, 255 };
         for (int k = 0; k < 8; k++) {
-            rlVertex3f(ring[k].x, ring[k].y, ring[k].z);
-            rlVertex3f(ring[(k + 1) % 8].x, ring[(k + 1) % 8].y, ring[(k + 1) % 8].z);
+            Mob_Band(ring[k], ring[(k + 1) % 8], bodyC);
         }
         Vector3 head = { c0.x + ca * 0.46f, c0.y + 0.06f, c0.z + sa * 0.46f };
-        rlColor4ub(aggro ? 255 : 230, aggro ? 40 : 190, aggro ? 90 : 250, 255);
+        rlColor4ub(aggro ? 255 : 240, aggro ? 40 : 200, aggro ? 90 : 255, 255);
         rlVertex3f(head.x - 0.07f, head.y, head.z);
         rlVertex3f(head.x + 0.07f, head.y, head.z);
 
@@ -985,16 +1036,13 @@ void Mobs_Draw(void) {
             Vector3 foot = { c0.x + lx * 0.46f + ca * stride * 1.6f,
                              c0.y - MOB_BODY_HALF_H - 0.02f,
                              c0.z + lz * 0.46f + sa * stride * 1.6f };
-            rlColor4ub(rr, gg, bb, 255);
-            rlVertex3f(hip.x, hip.y, hip.z);  rlVertex3f(knee.x, knee.y, knee.z);
-            rlVertex3f(knee.x, knee.y, knee.z); rlVertex3f(foot.x, foot.y, foot.z);
+            Mob_Band(hip, knee, bodyC);
+            Mob_Band(knee, foot, bodyC);
         }
 
         /* tail: three segments rising from the rear, whipping */
         Vector3 tailPt = { c0.x - ca * 0.40f, c0.y, c0.z - sa * 0.40f };
-        rlColor4ub(rr, gg, bb, 255);
-        rlVertex3f(c0.x - ca * 0.30f, c0.y, c0.z - sa * 0.30f);
-        rlVertex3f(tailPt.x, tailPt.y, tailPt.z);
+        Mob_Band((Vector3){ c0.x - ca * 0.30f, c0.y, c0.z - sa * 0.30f }, tailPt, bodyC);
         float whip = sinf((float)now * 3.4f + s->phase);
         for (int k = 1; k <= 3; k++) {
             float len = 0.22f;
@@ -1002,45 +1050,9 @@ void Mobs_Draw(void) {
             Vector3 next = { tailPt.x - ca * len + sinf(whip + k) * 0.05f,
                              tailPt.y + up,
                              tailPt.z - sa * len + cosf(whip + k) * 0.05f };
-            rlColor4ub((unsigned char)(rr - k * 15), (unsigned char)(gg - k * 8), bb, 255);
-            rlVertex3f(tailPt.x, tailPt.y, tailPt.z);
-            rlVertex3f(next.x, next.y, next.z);
+            Mob_Band(tailPt, next, (Color){ (unsigned char)(rr - k * 15),
+                                            (unsigned char)(gg - k * 8), bb, 255 });
             tailPt = next;
-        }
-    }
-
-    /* v51 void mushrooms: violet caps rooted on dirt */
-    for (int i = 0; i < MUSH_MAX; i++) {
-        Mushroom *m = &mushrooms[i];
-        if (!m->active) continue;
-        double left = m->expireAt - now;
-        bool fading = left < 30.0;
-        if (fading && ((int)(now * 2.0)) % 2 == 0) continue;   /* blink out warning */
-        float sc = m->scale;
-        unsigned char bright = (unsigned char)(170.0f + 60.0f * sinf((float)now * 2.0f + i));
-        rlColor4ub(210, 170, bright, 255);
-        /* stem */
-        float hx = 0.055f * sc, hz = 0.055f * sc, sh = 0.30f * sc;
-        Vector3 stem[4][2] = {
-            { { m->pos.x - hx, m->pos.y, m->pos.z - hz }, { m->pos.x - hx * 0.7f, m->pos.y + sh, m->pos.z - hz * 0.7f } },
-            { { m->pos.x + hx, m->pos.y, m->pos.z - hz }, { m->pos.x + hx * 0.7f, m->pos.y + sh, m->pos.z - hz * 0.7f } },
-            { { m->pos.x + hx, m->pos.y, m->pos.z + hz }, { m->pos.x + hx * 0.7f, m->pos.y + sh, m->pos.z + hz * 0.7f } },
-            { { m->pos.x - hx, m->pos.y, m->pos.z + hz }, { m->pos.x - hx * 0.7f, m->pos.y + sh, m->pos.z + hz * 0.7f } }
-        };
-        for (int k = 0; k < 4; k++) {
-            rlVertex3f(stem[k][0].x, stem[k][0].y, stem[k][0].z);
-            rlVertex3f(stem[k][1].x, stem[k][1].y, stem[k][1].z);
-        }
-        /* cap: shallow dome + rim ring */
-        float capR = 0.20f * sc, capH = 0.13f * sc;
-        float cy = m->pos.y + sh;
-        for (int k = 0; k < 6; k++) {
-            float th0 = 6.2832f * k / 6.0f, th1 = 6.2832f * (k + 1) / 6.0f;
-            rlColor4ub((unsigned char)(225), (unsigned char)(110 + 40 * sinf((float)now * 3.0f + k)), 255, 255);
-            rlVertex3f(m->pos.x, cy + capH, m->pos.z);
-            rlVertex3f(m->pos.x + cosf(th0) * capR, cy + capH * 0.35f, m->pos.z + sinf(th0) * capR);
-            rlVertex3f(m->pos.x + cosf(th0) * capR, cy + capH * 0.35f, m->pos.z + sinf(th0) * capR);
-            rlVertex3f(m->pos.x + cosf(th1) * capR, cy + capH * 0.35f, m->pos.z + sinf(th1) * capR);
         }
     }
 
@@ -1102,4 +1114,22 @@ void Mobs_Draw(void) {
 
     rlEnd();
     rlDrawRenderBatchActive();
+
+    /* v52: flora sprites - void mushrooms as textured crossed quads */
+    Texture2D atlas = World_GetTerrainTexture();
+    if (atlas.id != 0) {
+        rlSetTexture(atlas.id);
+        rlBegin(RL_QUADS);
+        for (int i = 0; i < MUSH_MAX; i++) {
+            Mushroom *m = &mushrooms[i];
+            if (!m->active) continue;
+            double left = m->expireAt - now;
+            if (left < 30.0 && ((int)(now * 2.0)) % 2 == 0) continue;  /* expiry blink */
+            unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
+            Mob_FloraCross(m->pos, m->scale, 27, br);
+        }
+        rlEnd();
+        rlSetTexture(0);
+        rlDrawRenderBatchActive();
+    }
 }
