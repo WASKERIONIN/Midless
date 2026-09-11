@@ -23,6 +23,8 @@ extern bool screenCursorEnabled;
 /* v49.1: laser upgrade menu (opened with B at a warp core) */
 void Screens_UpgradeMenuToggle(void);
 bool Screens_UpgradeMenuIsOpen(void);
+void Screens_InventoryToggle(void);    /* v53: the satchel */
+bool Screens_InventoryIsOpen(void);
 extern bool screenShowDebug;
 
 void Screen_Init(Texture2D terrain, bool *exit);

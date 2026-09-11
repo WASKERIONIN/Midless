@@ -36,6 +36,10 @@ bool screenCursorEnabled = false;
 /* v49.1: laser upgrade menu state */
 static bool upgradeMenuOpen = false;
 static double upgradeMenuToggleTime = -10.0;
+/* v53: the satchel - a passive look at what you carry. Same-frame lesson
+ * from v49.4 applies: the toggle key is read ONLY in the input pass. */
+static bool inventoryOpen = false;
+static double inventoryToggleTime = 0.0;
 
 void Screens_UpgradeMenuToggle(void) {
     /* v49.3: IsKeyPressed stays true for the whole frame - without this
@@ -44,6 +48,7 @@ void Screens_UpgradeMenuToggle(void) {
     if (GetTime() - upgradeMenuToggleTime < 0.3) return;
     upgradeMenuToggleTime = GetTime();
     upgradeMenuOpen = !upgradeMenuOpen;
+    inventoryOpen = false;             /* the panels are exclusive */
     if (upgradeMenuOpen) {
         EnableCursor();
         screenCursorEnabled = true;
@@ -54,6 +59,22 @@ void Screens_UpgradeMenuToggle(void) {
 }
 
 bool Screens_UpgradeMenuIsOpen(void) { return upgradeMenuOpen; }
+
+void Screens_InventoryToggle(void) {
+    if (GetTime() - inventoryToggleTime < 0.3) return;
+    inventoryToggleTime = GetTime();
+    inventoryOpen = !inventoryOpen;
+    upgradeMenuOpen = false;           /* the panels are exclusive */
+    if (inventoryOpen) {
+        EnableCursor();
+        screenCursorEnabled = true;
+    } else {
+        DisableCursor();
+        screenCursorEnabled = false;
+    }
+}
+
+bool Screens_InventoryIsOpen(void) { return inventoryOpen; }
 bool screenShowDebug = false;
 static bool loadingStarted = false;
 static bool loadingFailed = false;
@@ -241,13 +262,13 @@ void Screen_DrawGame(void) {
         else if (Player_NearWarpCore())
             moveText = TextFormat("%s E - WARP   B - UPGRADE LASER (5 shards)", weaponTag);
         else if (Mobs_GetMushrooms() > 0)
-            moveText = TextFormat("%s G - EAT MUSHROOM x%d (+3 HP)", weaponTag, Mobs_GetMushrooms());
+            moveText = TextFormat("%s G - EAT MUSHROOM x%d   I - SATCHEL", weaponTag, Mobs_GetMushrooms());
         else if (World_GetBlock(padCheck) == 21)
             moveText = TextFormat("%s SPACE - LAUNCH from the pad", weaponTag);
         else if (dashCharges > 0)
-            moveText = TextFormat("%s F web   SPACE x2 jump   hold SPACE glide   SHIFT dash x%d", weaponTag, dashCharges);
+            moveText = TextFormat("%s F web   SPACE x2 jump   glide   SHIFT dash x%d   I - SATCHEL", weaponTag, dashCharges);
         else
-            moveText = TextFormat("%s dash recharges on landing %.1f", weaponTag, dashLeft);
+            moveText = TextFormat("%s dash recharges %.1f   I - SATCHEL", weaponTag, dashLeft);
         int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
         DrawText(moveText, mvX + 1, 9, 16, BLACK);
@@ -326,9 +347,9 @@ void Screen_DrawGame(void) {
                  * below catches it - nothing else to do here */
             } else {
                 int mx = screenWidth / 2 - 170;
-                int my = screenHeight / 2 - 150;
+                int my = screenHeight / 2 - 196;
                 DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
-                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 372 });
+                DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 372, 408 });
 
                 const char *title = "WARP CORE FORGE";
                 DrawText(title, mx + 2, my + 2, 24, BLACK);
@@ -340,6 +361,7 @@ void Screen_DrawGame(void) {
                 int rl = Player_GetLaserRangeLvl();
                 int lv = Player_GetLaserRateLvl();
                 int bl = Player_GetBurstLvl();
+                int cl = Player_GetCoolLvl();
                 /* v49.4 fix: nested TextFormat shares one static buffer and
                  * garbled these lines - snprintf into locals instead */
                 char rangeLine[96], rateLine[96], burstLine[96];
@@ -347,53 +369,124 @@ void Screen_DrawGame(void) {
                 else snprintf(rangeLine, sizeof(rangeLine), "LENS   range %d m   lvl %d/3", Player_GetLaserRange(), rl);
                 if (lv >= 3) snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   MAX", Player_GetLaserCooldown());
                 else snprintf(rateLine, sizeof(rateLine), "COIL   %.2f s   lvl %d/3", Player_GetLaserCooldown(), lv);
-                if (bl >= 3) snprintf(burstLine, sizeof(burstLine), "BURST  hold fire: endless, but it overheats");
-                else if (bl == 2) snprintf(burstLine, sizeof(burstLine), "BURST  5-shot volleys   lvl 2/3");
-                else if (bl == 1) snprintf(burstLine, sizeof(burstLine), "BURST  3-shot volleys   lvl 1/3");
+                if (bl >= 3) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = endless   MAX");
+                else if (bl == 2) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = 5-volleys   lvl 2/3");
+                else if (bl == 1) snprintf(burstLine, sizeof(burstLine), "BURST  click = shot, hold = 3-volleys   lvl 1/3");
                 else snprintf(burstLine, sizeof(burstLine), "BURST  volley fire   not forged");
+                char coolLine[96];
+                if (cl >= 3) snprintf(coolLine, sizeof(coolLine), "COOL   arctic coil: pauses cool fast   MAX");
+                else if (cl > 0) snprintf(coolLine, sizeof(coolLine), "COOL   faster cooling + quicker shots   lvl %d/3", cl);
+                else snprintf(coolLine, sizeof(coolLine), "COOL   heat control   not forged");
                 DrawText(rangeLine, mx + 2, my + 62, 15, BLACK);
                 DrawText(rangeLine, mx, my + 60, 15, WHITE);
                 DrawText(rateLine, mx + 2, my + 84, 15, BLACK);
                 DrawText(rateLine, mx, my + 82, 15, WHITE);
                 DrawText(burstLine, mx + 2, my + 106, 15, BLACK);
                 DrawText(burstLine, mx, my + 104, 15, WHITE);
+                DrawText(coolLine, mx + 2, my + 128, 15, BLACK);
+                DrawText(coolLine, mx, my + 126, 15, WHITE);
 
-                bool full = (rl >= 3 && lv >= 3 && bl >= 3);
+                bool full = (rl >= 3 && lv >= 3 && bl >= 3 && cl >= 3);
                 /* v52: MAXed tracks render as plain text, not dead buttons */
                 if (rl < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 132, 340, 36 }, "UPGRADE LENS  (5 shards)")) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 152, 340, 36 }, "UPGRADE LENS  (5 shards)")) {
                         Player_BuyLaserUpgrade(0);
                     }
                 } else {
-                    DrawText("LENS  MAX", mx + 12, my + 144, 18, (Color){ 120, 190, 170, 255 });
+                    DrawText("LENS  MAX", mx + 12, my + 162, 18, (Color){ 120, 190, 170, 255 });
                 }
                 if (lv < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 176, 340, 36 }, "UPGRADE COIL  (5 shards)")) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 196, 340, 36 }, "UPGRADE COIL  (5 shards)")) {
                         Player_BuyLaserUpgrade(1);
                     }
                 } else {
-                    DrawText("COIL  MAX", mx + 12, my + 188, 18, (Color){ 120, 190, 170, 255 });
+                    DrawText("COIL  MAX", mx + 12, my + 206, 18, (Color){ 120, 190, 170, 255 });
                 }
                 if (bl < 3) {
-                    if (MenuButton((Rectangle){ (float)mx, (float)my + 220, 340, 36 }, "UPGRADE BURST  (5 shards)")) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 240, 340, 36 }, "UPGRADE BURST  (5 shards)")) {
                         Player_BuyLaserUpgrade(2);
                     }
                 } else {
-                    DrawText("BURST  MAX", mx + 12, my + 232, 18, (Color){ 120, 190, 170, 255 });
+                    DrawText("BURST  MAX", mx + 12, my + 250, 18, (Color){ 120, 190, 170, 255 });
+                }
+                if (cl < 3) {
+                    if (MenuButton((Rectangle){ (float)mx, (float)my + 284, 340, 36 }, "UPGRADE COOLING  (5 shards)")) {
+                        Player_BuyLaserUpgrade(3);
+                    }
+                } else {
+                    DrawText("COOLING  MAX", mx + 12, my + 294, 18, (Color){ 120, 190, 170, 255 });
                 }
                 if (full) {
                     const char *done = "The laser is fully forged.";
-                    DrawText(done, mx + 2, my + 262, 15, BLACK);
-                    DrawText(done, mx, my + 260, 15, (Color){ 96, 255, 214, 255 });
+                    DrawText(done, mx + 2, my + 328, 15, BLACK);
+                    DrawText(done, mx, my + 326, 15, (Color){ 96, 255, 214, 255 });
                 } else if (Player_GetShards() < 5) {
                     const char *need = "Not enough shards - fell hunters, crawlers, wisps, spiders.";
-                    DrawText(need, mx + 2, my + 262, 14, BLACK);
-                    DrawText(need, mx, my + 260, 14, (Color){ 255, 120, 140, 255 });
+                    DrawText(need, mx + 2, my + 328, 14, BLACK);
+                    DrawText(need, mx, my + 326, 14, (Color){ 255, 120, 140, 255 });
                 }
                 const char *hint = "B / ESC - close";
-                DrawText(hint, mx + 2, my + 288, 14, BLACK);
-                DrawText(hint, mx, my + 286, 14, (Color){ 170, 170, 190, 255 });
+                DrawText(hint, mx + 2, my + 356, 14, BLACK);
+                DrawText(hint, mx, my + 354, 14, (Color){ 170, 170, 190, 255 });
             }
+        }
+    }
+
+    /* v53: the satchel (I) - everything the traveler carries */
+    if (inventoryOpen) {
+        if (!screenCursorEnabled || currentScreen != SCREEN_GAME) {
+            inventoryOpen = false;
+        } else {
+            int mx = screenWidth / 2 - 155;
+            int my = screenHeight / 2 - 150;
+            DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 150 });
+            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 342, 330 });
+
+            const char *title = "VOID SATCHEL";
+            DrawText(title, mx + 2, my + 2, 24, BLACK);
+            DrawText(title, mx, my, 24, (Color){ 96, 255, 214, 255 });
+
+            char line[128];
+            int y = my + 44;
+            snprintf(line, sizeof(line), "Void shards: %d", Player_GetShards());
+            DrawText(line, mx + 2, y + 2, 17, BLACK);
+            DrawText(line, mx, y, 17, (Color){ 200, 160, 255, 255 });
+            y += 30;
+
+            int shrooms = Mobs_GetMushrooms();
+            if (shrooms > 0) snprintf(line, sizeof(line), "Void mushrooms: %d   [G] eat +3 HP", shrooms);
+            else snprintf(line, sizeof(line), "Void mushrooms: 0");
+            DrawText(line, mx + 2, y + 2, 17, BLACK);
+            DrawText(line, mx, y, 17, shrooms > 0 ? (Color){ 225, 130, 255, 255 }
+                                                  : (Color){ 150, 140, 180, 255 });
+            y += 30;
+
+            snprintf(line, sizeof(line), "Laser: LENS %d/3   COIL %d/3   BURST %d/3   COOL %d/3",
+                     Player_GetLaserRangeLvl(), Player_GetLaserRateLvl(),
+                     Player_GetBurstLvl(), Player_GetCoolLvl());
+            DrawText(line, mx + 2, y + 2, 15, BLACK);
+            DrawText(line, mx, y, 15, (Color){ 96, 231, 214, 255 });
+            y += 30;
+
+            snprintf(line, sizeof(line), "Hunters felled: %d", Hunter_GetBounty());
+            DrawText(line, mx + 2, y + 2, 15, BLACK);
+            DrawText(line, mx, y, 15, (Color){ 255, 200, 120, 255 });
+            y += 32;
+
+            snprintf(line, sizeof(line), "Nearby fauna: %d crawlers, %d wisps, %d spiders",
+                     Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
+            DrawText(line, mx + 2, y + 2, 14, BLACK);
+            DrawText(line, mx, y, 14, (Color){ 255, 130, 150, 255 });
+            y += 28;
+
+            snprintf(line, sizeof(line), "Shards fuel warp jumps and the forge.");
+            DrawText(line, mx + 2, y + 2, 13, BLACK);
+            DrawText(line, mx, y, 13, (Color){ 150, 150, 175, 255 });
+            y += 26;
+
+            const char *hint = "I / ESC - close";
+            DrawText(hint, mx + 2, y + 2, 14, BLACK);
+            DrawText(hint, mx, y, 14, (Color){ 170, 170, 190, 255 });
         }
     }
 

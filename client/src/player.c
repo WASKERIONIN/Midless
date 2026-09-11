@@ -52,10 +52,13 @@ static int laserRateLvl = 0;    /* 0..3 */
 /* v51: burst-fire upgrade - hold the trigger, the rifle fires volleys;
  * at max level it keeps firing while held until the coil overheats */
 static int burstLvl = 0;        /* 0..3 */
+static int coolLvl = 0;         /* 0..3: cooling upgrade (v53) */
 static float laserHeat = 0.0f;      /* 0..1, only builds at burst lvl 3 */
 static bool laserOverheated = false;
 static int burstQueue = 0;          /* shots left in the current volley */
 static double burstNextShot = 0.0;
+static bool laserHeld = false;      /* v53: trigger state machine */
+static double laserHoldStart = 0.0; /* when the current hold began */
 #define LASER_UPGRADE_COST 5
 
 static double laserReadyTime = 0.0;
@@ -77,8 +80,9 @@ void Player_SaveProgress(void) {
     const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
     FILE *f = fopen(path, "w");
     if (!f) return;
-    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\n",
-            voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl, burstLvl);
+    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\ncool=%d\nshrooms=%d\n",
+            voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl, burstLvl,
+            coolLvl, Mobs_GetMushrooms());
     fclose(f);
 }
 
@@ -94,6 +98,8 @@ void Player_LoadProgress(void) {
         else if (sscanf(line, "laserRange=%d", &s) == 1) laserRangeLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "laserRate=%d", &s) == 1) laserRateLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "burst=%d", &s) == 1) burstLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "cool=%d", &s) == 1) coolLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "shrooms=%d", &s) == 1) Mobs_SetMushrooms((s > 0 && s < 500) ? s : 0);
     }
     fclose(f);
     if (voidShards < 0) voidShards = 0;
@@ -102,20 +108,25 @@ void Player_LoadProgress(void) {
 int Player_GetLaserRangeLvl(void) { return laserRangeLvl; }
 int Player_GetLaserRateLvl(void) { return laserRateLvl; }
 int Player_GetBurstLvl(void) { return burstLvl; }
+int Player_GetCoolLvl(void) { return coolLvl; }
 int Player_GetLaserRange(void) { return 18 + 6 * laserRangeLvl; }
-float Player_GetLaserCooldown(void) { return 0.35f - 0.07f * laserRateLvl; }
+float Player_GetLaserCooldown(void) {
+    /* v53: cooling upgrade also trims the base shot cooldown */
+    return (0.35f - 0.07f * laserRateLvl) * (1.0f - 0.08f * coolLvl);
+}
 
 /* v49.1: one upgrade purchase; feedback lands in chat */
 bool Player_BuyLaserUpgrade(int kind) {
     /* v52 fix: burst was unreachable - this early return fired for anyone
      * with LENS and COIL maxed ("fully forged") before burst was checked */
-    if (laserRangeLvl > 2 && laserRateLvl > 2 && burstLvl > 2) {
+    if (laserRangeLvl > 2 && laserRateLvl > 2 && burstLvl > 2 && coolLvl > 2) {
         Chat_AddLine("The core hums: your laser is fully forged.");
         return false;
     }
     if ((kind == 0 && laserRangeLvl >= 3) ||
         (kind == 1 && laserRateLvl >= 3) ||
-        (kind == 2 && burstLvl >= 3)) {
+        (kind == 2 && burstLvl >= 3) ||
+        (kind == 3 && coolLvl >= 3)) {
         SoundFx_PlayClick();
         Chat_AddLine("That part of the laser is already maxed.");
         return false;
@@ -136,11 +147,19 @@ bool Player_BuyLaserUpgrade(int kind) {
     } else if (kind == 2 && burstLvl < 3) {
         burstLvl++;
         if (burstLvl == 1)
-            Chat_AddLine("Volley forge: hold the trigger for 3-shot bursts.");
+            Chat_AddLine("Volley forge: HOLD the trigger for 3-shot bursts. A click is still one shot.");
         else if (burstLvl == 2)
-            Chat_AddLine("Volley forge: bursts of five now.");
+            Chat_AddLine("Volley forge: bursts of five now. Clicks stay single shots.");
         else
-            Chat_AddLine("The coil sings: hold fire for endless shots - until it overheats.");
+            Chat_AddLine("The coil sings: hold for endless shots - pauses cool it down.");
+    } else if (kind == 3 && coolLvl < 3) {
+        coolLvl++;
+        if (coolLvl == 1)
+            Chat_AddLine("Cooling coils seated - the laser runs cooler and shoots a touch faster.");
+        else if (coolLvl == 2)
+            Chat_AddLine("Coolant loops online - pauses drain the heat much faster.");
+        else
+            Chat_AddLine("Arctic coil: the laser shrugs off heat. Hold as long as you dare.");
     } else if (laserRangeLvl < 3) {
         laserRangeLvl++;
         Chat_AddLine(TextFormat("Lens reforged - laser range %d m. Shards left: %d.",
@@ -568,7 +587,8 @@ void Player_CheckInputs() {
         /* v48.2: R switches weapon - blade <-> laser */
         if (IsKeyPressed(KEY_R)) {
             player.weaponMode ^= 1;
-            burstQueue = 0;   /* v51: don't spill a half-fired volley */
+            burstQueue = 0;
+            laserHeld = false;   /* v53: reset the trigger state machine */
             SoundFx_PlayClick();
             Chat_AddLine(player.weaponMode ? "Laser rifle armed." : "Blade readied.");
         }
@@ -608,6 +628,11 @@ void Player_CheckInputs() {
         /* v49.1: B at a core opens the upgrade menu */
         if (IsKeyPressed(KEY_B) && !player.webActive && Player_NearWarpCore()) {
             Screens_UpgradeMenuToggle();
+        }
+
+        /* v53: I opens the satchel anywhere */
+        if (IsKeyPressed(KEY_I)) {
+            Screens_InventoryToggle();
         }
 
         /* v46: web grapple - F fires, Shift reels, Space releases with momentum */
@@ -684,59 +709,85 @@ void Player_CheckInputs() {
         eyePosition.y -= 0.4f * player.crouchT;   /* v46.1: crouch lowers the eye */
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
-        if (player.weaponMode == 1 &&
-            ((burstLvl > 0) ? IsMouseButtonDown(MOUSE_LEFT_BUTTON)
-                            : IsMouseButtonPressed(MOUSE_LEFT_BUTTON))) { //Laser rifle
+        if (player.weaponMode == 1) { //Laser rifle
             double nowL = GetTime();
-            /* v51: burst upgrade - holding fires volleys; lvl 3 fires
-             * continuously but builds coil heat and jams when overheated */
-            bool mayFire = true;
-            if (burstLvl >= 3) {
-                if (laserOverheated) {
-                    laserHeat -= 0.30f * GetFrameTime();
-                    if (laserHeat <= 0.30f) {
-                        laserHeat = 0.30f;
-                        laserOverheated = false;
-                        Chat_AddLine("The coil breathes cold again.");
+            float ft = GetFrameTime();
+            /* v53: the coil ALWAYS cools - v52 bug drained heat only while
+             * the trigger was held, so pauses never helped. Idle cooling is
+             * fast, holding slows the drain; cooling upgrade boosts both. */
+            float coolIdle = 0.34f + 0.06f * coolLvl;
+            float coolHold = 0.10f + 0.03f * coolLvl;
+            if (laserOverheated) {
+                laserHeat -= coolIdle * ft;
+                if (laserHeat <= 0.30f) {
+                    laserHeat = 0.30f;
+                    laserOverheated = false;
+                    Chat_AddLine("The coil breathes cold again.");
+                }
+            } else {
+                laserHeat -= (IsMouseButtonDown(MOUSE_LEFT_BUTTON) ? coolHold : coolIdle) * ft;
+                if (laserHeat < 0.0f) laserHeat = 0.0f;
+            }
+
+            /* v53 trigger state machine: a fresh CLICK is always one honest
+             * single shot; only a sustained HOLD (0.28 s+) escalates into
+             * volleys (lvl 1-2) or continuous fire (lvl 3). */
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                laserHeld = true;
+                laserHoldStart = nowL;
+            } else if (!IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                laserHeld = false;
+                burstQueue = 0;
+            }
+            bool holding = laserHeld && (nowL - laserHoldStart) > 0.28;
+
+            if (!laserOverheated) {
+                float heatPerShot = 0.09f - 0.015f * coolLvl;
+
+                /* 1) fresh click -> single shot (every upgrade level) */
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && nowL >= laserReadyTime) {
+                    Player_FireLaserShot(eyePosition, forward, cx90, sx90);
+                    laserReadyTime = nowL + ((burstLvl >= 3)
+                        ? Player_GetLaserCooldown() * 0.55f
+                        : Player_GetLaserCooldown());
+                    if (burstLvl >= 3) {
+                        laserHeat += heatPerShot;
+                        if (laserHeat >= 1.0f) {
+                            laserHeat = 1.0f;
+                            laserOverheated = true;
+                            SoundFx_PlayPlayerHurt();
+                            Chat_AddLine("The laser coil overheats!");
+                        }
                     }
-                    mayFire = false;
-                } else {
-                    laserHeat -= 0.20f * GetFrameTime();
-                    if (laserHeat < 0.0f) laserHeat = 0.0f;
+                }
+                /* 2) sustained hold -> volleys or continuous fire */
+                else if (holding && nowL >= burstNextShot) {
+                    if ((burstLvl == 1 || burstLvl == 2) &&
+                        burstQueue == 0 && nowL >= laserReadyTime) {
+                        burstQueue = (burstLvl == 1) ? 2 : 4;   /* rest of the volley */
+                        burstNextShot = nowL;
+                    }
+                    if (burstQueue > 0 && nowL >= burstNextShot) {
+                        burstQueue--;
+                        burstNextShot = nowL + 0.07;
+                        Player_FireLaserShot(eyePosition, forward, cx90, sx90);
+                        if (burstQueue == 0 && burstLvl <= 2)
+                            laserReadyTime = nowL + 0.07 + ((burstLvl == 1) ? 0.9f : 0.7f);
+                    } else if (burstLvl >= 3 && nowL >= laserReadyTime) {
+                        Player_FireLaserShot(eyePosition, forward, cx90, sx90);
+                        laserReadyTime = nowL + Player_GetLaserCooldown() * 0.55f;
+                        laserHeat += heatPerShot;
+                        if (laserHeat >= 1.0f) {
+                            laserHeat = 1.0f;
+                            laserOverheated = true;
+                            burstQueue = 0;
+                            SoundFx_PlayPlayerHurt();
+                            Chat_AddLine("The laser coil overheats! Give it a pause.");
+                        }
+                    }
                 }
             }
-            if (mayFire && burstQueue > 0 && nowL >= burstNextShot) {
-                burstQueue--;
-                burstNextShot = nowL + 0.07;
-                Player_FireLaserShot(eyePosition, forward, cx90, sx90);
-                if (burstLvl >= 3) {
-                    laserHeat += 0.09f;
-                    if (laserHeat >= 1.0f) {
-                        laserHeat = 1.0f;
-                        laserOverheated = true;
-                        burstQueue = 0;
-                        SoundFx_PlayPlayerHurt();
-                        Chat_AddLine("The laser coil overheats!");
-                    }
-                }
-                if (burstQueue == 0 && burstLvl == 1) laserReadyTime = nowL + 0.9f;
-                if (burstQueue == 0 && burstLvl == 2) laserReadyTime = nowL + 0.7f;
-            } else if (mayFire && burstQueue == 0 && nowL >= laserReadyTime) {
-                if (burstLvl == 1) burstQueue = 2;        /* 3-shot volley */
-                else if (burstLvl == 2) burstQueue = 4;   /* 5-shot volley */
-                Player_FireLaserShot(eyePosition, forward, cx90, sx90);
-                if (burstLvl >= 3) {
-                    laserHeat += 0.09f;
-                    laserReadyTime = nowL + Player_GetLaserCooldown() * 0.55f;
-                    if (laserHeat >= 1.0f) {
-                        laserHeat = 1.0f;
-                        laserOverheated = true;
-                        SoundFx_PlayPlayerHurt();
-                        Chat_AddLine("The laser coil overheats!");
-                    }
-                }
-            }
-        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
+        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
             /* v45: a swing at a hunter takes priority over mining */

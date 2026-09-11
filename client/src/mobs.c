@@ -575,6 +575,17 @@ static bool shellAnnounced;
 
 int Mobs_GetMushrooms(void) { return mushroomsStored; }
 
+/* v53: restore the stored count from cosmic_progress.ini */
+void Mobs_SetMushrooms(int n) {
+    mushroomsStored = (n < 0) ? 0 : n;
+}
+
+int Mobs_SpiderCount(void) {
+    int n = 0;
+    for (int i = 0; i < SPIDER_MAX; i++) if (spiders[i].active) n++;
+    return n;
+}
+
 bool Mobs_EatMushroom(void) {
     if (mushroomsStored <= 0 || player.hp >= 10) return false;
     mushroomsStored--;
