@@ -7,6 +7,7 @@
  */
 
 #include "postfx.h"
+#include "settings.h"
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
@@ -19,6 +20,7 @@ static int locTime;
 static int locBhPos;
 static int locBhRadius;
 static int locBhStrength;
+static int locFxaa;   /* v56: options toggle */
 
 #if defined(PLATFORM_WEB)
 static const char *kFs =
@@ -31,6 +33,7 @@ static const char *kFs =
     "uniform vec2 bhPos;"
     "uniform float bhRadius;"
     "uniform float bhStrength;"
+    "uniform float fxaa;"
     "float hash(vec2 p) {"
     "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);"
     "}"
@@ -47,9 +50,33 @@ static const char *kFs =
     "  vec2 off = dir * rad * 0.9 * px;"
     "  off += (toBh / max(r, 1e-5)) * lens * 2.2;"
     "  vec3 col;"
-    "  col.r = texture2D(texture0, uv + off).r;"
-    "  col.g = texture2D(texture0, uv).g;"
-    "  col.b = texture2D(texture0, uv - off).b;"
+    "  if (fxaa > 0.5) {"
+    "    vec2 fp = vec2(1.0) / max(resolution, vec2(1.0));"
+    "    vec3 rgbNW = texture2D(texture0, uv + vec2(-1.0, -1.0) * fp).rgb;"
+    "    vec3 rgbNE = texture2D(texture0, uv + vec2( 1.0, -1.0) * fp).rgb;"
+    "    vec3 rgbSW = texture2D(texture0, uv + vec2(-1.0,  1.0) * fp).rgb;"
+    "    vec3 rgbSE = texture2D(texture0, uv + vec2( 1.0,  1.0) * fp).rgb;"
+    "    vec3 rgbM  = texture2D(texture0, uv).rgb;"
+    "    float lNW = dot(rgbNW, vec3(0.299, 0.587, 0.114));"
+    "    float lNE = dot(rgbNE, vec3(0.299, 0.587, 0.114));"
+    "    float lSW = dot(rgbSW, vec3(0.299, 0.587, 0.114));"
+    "    float lSE = dot(rgbSE, vec3(0.299, 0.587, 0.114));"
+    "    float lM  = dot(rgbM,  vec3(0.299, 0.587, 0.114));"
+    "    float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));"
+    "    float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));"
+    "    vec2 fdir = vec2(-((lNW + lNE) - (lSW + lSE)), ((lNW + lSW) - (lNE + lSE)));"
+    "    float dirReduce = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125);"
+    "    float rcpDirMin = 1.0 / (min(abs(fdir.x), abs(fdir.y)) + dirReduce);"
+    "    fdir = clamp(fdir * rcpDirMin, vec2(-8.0), vec2(8.0)) * fp;"
+    "    vec3 rgbA = 0.5 * (texture2D(texture0, uv + fdir * (1.0 / 3.0 - 0.5)).rgb + texture2D(texture0, uv + fdir * (2.0 / 3.0 - 0.5)).rgb);"
+    "    vec3 rgbB = rgbA * 0.5 + 0.25 * (texture2D(texture0, uv + fdir * -0.5).rgb + texture2D(texture0, uv + fdir * 0.5).rgb);"
+    "    float lB = dot(rgbB, vec3(0.299, 0.587, 0.114));"
+    "    col = ((lB < lMin) || (lB > lMax)) ? rgbA : rgbB;"
+    "  } else {"
+    "    col.r = texture2D(texture0, uv + off).r;"
+    "    col.g = texture2D(texture0, uv).g;"
+    "    col.b = texture2D(texture0, uv - off).b;"
+    "  }"
     "  vec3 acc = vec3(0.0);"
     "  acc += max(texture2D(texture0, uv + vec2( px.x * 3.0, 0.0)).rgb - 0.46, 0.0);"
     "  acc += max(texture2D(texture0, uv + vec2(-px.x * 3.0, 0.0)).rgb - 0.46, 0.0);"
@@ -93,6 +120,7 @@ static const char *kFs =
     "uniform vec2 bhPos;"
     "uniform float bhRadius;"
     "uniform float bhStrength;"
+    "uniform float fxaa;"
     "float hash(vec2 p) {"
     "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);"
     "}"
@@ -109,9 +137,33 @@ static const char *kFs =
     "  vec2 off = dir * rad * 0.9 * px;"
     "  off += (toBh / max(r, 1e-5)) * lens * 2.2;"
     "  vec3 col;"
-    "  col.r = texture(texture0, uv + off).r;"
-    "  col.g = texture(texture0, uv).g;"
-    "  col.b = texture(texture0, uv - off).b;"
+    "  if (fxaa > 0.5) {"
+    "    vec2 fp = vec2(1.0) / max(resolution, vec2(1.0));"
+    "    vec3 rgbNW = texture(texture0, uv + vec2(-1.0, -1.0) * fp).rgb;"
+    "    vec3 rgbNE = texture(texture0, uv + vec2( 1.0, -1.0) * fp).rgb;"
+    "    vec3 rgbSW = texture(texture0, uv + vec2(-1.0,  1.0) * fp).rgb;"
+    "    vec3 rgbSE = texture(texture0, uv + vec2( 1.0,  1.0) * fp).rgb;"
+    "    vec3 rgbM  = texture(texture0, uv).rgb;"
+    "    float lNW = dot(rgbNW, vec3(0.299, 0.587, 0.114));"
+    "    float lNE = dot(rgbNE, vec3(0.299, 0.587, 0.114));"
+    "    float lSW = dot(rgbSW, vec3(0.299, 0.587, 0.114));"
+    "    float lSE = dot(rgbSE, vec3(0.299, 0.587, 0.114));"
+    "    float lM  = dot(rgbM,  vec3(0.299, 0.587, 0.114));"
+    "    float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));"
+    "    float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));"
+    "    vec2 fdir = vec2(-((lNW + lNE) - (lSW + lSE)), ((lNW + lSW) - (lNE + lSE)));"
+    "    float dirReduce = max((lNW + lNE + lSW + lSE) * 0.03125, 0.0078125);"
+    "    float rcpDirMin = 1.0 / (min(abs(fdir.x), abs(fdir.y)) + dirReduce);"
+    "    fdir = clamp(fdir * rcpDirMin, vec2(-8.0), vec2(8.0)) * fp;"
+    "    vec3 rgbA = 0.5 * (texture(texture0, uv + fdir * (1.0 / 3.0 - 0.5)).rgb + texture(texture0, uv + fdir * (2.0 / 3.0 - 0.5)).rgb);"
+    "    vec3 rgbB = rgbA * 0.5 + 0.25 * (texture(texture0, uv + fdir * -0.5).rgb + texture(texture0, uv + fdir * 0.5).rgb);"
+    "    float lB = dot(rgbB, vec3(0.299, 0.587, 0.114));"
+    "    col = ((lB < lMin) || (lB > lMax)) ? rgbA : rgbB;"
+    "  } else {"
+    "    col.r = texture(texture0, uv + off).r;"
+    "    col.g = texture(texture0, uv).g;"
+    "    col.b = texture(texture0, uv - off).b;"
+    "  }"
     "  vec3 acc = vec3(0.0);"
     "  acc += max(texture(texture0, uv + vec2( px.x * 3.0, 0.0)).rgb - 0.46, 0.0);"
     "  acc += max(texture(texture0, uv + vec2(-px.x * 3.0, 0.0)).rgb - 0.46, 0.0);"
@@ -160,6 +212,7 @@ void PostFx_Init(void) {
     locBhPos = GetShaderLocation(shader, "bhPos");
     locBhRadius = GetShaderLocation(shader, "bhRadius");
     locBhStrength = GetShaderLocation(shader, "bhStrength");
+    locFxaa = GetShaderLocation(shader, "fxaa");
     EnsureTarget();
 }
 
@@ -189,6 +242,8 @@ void PostFx_EndScene(Camera camera) {
     SetShaderValue(shader, locBhPos, bhPos, SHADER_UNIFORM_VEC2);
     SetShaderValue(shader, locBhRadius, &radius, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, locBhStrength, &strength, SHADER_UNIFORM_FLOAT);
+    float fx = gameSettings.fxaa ? 1.0f : 0.0f;   /* v56: options toggle, live */
+    SetShaderValue(shader, locFxaa, &fx, SHADER_UNIFORM_FLOAT);
 
     BeginShaderMode(shader);
     DrawTextureRec(target.texture,

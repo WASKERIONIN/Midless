@@ -145,24 +145,35 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
 
     Chunk *nextChunk = chunk;
     int nextIndex;
+    /* v56: a missing neighbour chunk no longer eats the border face -
+     * the face is drawn against air, killing the see-through holes you
+     * could spot at world edges since forever */
+    bool edgeMissing = false;
     if ((unsigned)nx < CHUNK_SIZE_X && (unsigned)ny < CHUNK_SIZE_Y && (unsigned)nz < CHUNK_SIZE_Z) {
         nextIndex = blockIndex + indexOffsets[(int)face];
     } else {
         nextChunk = chunk->neighbours[(int)face];
-        if (nextChunk == NULL) return;
+        if (nextChunk == NULL) {
+            edgeMissing = true;
+            nextIndex = blockIndex;
+        } else {
         if (nx < 0) nx = CHUNK_SIZE_X - 1; else if (nx == CHUNK_SIZE_X) nx = 0;
         if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
         if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
         nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
+        }
     }
 
-    const Block *next = &blockDefinitions[nextChunk->data[nextIndex]];
+    const Block *next = &blockDefinitions[edgeMissing ? 0 : nextChunk->data[nextIndex]];
     bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
     if (!sprite && !FaceVisible(block, next)) return;
 
     int light;
     int sunlight;
-    if (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) {
+    if (edgeMissing) {
+        light = chunk->lightData[blockIndex];
+        sunlight = chunk->sunlightData[blockIndex];
+    } else if (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) {
         light = chunk->lightData[blockIndex];
         sunlight = chunk->sunlightData[blockIndex];
     } else if (!block->fullCube) {
@@ -179,7 +190,7 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
 
     /* v43: ambient occlusion for every non-sprite face */
     unsigned char ao[4] = {15, 15, 15, 15};
-    if (!sprite) {
+    if (!sprite && !edgeMissing) {
         const BlockMeshTemplate *meshTemplate = BlockMesh_GetTemplate((int)(block - blockDefinitions));
         if (meshTemplate != NULL)
             ComputeFaceAO(chunk, x + nox, y + noy, z + noz, face, meshTemplate->vertices[(int)face], ao);

@@ -14,7 +14,9 @@
 
 #define BLOCK_ITEM_COUNT 256
 #define BLOCK_ITEM_TEXTURE_SIZE 256
-#define BLOCK_ATLAS_SIZE 256.0f
+/* v56: chunk-mesh UVs are 2x fixed point (half-texel inset, shader /512) -
+ * the item icons share those templates and must divide by the same 512 */
+#define BLOCK_ATLAS_SIZE 512.0f
 
 typedef struct BlockItemIcon {
     RenderTexture2D target;
@@ -92,7 +94,10 @@ static void BuildIcon(int blockId, Material material) {
         BeginMode3D(camera);
             rlDisableBackfaceCulling();
             DrawMesh(mesh, material, MatrixIdentity());
-            rlEnableBackfaceCulling();
+            /* v56 root fix: restore the GAME's state (culling off) - this
+             * used to leave culling enabled session-wide, which hid single
+             * sided quads (mushrooms, cocoon eggs) from one side */
+            rlDisableBackfaceCulling();
         EndMode3D();
     EndTextureMode();
 
@@ -116,6 +121,7 @@ void BlockItemRenderer_Init(Texture2D terrain) {
     if (material.maps != NULL) {
         material.maps[MATERIAL_MAP_DIFFUSE].texture.id = rlGetTextureIdDefault();
     }
+    rlDisableBackfaceCulling();   /* v56: make absolutely sure */
     UnloadMaterial(material);
 }
 
@@ -170,6 +176,6 @@ bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness) {
     heldMaterial.maps[MATERIAL_MAP_DIFFUSE].color = (Color){light, light, light, 255};
     rlDisableBackfaceCulling();
     DrawMesh(icons[blockId].mesh, heldMaterial, transform);
-    rlEnableBackfaceCulling();
+    rlDisableBackfaceCulling();   /* v56: game default, see BuildIcon */
     return true;
 }

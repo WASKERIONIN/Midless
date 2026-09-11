@@ -82,6 +82,7 @@ typedef struct Crawler {
     float wanderTimer;
     float age;
     bool grounded;
+    float stuck;   /* v56: how long the body has been fighting a wall */
 } Crawler;
 static Crawler crawlers[CRAWLER_MAX];
 static bool crawlerAnnounced;
@@ -241,6 +242,7 @@ static void Crawler_Update(float deltaTime, bool surge, double now) {
         Vector3 want = Vector3Add(c->pos, Vector3Scale((Vector3){ c->vel.x, 0, c->vel.z }, deltaTime));
         if (!Mob_BodyBlocked(want)) {
             c->pos = want;
+            c->stuck = 0.0f;
         } else if (c->grounded) {
             Vector3 stepUp = c->pos;
             stepUp.y += 1.05f;
@@ -248,11 +250,21 @@ static void Crawler_Update(float deltaTime, bool surge, double now) {
             if (!Mob_BodyBlocked(stepOver)) {
                 c->pos = stepOver;
                 c->vel.y = 0.1f;
+                c->stuck = 0.0f;
+            } else if (c->stuck > 0.7f) {
+                /* v56: cornered against a two-block wall - leap over it */
+                c->vel.y = 2.1f;
+                c->grounded = false;
+                c->stuck = -1.5f;   /* cooldown before the next leap */
+            } else if (c->stuck >= 0.0f) {
+                c->stuck += deltaTime;
+                c->vel.x *= 0.6f;
+                c->vel.z *= 0.6f;
             } else {
-                c->vel.x = -c->vel.x * 0.4f;
-                c->vel.z = -c->vel.z * 0.4f;
-                c->wanderTimer = 0.0f;
+                c->stuck += deltaTime;   /* negative = mid-cooldown */
             }
+        } else if (c->stuck < 0.0f || c->vel.y > 0.5f) {
+            /* v56: mid-leap - keep the horizontal push to clear the wall */
         } else {
             c->vel.x *= 0.4f;
             c->vel.z *= 0.4f;
@@ -328,6 +340,7 @@ typedef struct Spider {
     bool airborne;
     bool grounded;
     float age;
+    float stuck;   /* v56: how long the body has been fighting a wall */
 } Spider;
 static Spider spiders[SPIDER_MAX];
 static bool spiderAnnounced;
@@ -443,12 +456,20 @@ static void Spider_Update(float deltaTime, double now) {
             Vector3 want = Vector3Add(s->pos, Vector3Scale((Vector3){ s->vel.x, 0, s->vel.z }, deltaTime));
             if (!Mob_BodyBlocked(want)) {
                 s->pos = want;
+                s->stuck = 0.0f;
             } else if (s->grounded) {
                 Vector3 stepUp = s->pos;
                 stepUp.y += 1.05f;
                 Vector3 stepOver = Vector3Add(stepUp, Vector3Scale((Vector3){ s->vel.x, 0, s->vel.z }, deltaTime * 2.0f));
-                if (!Mob_BodyBlocked(stepOver)) { s->pos = stepOver; s->vel.y = 0.1f; }
-                else { s->vel.x *= -0.4f; s->vel.z *= -0.4f; }
+                if (!Mob_BodyBlocked(stepOver)) { s->pos = stepOver; s->vel.y = 0.1f; s->stuck = 0.0f; }
+                else if (s->stuck > 0.7f) {
+                    s->vel.y = 2.2f;          /* v56: pounce over the wall */
+                    s->airborne = true;
+                    s->grounded = false;
+                    s->stuck = -1.5f;
+                }
+                else if (s->stuck >= 0.0f) { s->stuck += deltaTime; s->vel.x *= 0.6f; s->vel.z *= 0.6f; }
+                else s->stuck += deltaTime;
             }
         } else {
             Vector3 fly = Vector3Add(s->pos, Vector3Scale(s->vel, deltaTime));
@@ -684,6 +705,9 @@ static void Shell_Update(float deltaTime, double now) {
                 shellActive = true;
                 shellUntil = now + 80.0;
                 mushGrowTimer = 1.0f;
+                /* v56: a few mushrooms at once so the rain is visible
+                 * immediately, not a minute later */
+                for (int q = 0; q < 3; q++) Mushroom_SpawnTry(shellCenter);
                 if (!shellAnnounced) {
                     shellAnnounced = true;
                     Chat_AddLine("A violet shell shimmers over the islands... it is raining light.");
@@ -963,11 +987,18 @@ static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned cha
     Vector3 up = { 0, h, 0 };
     Vector3 tl = Vector3Add(bl, up);
     Vector3 tr = Vector3Add(br, up);
+    /* v56: emitted in both windings - the icon renderer leaves backface
+     * culling enabled session-wide, so a single-sided quad vanishes from
+     * one side (that is why v55 mushrooms "disappeared") */
     rlColor4ub(bright, bright, bright, 255);
     rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
     rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
     rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
     rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
+    rlTexCoord2f(u1, v1); rlVertex3f(br.x, br.y, br.z);
+    rlTexCoord2f(u1, v0); rlVertex3f(tr.x, tr.y, tr.z);
+    rlTexCoord2f(u0, v0); rlVertex3f(tl.x, tl.y, tl.z);
+    rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
 }
 
 /* v55: textured lat-long blob - the spider's carapace (atlas tile based);
@@ -1025,6 +1056,23 @@ void Mobs_Draw(void) {
                              0.15f, 0.14f, 0.14f, s->faceAng, 36,
                              (unsigned char)(tr * 9 / 10), (unsigned char)(tg * 8 / 10),
                              (unsigned char)(tb * 9 / 10));
+            /* v56: the tail is textured now - three shrinking hide blobs
+             * whipping behind the abdomen */
+            float caS = cosf(s->faceAng), saS = sinf(s->faceAng);
+            float whip2 = sinf((float)now * 3.4f + s->phase);
+            Vector3 tp = { c0.x - caS * 0.40f, c0.y + 0.02f + bob, c0.z - saS * 0.40f };
+            for (int k = 0; k < 3; k++) {
+                float rr2 = 0.14f - 0.03f * k;
+                Vector3 np = { tp.x - caS * 0.22f + sinf(whip2 + k) * 0.06f,
+                               tp.y + 0.20f - k * 0.02f,
+                               tp.z - saS * 0.22f + cosf(whip2 + k) * 0.06f };
+                Mob_TexturedBlob((Vector3){ (tp.x + np.x) / 2, (tp.y + np.y) / 2, (tp.z + np.z) / 2 },
+                                 rr2, rr2 * 1.1f, rr2, s->faceAng, 36,
+                                 (unsigned char)(tr * (90 - k * 8) / 100),
+                                 (unsigned char)(tg * (85 - k * 8) / 100),
+                                 (unsigned char)(tb * (95 - k * 5) / 100));
+                tp = np;
+            }
         }
         rlEnd();
         rlSetTexture(0);
@@ -1181,6 +1229,32 @@ void Mobs_Draw(void) {
                 rlVertex3f(px, py, pz);
                 rlVertex3f(nx, ny, nz);
                 px = nx; py = ny; pz = nz;
+            }
+        }
+        /* v56: twin spinning pentagrams at the dome heart */
+        {
+            float py = cy2 - R * 0.10f;
+            for (int layer = 0; layer < 2; layer++) {
+                float pr = R * (layer == 0 ? 0.40f : 0.24f);
+                float spin = t0 * (layer == 0 ? 0.55f : -0.85f) + layer * 0.6f;
+                unsigned char pb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 2.6f + layer));
+                Color pc = { 255, 70, pb, 255 };
+                Vector3 pts[5];
+                for (int k = 0; k < 5; k++) {
+                    float an = spin + 6.2832f * k / 5.0f;
+                    pts[k] = (Vector3){ shellCenter.x + cosf(an) * pr, py, shellCenter.z + sinf(an) * pr };
+                }
+                for (int k = 0; k < 5; k++) {   /* star: step two vertices */
+                    Vector3 a = pts[k], b = pts[(k + 2) % 5];
+                    for (int sIdx = 0; sIdx <= 4; sIdx++) {
+                        float tt = sIdx / 4.0f;
+                        Vector3 p0 = { a.x + (b.x - a.x) * tt, a.y, a.z + (b.z - a.z) * tt };
+                        Vector3 p1 = { a.x + (b.x - a.x) * ((sIdx + 1) / 4.0f), a.y, a.z + (b.z - a.z) * ((sIdx + 1) / 4.0f) };
+                        rlColor4ub(pc.r, pc.g, pc.b, 255);
+                        rlVertex3f(p0.x, p0.y, p0.z);
+                        rlVertex3f(p1.x, p1.y, p1.z);
+                    }
+                }
             }
         }
         /* rain: streaks of light sliding down under the dome */

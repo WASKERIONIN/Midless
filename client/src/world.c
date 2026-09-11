@@ -629,11 +629,17 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
                                     center.z + sinf(th1) * sinf(phi1) * rx };
                     float ua = u0 + du * k / SEG,      ub = u0 + du * (k + 1) / SEG;
                     float va = v0 + dv * b / BAND,     vb = v0 + dv * (b + 1) / BAND;
+                    /* v56: both windings - session-wide backface culling
+                     * (enabled by the icon renderer) hid one side */
                     rlColor4ub(pr, 90, 235, 255);
                     rlTexCoord2f(ua, va); rlVertex3f(c00.x, c00.y, c00.z);
                     rlTexCoord2f(ub, va); rlVertex3f(c10.x, c10.y, c10.z);
                     rlTexCoord2f(ub, vb); rlVertex3f(c11.x, c11.y, c11.z);
                     rlTexCoord2f(ua, vb); rlVertex3f(c01.x, c01.y, c01.z);
+                    rlTexCoord2f(ua, vb); rlVertex3f(c01.x, c01.y, c01.z);
+                    rlTexCoord2f(ub, vb); rlVertex3f(c11.x, c11.y, c11.z);
+                    rlTexCoord2f(ub, va); rlVertex3f(c10.x, c10.y, c10.z);
+                    rlTexCoord2f(ua, va); rlVertex3f(c00.x, c00.y, c00.z);
                 }
             }
             rlEnd();

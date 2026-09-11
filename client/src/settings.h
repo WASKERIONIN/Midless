@@ -10,6 +10,10 @@ typedef struct GameSettings {
     int maxFpsChoice;
     int drawDistance;
     int volume;
+    int vsync;    /* v56: FLAG_VSYNC_HINT, applied at window creation */
+    int fxaa;     /* v56: FXAA edge smoothing in the postfx pass */
+    int aniso;    /* v56: trilinear mipmaps + anisotropic x8 on the terrain atlas */
+    int resver;   /* v56: settings-layout version for one-time migrations */
 } GameSettings;
 
 extern GameSettings gameSettings;

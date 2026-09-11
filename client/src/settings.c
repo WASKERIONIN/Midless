@@ -5,12 +5,16 @@
 #include <stdlib.h>
 
 GameSettings gameSettings = {
-    .width = 1280,
-    .height = 720,
-    .fullscreen = false,
+    .width = 1920,     /* v56: launch at 1080p / monitor size by default */
+    .height = 1080,
+    .fullscreen = true,    /* borderless at the monitor's own resolution */
     .maxFpsChoice = 0,
     .drawDistance = 8,
     .volume = 70,
+    .vsync = 1,
+    .fxaa = 1,
+    .aniso = 1,
+    .resver = 2,
 };
 
 static const int kResolutions[][2] = {
@@ -30,6 +34,9 @@ void Settings_Load(void) {
     BuildPath();
     char *text = LoadFileText(settingsPath);
     if (!text) return;
+    /* v56: an existing pre-v56 file has no resver key - reset so the
+     * one-time migration below fires; first runs keep the default */
+    gameSettings.resver = 0;
     char *line = text;
     while (line && *line) {
         char *end = strchr(line, '\n');
@@ -46,18 +53,34 @@ void Settings_Load(void) {
             if (value > 100) value = 100;
             gameSettings.volume = value;
         }
+        else if (sscanf(line, "vsync=%d", &value) == 1) gameSettings.vsync = value != 0;
+        else if (sscanf(line, "fxaa=%d", &value) == 1) gameSettings.fxaa = value != 0;
+        else if (sscanf(line, "aniso=%d", &value) == 1) gameSettings.aniso = value != 0;
+        else if (sscanf(line, "resver=%d", &value) == 1) gameSettings.resver = value;
         line = end ? end + 1 : NULL;
     }
     UnloadFileText(text);
+    /* v56: one-time migration - everyone gets the fullscreen-at-monitor
+     * launch once; after that their own choices are respected */
+    if (gameSettings.resver < 2) {
+        gameSettings.resver = 2;
+        gameSettings.fullscreen = true;
+        gameSettings.width = 1920;
+        gameSettings.height = 1080;
+        Settings_Save();
+    }
 }
 
 void Settings_Save(void) {
     BuildPath();
     char body[256];
     snprintf(body, sizeof(body),
-             "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n",
+             "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n"
+             "vsync=%d\nfxaa=%d\naniso=%d\nresver=%d\n",
              gameSettings.width, gameSettings.height, gameSettings.fullscreen ? 1 : 0,
-             gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume);
+             gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume,
+             gameSettings.vsync ? 1 : 0, gameSettings.fxaa ? 1 : 0,
+             gameSettings.aniso ? 1 : 0, gameSettings.resver);
     SaveFileText(settingsPath, body);
 }
 

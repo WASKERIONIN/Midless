@@ -6,6 +6,7 @@
 #include "entity/entitymodel.h"
 #include "gui/blockitemrenderer.h"
 #include "block/block.h"
+#include "settings.h"
 #include "resource.h"
 #include <string.h>
 #include <stdint.h>
@@ -42,6 +43,15 @@ static void ApplyTerrain(void) {
     }
     if(!t.id) return;
     currentTerrain=selected;
+    /* v56: modern filtering on the atlas - mipmaps + trilinear + anisotropic
+     * x8 kill the distance shimmer; OFF restores the crisp nearest look */
+    if(gameSettings.aniso) {
+        GenTextureMipmaps(&t);
+        SetTextureFilter(t, TEXTURE_FILTER_TRILINEAR);
+        SetTextureFilter(t, TEXTURE_FILTER_ANISOTROPIC_8X);
+    } else {
+        SetTextureFilter(t, TEXTURE_FILTER_POINT);
+    }
     World_ApplyTexture(t);
     BlockItemRenderer_SetTexture(t);
     Image image=LoadImageFromTexture(t);

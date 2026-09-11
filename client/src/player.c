@@ -709,7 +709,9 @@ void Player_CheckInputs() {
         eyePosition.y -= 0.4f * player.crouchT;   /* v46.1: crouch lowers the eye */
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
-        if (player.weaponMode == 1) { //Laser rifle
+        /* v56: RMB is reserved for placing in BOTH weapon modes - the laser
+         * branch yields that frame so the chain reaches the place branch */
+        if (player.weaponMode == 1 && !IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Laser rifle
             double nowL = GetTime();
             float ft = GetFrameTime();
             /* v53: the coil ALWAYS cools - v52 bug drained heat only while

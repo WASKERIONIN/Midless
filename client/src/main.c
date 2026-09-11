@@ -43,7 +43,8 @@ int main(void) {
     if (!RuntimePaths_Init()) return 1;
 
     Settings_Load();
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT);
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT |
+                   (gameSettings.vsync ? FLAG_VSYNC_HINT : 0));   /* v56 */
     InitWindow(gameSettings.width, gameSettings.height, "Midless: Cosmic Edition");
     Settings_ApplyWindow();
     SetExitKey(0);
