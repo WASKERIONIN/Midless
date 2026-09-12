@@ -264,6 +264,10 @@ void World_Clear(void) {
     world.loadChunks = false;
     Particle_Clear();
     Bird_Clear();
+    /* v60: the fauna session (glowmoths, pollen, crawlers, spiders,
+     * shell event) must die with the world - New/Regenerate World and
+     * server disconnects used to leave moths flying on stale timers. */
+    Mobs_Init();
     MapView_Reset();
     Player_ClearEntityModel();
 

@@ -772,9 +772,20 @@ static void Shell_EnsureTextures(void) {
     shellUndTex = Shell_MakeUnderTexture();
 }
 
-/* ---------------------------- v59: glowmoths ---------------------------- */
+/* ---------------------------- v59: glowmoths ----------------------------
+ * v60: the trail budget is platform-aware. Browsers often run WebGL on
+ * weaker drivers, so the web build gets half the motes with a slightly
+ * wider drop gap - the look stays, the fill cost halves. */
 #define MOTH_MAX 10
-#define POLLEN_MAX 288
+#ifdef PLATFORM_WEB
+#define POLLEN_MAX       144
+#define POLLEN_MIN_GAP   0.16    /* seconds between drops (idle moth) */
+#define POLLEN_DIST_GAP  0.30f   /* meters between drops (flying moth) */
+#else
+#define POLLEN_MAX       288
+#define POLLEN_MIN_GAP   0.10
+#define POLLEN_DIST_GAP  0.22f
+#endif
 typedef struct Moth {
     bool active;
     Vector3 pos;
@@ -903,9 +914,9 @@ static void Moth_Update(float deltaTime, double now) {
          * thinned the trail whenever the wobble cancelled the chase). */
         bool timeDue = now >= m->pollenAt;
         bool distDue = !m->hasLastDrop ||
-                       Vector3Distance(m->pos, m->lastDrop) >= 0.22f;
+                       Vector3Distance(m->pos, m->lastDrop) >= POLLEN_DIST_GAP;
         if (timeDue || distDue) {
-            m->pollenAt = now + 0.10 + GetRandomValue(0, 6) / 100.0;
+            m->pollenAt = now + POLLEN_MIN_GAP + GetRandomValue(0, 6) / 100.0;
             m->lastDrop = m->pos;
             m->hasLastDrop = true;
             Pollen *p = &pollen[pollenNext];
@@ -1030,7 +1041,13 @@ static void Moth_PollenDraw(double now) {
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
             unsigned char g = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 2.094f));
             unsigned char bc = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 4.188f));
-            Vector3 off = Vector3Scale(right, (ch - 1) * p->size * 0.9f);
+            /* v60: the RGB layers separate around a small slowly-spinning
+             * ring in the view plane (radial chromatic aberration) - the
+             * old straight horizontal split made every mote fringe to the
+             * same side like a misaligned CRT. */
+            float an = now * 0.7f + 6.2832f * ch / 3.0f + p->shift * 0.15f;
+            Vector3 off = Vector3Add(Vector3Scale(right, cosf(an) * p->size * 0.7f),
+                                     Vector3Scale(up, sinf(an) * p->size * 0.7f));
             Vector3 c = Vector3Add(p->pos, off);
             Vector3 rx = Vector3Scale(right, s), uy = Vector3Scale(up, s);
             Vector3 a = Vector3Subtract(Vector3Subtract(c, rx), uy);
