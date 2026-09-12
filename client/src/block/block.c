@@ -244,6 +244,20 @@ void Block_BuildDefinition(void) {
     Block_Define(56, "ember_rock", 56, 56, 56);
     Block_Define(57, "ember_turf", 57, 57, 57);
     Block_Define(58, "frost_turf", 58, 58, 58);
+    /* v63: biome ground cover sprites (server mod redefines these) */
+    Block_Define(59, "ember_tuft", 59, 59, 59);
+    blockDefinitions[59].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[59].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[59].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[59].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[59].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(60, "frost_tuft", 60, 60, 60);
+    blockDefinitions[60].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[60].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[60].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[60].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[60].maxBB = (Vector3) {12, 10, 12};
 
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

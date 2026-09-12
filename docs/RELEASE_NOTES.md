@@ -1,6 +1,15 @@
-# Midless: Cosmic Edition v62
+# Midless: Cosmic Edition v63
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63 - smarter grazers, biome lawns, Doom-style trees, faster world loading
+
+- **Grazers grew a brain**: they no longer overlap each other or step onto plants, they refuse to eat a flower they can't actually reach (no more nibbling through a ledge), they wander with a proper footstep-driven gait - legs freeze when they stand - and they occasionally curl up for a **nap** (tucked legs, drooping ears, closed eyes, slow breathing). Legs are no longer floating dots: they are rooted under the body in seamless "trouser" stubs, and ears/tail use plain fur instead of the rosette coat.
+- **Every biome keeps its own lawn**: the crystal meadow stays classic, ember isles grow a charcoal-and-amber grass with embercup/tulip/lanternberry patches, frost isles grow pale icy grass with frostfern/glassbell/puff patches. The old flowers no longer leak into foreign biomes; grazers replant species native to the ground they stand on.
+- **Doom-style trees**: both big trees were redrawn from scratch in the spirit of Doom's community tree sprites (proctree/DOOMTREE) - visible forked branches against the sky, asymmetric clumped canopy with dithered depth, dark under-lip, root flare, leaf tufts on branch tips. A big dead center gap was filled in.
+- **The world loads much faster**: chunk generation now runs on **4 parallel worker threads** (was 1), the client keeps up to 8 chunk requests in flight (was 1), and a chunk is only revealed once its horizontal neighbors exist - islands appear whole instead of quarter-slices.
+- **Draw distance raised again**: 26 -> 30 chunks (~480 m) and chunks now stack deeper vertically (6 levels around you), so high islands above and below load in time.
+- **The Void Runner never clips islands anymore**: before starting a flyby it probes the highest terrain along its whole corridor and rides at least 26 m above it.
 
 ## v62 - further horizons: the Void Runner, meadow grazers, ember & frost isles
 

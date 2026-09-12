@@ -71,11 +71,11 @@ void ServerPlayer_LoadChunks(Player* player) {
     Entity entity = serverWorld.entities[player->entityId];
     double loadDeadline = GetTime() + 0.008;
 
-    if (player->chunkRequestPending) return;
+    if (player->pendingRequestCount >= SERVER_PLAYER_MAX_PENDING_CHUNKS) return;
 
     Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
 
-    int loadingHeight = fmin(player->drawDistance, 4);
+    int loadingHeight = fmin(player->drawDistance, 6);
     while (true) {
         bool foundChunk = false;
         float closestDistanceSquared = INFINITY;
@@ -97,6 +97,15 @@ void ServerPlayer_LoadChunks(Player* player) {
                     Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
                     if (chunk != NULL && ServerChunk_PlayerInChunk(chunk, player)) continue;
 
+                    bool alreadyPending = false;
+                    for (int p = 0; p < player->pendingRequestCount; p++) {
+                        if (Vector3Equals(player->pendingRequests[p], chunkPos)) {
+                            alreadyPending = true;
+                            break;
+                        }
+                    }
+                    if (alreadyPending) continue;
+
                     foundChunk = true;
                     closestDistanceSquared = distanceSquared;
                     closestPosition = chunkPos;
@@ -109,10 +118,11 @@ void ServerPlayer_LoadChunks(Player* player) {
         Chunk *chunk = ServerWorld_GetChunkAt(closestPosition);
         if (chunk == NULL) {
             if (ServerWorld_QueueChunk(closestPosition)) {
-                player->chunkRequestPending = true;
-                player->pendingChunkPosition = closestPosition;
+                player->pendingRequests[player->pendingRequestCount++] = closestPosition;
             }
-            return;
+            if (player->pendingRequestCount >= SERVER_PLAYER_MAX_PENDING_CHUNKS ||
+                GetTime() >= loadDeadline) return;
+            continue;
         }
         ServerChunk_AddPlayer(chunk, player);
 

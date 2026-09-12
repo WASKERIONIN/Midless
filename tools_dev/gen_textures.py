@@ -1272,6 +1272,9 @@ def build_atlas():
         56: t_ember_rock(56),
         57: t_ember_turf(57),
         58: t_frost_turf(58),
+        59: t_ember_tuft(59),
+        60: t_frost_tuft(60),
+        61: t_grazer_fur(61),
         46: t_embercup(46),
         47: t_voidorchid(47),
         48: t_frostfern(48),
@@ -1681,8 +1684,8 @@ def t_grazer_hide(index):
     F = (176, 158, 138)     # fur base
     F_D = (128, 110, 96)    # fur shadow
     F_L = (214, 200, 178)   # fur light
-    R = (88, 156, 142)      # teal rosette
-    R_D = (58, 118, 108)
+    R = (122, 142, 116)     # v63: muted sage patch (was loud teal)
+    R_D = (92, 110, 88)
     # vertical soft gradient: light top -> shadow bottom
     for y in range(16):
         t = y / 15.0
@@ -1697,19 +1700,93 @@ def t_grazer_hide(index):
                 if (x - bx) ** 2 + (y - by) ** 2 <= br * br:
                     r, g, b, a = px[x, y]
                     px[x, y] = (r * 82 // 100, g * 82 // 100, b * 82 // 100, 255)
-    # teal rosettes with darker rims (two rings)
-    for cx, cy, cr in ((5, 5, 2), (12, 7, 2), (8, 12, 2), (2, 8, 1)):
-        for y in range(16):
-            for x in range(16):
-                d2 = (x - cx) ** 2 + (y - cy) ** 2
-                if d2 <= cr * cr:
-                    px[x, y] = R + (255,)
-                elif d2 <= (cr + 1) ** 2 and (x + y) % 2 == 0:
-                    px[x, y] = R_D + (255,)
+    # v63: sparse ASYMMETRIC sage patches - a few broken crescents on
+    # the back only, low contrast, so blobs never read as green rings
+    crescents = [((4, 4), (7, 3)), ((11, 6), (13, 8)), ((6, 9), (8, 11))]
+    for (x0, y0), (x1, y1) in crescents:
+        steps = abs(x1 - x0) + abs(y1 - y0)
+        for s in range(steps + 1):
+            xx = x0 + (x1 - x0) * s // max(steps, 1)
+            yy = y0 + (y1 - y0) * s // max(steps, 1)
+            px[xx, yy] = R + (255,)
+            if s % 2 == 0 and 0 <= xx + 1 < 16:
+                px[xx + 1, yy] = R_D + (255,)
     # top highlight band (light from above)
     for x in range(16):
         r, g, b, a = px[x, 0]
         px[x, 0] = (min(255, r + 30), min(255, g + 28), min(255, b + 24), 255)
+    return img
+
+
+def t_grazer_fur(index):
+    """v63: plain grazer fur - same coat as the hide, no markings.
+    Used for ears, tail and legs so they never show rosettes."""
+    img = t_grazer_hide(index)
+    px = img.load()
+    R = (122, 142, 116)
+    R_D = (92, 110, 88)
+    # repaint the sage pixels with the local fur tone instead
+    for y in range(16):
+        for x in range(16):
+            r, gg, b, a = px[x, y]
+            if (r, gg, b) == R or (r, gg, b) == R_D:
+                base = 176 - y * 3
+                jitter = ((x * 7 + y * 13) % 5) - 2
+                px[x, y] = (max(0, base + jitter * 6), max(0, base - 18 + jitter * 6),
+                            max(0, base - 38 + jitter * 6), 255)
+    return img
+
+
+def t_ember_tuft(index):
+    """v63: ember biome grass - charcoal-based warm blades with
+    smoldering amber tips, one teal lichen fleck."""
+    img = blank_tile()
+    px = img.load()
+    D = (74, 52, 44)
+    M = (138, 92, 52)
+    L = (206, 130, 62)
+    H = (248, 186, 104)
+    blades = [
+        (7, 15, 7, 3, L), (8, 15, 9, 1, M), (6, 15, 5, 6, M),
+        (9, 15, 11, 4, D), (5, 15, 3, 9, D), (10, 15, 12, 8, M),
+        (7, 15, 6, 2, H), (9, 15, 10, 3, L),
+    ]
+    for x0, y0, x1, ytop, col in blades:
+        steps = y0 - ytop
+        for s in range(steps + 1):
+            xx = x0 + (x1 - x0) * s // max(steps, 1)
+            yy = y0 - s
+            px[xx, yy] = col
+    px[4, 13] = D
+    px[11, 13] = D
+    px[8, 4] = H
+    px[5, 8] = (110, 220, 200)   # ember lichen fleck
+    return img
+
+
+def t_frost_tuft(index):
+    """v63: frost biome grass - pale icy blades with a cold glint."""
+    img = blank_tile()
+    px = img.load()
+    D = (108, 130, 152)
+    M = (150, 176, 196)
+    L = (198, 220, 236)
+    H = (240, 250, 255)
+    blades = [
+        (7, 15, 7, 3, L), (8, 15, 9, 1, M), (6, 15, 5, 6, M),
+        (9, 15, 11, 4, D), (5, 15, 3, 9, D), (10, 15, 12, 8, M),
+        (7, 15, 6, 2, H), (9, 15, 10, 3, L),
+    ]
+    for x0, y0, x1, ytop, col in blades:
+        steps = y0 - ytop
+        for s in range(steps + 1):
+            xx = x0 + (x1 - x0) * s // max(steps, 1)
+            yy = y0 - s
+            px[xx, yy] = col
+    px[4, 13] = D
+    px[11, 13] = D
+    px[8, 4] = H
+    px[5, 8] = (88, 172, 160)   # hardy teal blade
     return img
 
 

@@ -781,7 +781,7 @@ void Screen_DrawOptions(void) {
     int index = 1;
     offsetY += index * 48;
 
-    const char* drawDistanceTxt = "Draw Distance: 26 (fixed)";
+    const char* drawDistanceTxt = "Draw Distance: 30 (fixed)";
     I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2 + 1, offsetY + 13 + 1, 16, BLACK);
     I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2, offsetY + 13, 16, (Color){ 200, 200, 220, 255 });
 

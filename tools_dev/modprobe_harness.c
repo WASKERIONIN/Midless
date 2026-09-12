@@ -20,9 +20,9 @@ static const char *BlockName(unsigned short id) {
         "twinpetal", "glimmer", "lanternberry", "glowshroom", "snowtulip",
         "cobalt", "tree_lantern", "tree_void", "vine", "orb", "grass_tuft",
         "crystal_sprout", "starbloom", "hanging_vine", "glassbell",
-        "frost_fern", "embercup", "frosttulip", "tree_big_a", "crystal_cane",
-        "tree_big_b", "void_puff", "ember_rock(56)", "ember_turf(57)",
-        "frost_turf(58)",
+        "embrcup(46)", "orchid(47)", "frostfern(48)", "tree_big_a", "cane",
+        "tree_big_b", "void_puff", "ember_rock", "ember_turf",
+        "frost_turf", "ember_tuft", "frost_tuft",
     };
     static char buf[32];
     if (id < sizeof(names) / sizeof(names[0])) return names[id];

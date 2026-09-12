@@ -1265,7 +1265,7 @@ typedef struct Grazer {
     float velY;
     float phase;
     float faceAng;
-    int state;             /* 0 wander, 1 seek flower, 2 eat, 3 flee */
+    int state;             /* 0 wander, 1 seek flower, 2 eat, 3 flee, 4 sleep */
     float stateTimer;
     Vector3 walkTarget;
     Vector3 targetCell;    /* flower being eaten */
@@ -1273,6 +1273,8 @@ typedef struct Grazer {
     float age;
     bool grounded;
     unsigned char tint;    /* per-instance fur tint */
+    float gaitPhase;       /* v63: advances with actual distance walked */
+    float speedSm;         /* v63: smoothed speed -> gait amplitude */
 } Grazer;
 static Grazer grazers[GRAZER_MAX];
 static bool grazerAnnounced;
@@ -1290,26 +1292,59 @@ static bool Grazer_IsDelicacy(int id) {
            id == 45 || id == 46 || id == 47 || id == 48 || id == 52;
 }
 
-/* scan the neighborhood for a flower cell */
+static bool Grazer_Reachable(Vector3 from, Vector3 flower);
+
+/* scan the neighborhood for a flower cell the grazer can actually
+ * reach (not behind a ledge, not floating two blocks up) */
 static bool Grazer_FindFlower(Vector3 center, Vector3 *out) {
     int cx = (int)floorf(center.x), cy = (int)floorf(center.y), cz = (int)floorf(center.z);
-    for (int dy = 2; dy >= -1; dy--)
+    for (int dy = 1; dy >= -1; dy--)
         for (int dz = -6; dz <= 6; dz++)
             for (int dx = -6; dx <= 6; dx++) {
                 Vector3 cell = { cx + dx, cy + dy, cz + dz };
-                if (Grazer_IsDelicacy(World_GetBlock(cell))) { *out = cell; return true; }
+                if (!Grazer_IsDelicacy(World_GetBlock(cell))) continue;
+                if (!Grazer_Reachable(center, cell)) continue;
+                *out = cell;
+                return true;
             }
     return false;
 }
 
-/* solid ground under a position (small drop probe) */
+/* v63: solid ground only - sprite flora and other grazers are NOT
+ * standable, so a grazer can never perch on a plant */
+static bool Grazer_SolidAt(Vector3 p) {
+    int id = World_GetBlock(p);
+    return id > 0 && blockDefinitions[id].colliderType == BLOCK_COLLIDER_SOLID;
+}
+
 static float Grazer_GroundY(Vector3 p) {
     int px = (int)floorf(p.x), pz = (int)floorf(p.z);
     for (int y = (int)floorf(p.y) + 1; y >= (int)floorf(p.y) - 3; y--) {
         Vector3 probe = { px, y - 0.5f, pz };
-        if (World_GetBlock(probe) != 0) return (float)y;
+        if (Grazer_SolidAt(probe)) return (float)y;
     }
     return p.y - 10.0f;   /* no ground: caller treats as "keep flying"? never - grounded mob */
+}
+
+/* v63: is the straight hop from the grazer to this flower free of
+ * walls? Rejects eating "through" a block when the flower sits a
+ * level up behind a ledge */
+static bool Grazer_Reachable(Vector3 from, Vector3 flower) {
+    if (flower.y - from.y > 1.3f) return false;   /* too far above */
+    if (flower.y - from.y <= 0.3f) return true;   /* same level: fine */
+    int cx = (int)floorf(from.x), cy = (int)floorf(from.y), cz = (int)floorf(from.z);
+    int fx = (int)floorf(flower.x), fz = (int)floorf(flower.z);
+    int sx = (fx > cx) - (fx < cx), sz = (fz > cz) - (fz < cz);
+    int steps = (abs(fx - cx) > abs(fz - cz)) ? abs(fx - cx) : abs(fz - cz);
+    if (steps < 1) steps = 1;
+    if (steps > 6) steps = 6;
+    for (int t = 1; t <= steps; t++) {
+        float k = (float)t / steps;
+        Vector3 a = { cx + 0.5f + (fx - cx) * k, cy + 0.5f, cz + 0.5f + (fz - cz) * k };
+        Vector3 b = { a.x, cy + 1.5f, a.z };
+        if (Grazer_SolidAt(a) || Grazer_SolidAt(b)) return false;
+    }
+    return true;
 }
 
 /* a fresh flower grown from seeds: any nearby cell with turf below */
@@ -1326,13 +1361,26 @@ static void Grazer_PlantSeed(Vector3 at) {
             if ((ground == 3 || ground == 57 || ground == 58) &&
                 World_GetBlock(cell) == 0) {
                 int species;
-                switch (GetRandomValue(0, 5)) {
-                    case 0: species = 29; break;
-                    case 1: species = 28; break;
-                    case 2: species = 45; break;
-                    case 3: species = 52; break;
-                    case 4: species = 30; break;
-                    default: species = 13; break;
+                if (ground == 57) {          /* ember isle: warm flora */
+                    switch (GetRandomValue(0, 2)) {
+                        case 0: species = 46; break;   /* embercup */
+                        case 1: species = 31; break;   /* twin tulip */
+                        default: species = 33; break;  /* lanternberry */
+                    }
+                } else if (ground == 58) {   /* frost isle: pale flora */
+                    switch (GetRandomValue(0, 2)) {
+                        case 0: species = 48; break;   /* frostfern */
+                        case 1: species = 45; break;   /* glassbell */
+                        default: species = 52; break;  /* void puff */
+                    }
+                } else {                     /* classic crystal meadow */
+                    switch (GetRandomValue(0, 4)) {
+                        case 0: species = 29; break;
+                        case 1: species = 28; break;
+                        case 2: species = 45; break;
+                        case 3: species = 52; break;
+                        default: species = 30; break;
+                    }
                 }
                 World_SetBlock(cell, species, true);
                 return;
@@ -1346,7 +1394,15 @@ static void Grazer_SpawnTry(void) {
     if (Mobs_GrazerCount() >= 2) return;
     Vector3 center = Mob_PlayerCenter();
     Vector3 spot;
-    if (!Mob_FindSurfaceSpot(center, 9.0f, 20.0f, &spot)) return;
+    for (int attempt = 0; attempt < 6; attempt++) {
+        if (!Mob_FindSurfaceSpot(center, 9.0f, 20.0f, &spot)) return;
+        bool crowded = false;
+        for (int i = 0; i < GRAZER_MAX; i++)
+            if (grazers[i].active && Vector3Distance(grazers[i].pos, spot) < 3.0f)
+                crowded = true;
+        if (!crowded) break;
+        if (attempt == 5) return;
+    }
     if (Mobs_InStarterSanctuary(spot)) return;
     for (int i = 0; i < GRAZER_MAX; i++) {
         Grazer *g = &grazers[i];
@@ -1380,8 +1436,9 @@ static void Grazer_Update(float deltaTime, double now) {
         float pd = Vector3Distance(g->pos, pc);
         if (g->age > 240.0f || pd > 48.0f) { g->active = false; continue; }
 
-        /* flee check overrides everything but eating's last bite */
-        if (pd < 3.4f && g->state != 3) {
+        /* flee check overrides everything but eating's last bite;
+         * sleep is shallower - a grazer wakes from further away */
+        if (pd < (g->state == 4 ? 5.5f : 3.4f) && g->state != 3) {
             g->state = 3;
             g->stateTimer = 1.7f;
         }
@@ -1397,6 +1454,12 @@ static void Grazer_Update(float deltaTime, double now) {
                 g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * dist, 0, sinf(ang) * dist));
                 g->stateTimer = 2.0f + GetRandomValue(0, 250) / 100.0f;
             }
+            /* sleepy? a full grazer dozes off right there */
+            if (g->eats > 0 && GetRandomValue(0, 999) < 8) {
+                g->state = 4;
+                g->stateTimer = 7.0f + GetRandomValue(0, 800) / 100.0f;
+                continue;
+            }
             /* hungry? look for flowers */
             Vector3 flower;
             if (GetRandomValue(0, 100) < 3 && Grazer_FindFlower(g->pos, &flower)) {
@@ -1408,8 +1471,13 @@ static void Grazer_Update(float deltaTime, double now) {
             move.y = 0;
             float d = Vector3Length(move);
             if (d < 1.15f) {
-                g->state = 2;
-                g->stateTimer = 2.6f;
+                if (!Grazer_Reachable(g->pos, g->targetCell)) {
+                    g->state = 0;          /* ledge between us: give up */
+                    g->stateTimer = 1.2f;
+                } else {
+                    g->state = 2;
+                    g->stateTimer = 2.6f;
+                }
             } else if (d > 9.0f) {
                 g->state = 0;   /* flower got eaten by someone else */
             }
@@ -1426,7 +1494,21 @@ static void Grazer_Update(float deltaTime, double now) {
                 }
                 g->state = 0;
                 g->stateTimer = 1.0f + GetRandomValue(0, 150) / 100.0f;
+                /* v63: after a meal, a nap in the sun */
+                if (GetRandomValue(0, 99) < 30) {
+                    g->state = 4;
+                    g->stateTimer = 7.0f + GetRandomValue(0, 800) / 100.0f;
+                }
             }
+        } else if (g->state == 4) {                            /* sleep */
+            g->stateTimer -= deltaTime;
+            if (g->stateTimer <= 0.0f) {
+                g->state = 0;
+                g->stateTimer = 0.5f;
+                float ang = GetRandomValue(0, 3599) * 0.001745f;
+                g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * 2.0f, 0, sinf(ang) * 2.0f));
+            }
+            continue;   /* no movement while asleep */
         } else {                                               /* flee */
             g->stateTimer -= deltaTime;
             Vector3 away = Vector3Subtract(g->pos, pc);
@@ -1438,15 +1520,34 @@ static void Grazer_Update(float deltaTime, double now) {
 
         /* walk + tiny hops over single blocks */
         float speed = g->state == 3 ? 3.1f : (g->state == 1 ? 1.5f : 0.8f);
+        float walked = 0.0f;
         if (Vector3Length(move) > 0.05f) {
             move = Vector3Scale(Vector3Normalize(move), speed);
             g->faceAng = atan2f(move.z, move.x);
             Vector3 step = Vector3Add(g->pos, Vector3Scale(move, deltaTime));
             float groundY = Grazer_GroundY(step);
             if (groundY - g->pos.y <= 1.05f) {
+                Vector3 flat = { step.x - g->pos.x, 0, step.z - g->pos.z };
+                walked = Vector3Length(flat);
                 step.y = groundY + 0.36f;
                 g->pos = step;
             }   /* else: blocked, keep walking in place this frame */
+        }
+        /* v63: gait phase follows real footsteps - legs freeze when idle */
+        g->gaitPhase += walked * 4.4f;
+        g->speedSm += (walked / (deltaTime > 0.0001f ? deltaTime : 0.016f) - g->speedSm) *
+                      (1.0f - powf(0.001f, deltaTime));
+        /* v63: grazers never overlap each other */
+        for (int j = 0; j < GRAZER_MAX; j++) {
+            Grazer *o = &grazers[j];
+            if (o == g || !o->active) continue;
+            Vector3 away = Vector3Subtract(g->pos, o->pos);
+            away.y = 0;
+            float ad = Vector3Length(away);
+            if (ad < 1.3f && ad > 0.001f) {
+                Vector3 push = Vector3Scale(Vector3Normalize(away), (1.3f - ad) * 0.5f);
+                g->pos = Vector3Add(g->pos, push);
+            }
         }
         /* settle onto ground */
         float groundHere = Grazer_GroundY(g->pos);
@@ -1464,7 +1565,10 @@ static void Grazer_Draw(double now) {
     for (int i = 0; i < GRAZER_MAX; i++) {
         Grazer *g = &grazers[i];
         if (!g->active) continue;
-        float bob = (g->state != 2) ? sinf(now * 9.0f + g->phase) * 0.02f : 0.0f;
+        int sleeping = g->state == 4;
+        float gaitAmp = sleeping ? 0.0f : (g->speedSm < 0.05f ? 0.0f : (g->speedSm < 1.5f ? g->speedSm / 1.5f : 1.0f));
+        float bob = sleeping ? -0.10f + sinf(now * 1.6f + g->phase) * 0.012f
+                             : sinf(g->gaitPhase * 2.0f) * 0.020f * gaitAmp;
         float chew = (g->state == 2) ? sinf(now * 14.0f) * 0.05f : 0.0f;
         Vector3 bodyC = { g->pos.x, g->pos.y + bob, g->pos.z };
         float ca = cosf(g->faceAng), sa = sinf(g->faceAng);
@@ -1474,33 +1578,43 @@ static void Grazer_Draw(double now) {
         Vector3 head = { bodyC.x + ca * 0.44f, bodyC.y + 0.20f + chew, bodyC.z + sa * 0.44f };
         Mob_TexturedBlob(head, 0.20f, 0.18f, 0.19f, g->faceAng, 55,
                          (unsigned char)(t * 106 / 100), (unsigned char)(t * 100 / 100), (unsigned char)(t * 88 / 100));
-        /* ears */
+        /* ears (droop when sleeping) */
         float earPh = sinf(now * 2.3f + g->phase) * 0.03f;
-        Vector3 e1 = { head.x + ca * 0.06f - sa * 0.14f, head.y + 0.26f + earPh, head.z + sa * 0.06f + ca * 0.14f };
-        Vector3 e2 = { head.x + ca * 0.06f + sa * 0.14f, head.y + 0.26f - earPh, head.z + sa * 0.06f - ca * 0.14f };
-        Mob_TexturedBlob(e1, 0.05f, 0.14f, 0.05f, g->faceAng, 55, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
-        Mob_TexturedBlob(e2, 0.05f, 0.14f, 0.05f, g->faceAng, 55, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
-        /* beady eyes: two tiny near-black blobs */
+        float earY = sleeping ? 0.10f : 0.26f;
+        Vector3 e1 = { head.x + ca * 0.06f - sa * 0.15f, head.y + earY + earPh, head.z + sa * 0.06f + ca * 0.15f };
+        Vector3 e2 = { head.x + ca * 0.06f + sa * 0.15f, head.y + earY - earPh, head.z + sa * 0.06f - ca * 0.15f };
+        Mob_TexturedBlob(e1, 0.05f, sleeping ? 0.11f : 0.14f, 0.05f, g->faceAng, 61, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
+        Mob_TexturedBlob(e2, 0.05f, sleeping ? 0.11f : 0.14f, 0.05f, g->faceAng, 61, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
+        /* eyes: open beady dots, or closed dark threads while asleep */
         for (int eye = 0; eye < 2; eye++) {
             float s = eye == 0 ? 1.0f : -1.0f;
             Vector3 ep = { head.x + ca * 0.13f - sa * s * 0.12f,
                            head.y + 0.05f,
                            head.z + sa * 0.13f + ca * s * 0.12f };
-            Mob_TexturedBlob(ep, 0.035f, 0.035f, 0.035f, g->faceAng, 36, 16, 14, 20);
+            if (sleeping)
+                Mob_TexturedBlob(ep, 0.050f, 0.011f, 0.014f, g->faceAng, 36, 16, 14, 20);
+            else
+                Mob_TexturedBlob(ep, 0.035f, 0.035f, 0.035f, g->faceAng, 36, 16, 14, 20);
         }
-        /* tail puff */
-        Vector3 tail = { bodyC.x - ca * 0.42f, bodyC.y + 0.06f, bodyC.z - sa * 0.42f };
-        Mob_TexturedBlob(tail, 0.10f, 0.10f, 0.10f, g->faceAng, 55,
+        /* tail puff (curls around the flank while sleeping) */
+        Vector3 tail = sleeping
+            ? (Vector3){ bodyC.x + ca * 0.30f - sa * 0.20f, bodyC.y - 0.12f, bodyC.z + sa * 0.30f + ca * 0.20f }
+            : (Vector3){ bodyC.x - ca * 0.42f, bodyC.y + 0.06f, bodyC.z - sa * 0.42f };
+        Mob_TexturedBlob(tail, 0.10f, 0.10f, 0.10f, g->faceAng, 61,
                          (unsigned char)(t * 112 / 100), (unsigned char)(t * 108 / 100), (unsigned char)(t * 100 / 100));
-        /* four little legs, gait shuffle */
-        for (int leg = 0; leg < 4; leg++) {
-            float s = (leg % 2 == 0) ? 1.0f : -1.0f;
-            float ph = sinf(now * 10.0f + g->phase + leg * 1.57f) * 0.035f;
-            Vector3 lp = { bodyC.x + ca * ((leg < 2) ? 0.22f : -0.22f) - sa * s * 0.22f,
-                           bodyC.y - 0.30f + ph,
-                           bodyC.z + sa * ((leg < 2) ? 0.22f : -0.22f) + ca * s * 0.22f };
-            Mob_TexturedBlob(lp, 0.06f, 0.10f, 0.06f, g->faceAng, 55,
-                             (unsigned char)(t * 74 / 100), (unsigned char)(t * 66 / 100), (unsigned char)(t * 60 / 100));
+        /* four stubby legs rooted UNDER the body (no gap) - gait only
+         * while actually walking; tucked away entirely in sleep */
+        if (!sleeping) {
+            for (int leg = 0; leg < 4; leg++) {
+                float s = (leg % 2 == 0) ? 1.0f : -1.0f;
+                float ph = sinf(g->gaitPhase + leg * 1.57f) * 0.050f * gaitAmp;
+                float fore = (leg < 2) ? 0.22f : -0.22f;
+                Vector3 lp = { bodyC.x + ca * fore - sa * s * 0.20f,
+                               bodyC.y - 0.26f + ph,
+                               bodyC.z + sa * fore + ca * s * 0.20f };
+                Mob_TexturedBlob(lp, 0.055f, 0.125f, 0.055f, g->faceAng, 61,
+                                 (unsigned char)(t * 74 / 100), (unsigned char)(t * 66 / 100), (unsigned char)(t * 60 / 100));
+            }
         }
     }
 }

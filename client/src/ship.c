@@ -14,6 +14,8 @@
 #include "rlgl.h"
 #include "ship.h"
 #include "player.h"
+#include "block.h"
+#include "world.h"
 
 #define SHIP_HULL_QUADS 220
 #define SHIP_TRAIL 96
@@ -188,6 +190,26 @@ void Ship_Shutdown(void) {
     hullCount = 0;
 }
 
+/* v63: highest loaded terrain along a world-space line, so the pass
+ * lane can be pushed above every island it crosses (never clips) */
+static float Ship_TerrainTopAlong(Vector3 ax, Vector3 az01, float len) {
+    float top = -1000.0f;
+    for (int s = 0; s <= 20; s++) {
+        float t = (float)s / 20.0f;
+        float px = ax.x + az01.x * len * t;
+        float pz = ax.z + az01.z * len * t;
+        for (int y = 210; y >= 8; y -= 2) {
+            Vector3 probe = { px, y + 0.5f, pz };
+            int id = World_GetBlock(probe);
+            if (id > 0 && blockDefinitions[id].colliderType == BLOCK_COLLIDER_SOLID) {
+                if ((float)y > top) top = (float)y;
+                break;
+            }
+        }
+    }
+    return top;
+}
+
 /* start a new pass across the sky near the player */
 static void Ship_BeginPass(double now) {
     Vector3 pc = player.camera.position;
@@ -195,9 +217,19 @@ static void Ship_BeginPass(double now) {
     float exitAng = ang + 3.1416f + ((float)GetRandomValue(-500, 500) / 1000.0f);
     float h = 34.0f + (float)GetRandomValue(0, 220) / 10.0f;
     float sideOff = 46.0f + (float)GetRandomValue(0, 320) / 10.0f;
-    Vector3 mid = V3(pc.x, pc.y + h, pc.z);
     Vector3 dirA = V3(cosf(ang), 0, sinf(ang));
     Vector3 side = V3(-dirA.z, 0, dirA.x);
+    /* v63: probe the ground under the whole corridor; the lane rides
+     * at least 26 m above the tallest island under it */
+    Vector3 probeA = V3(pc.x + dirA.x * 150.0f + side.x * sideOff * 0.8f, 0,
+                        pc.z + dirA.z * 150.0f + side.z * sideOff * 0.8f);
+    Vector3 probeD = V3(-dirA.x * 15.0f, 0, -dirA.z * 15.0f);   /* step back along dir */
+    float terrainTop = Ship_TerrainTopAlong(probeA, probeD, 300.0f);
+    float minH = terrainTop - pc.y + 26.0f;
+    if (minH > h) h = minH;
+    if (h > 170.0f) h = 170.0f;
+    if (h < 24.0f) h = 24.0f;
+    Vector3 mid = V3(pc.x, pc.y + h, pc.z);
     from = V3(mid.x + dirA.x * 150.0f + side.x * sideOff,
               mid.y + 6.0f,
               mid.z + dirA.z * 150.0f + side.z * sideOff);

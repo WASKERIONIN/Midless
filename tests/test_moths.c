@@ -105,6 +105,14 @@ void SoundFx_PlayCocoonOpen(void) {}
 
 /* block definitions: everything non-solid */
 #include "block.h"
+/* v63: grazers probe block colliders; the test build has no block.c */
+Block blockDefinitions[256];
+__attribute__((constructor)) static void test_block_defs(void) {
+    static const int solids[] = {1, 2, 3, 19, 56, 57, 58};
+    for (unsigned i = 0; i < sizeof(solids) / sizeof(solids[0]); i++)
+        blockDefinitions[solids[i]].colliderType = BLOCK_COLLIDER_SOLID;
+}
+
 static Block stubBlock;
 const Block *Block_GetDefinition(int id) { (void)id; return &stubBlock; }
 
