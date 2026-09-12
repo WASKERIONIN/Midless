@@ -35,7 +35,7 @@ void Chat_AddOwnedLine(char *line) {
 }
 
 void Chat_AddLine(const char *text) {
-    text = L(text);   /* v59: chat speaks the player's language */
+    text = Tr(text);   /* v59: chat speaks the player's language */
     if (!text) return;
     int len = TextLength(text);
     char *copy = MemAlloc((size_t)len + 1);

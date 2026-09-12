@@ -181,7 +181,7 @@ const char *I18n_LangLabel(int lang) {
     }
 }
 
-const char *L(const char *s) {
+const char *Tr(const char *s) {
     if (currentLang == LANG_EN || s == NULL) return s;
     for (int i = 0; i < TABLE_N; i++) {
         if (strcmp(table[i].en, s) == 0) {
@@ -214,22 +214,22 @@ static Vector2 DrawImpl(const char *text, Vector2 pos, int size, Color tint) {
 }
 
 void I18n_DrawText(const char *text, int x, int y, int size, Color tint) {
-    DrawImpl(L(text), (Vector2){ (float)x, (float)y }, size, tint);
+    DrawImpl(Tr(text), (Vector2){ (float)x, (float)y }, size, tint);
 }
 
 float I18n_MeasureText(const char *text, int size) {
     Font f = I18n_Font();
     if (f.texture.id == GetFontDefault().texture.id) return (float)MeasureText(text, size);
-    return MeasureTextEx(f, L(text), (float)size, 0.0f).x;
+    return MeasureTextEx(f, Tr(text), (float)size, 0.0f).x;
 }
 
 Vector2 I18n_MeasureEx(const char *text, int size) {
     Font f = I18n_Font();
     if (f.texture.id == GetFontDefault().texture.id)
         return (Vector2){ (float)MeasureText(text, size), (float)size };
-    return MeasureTextEx(f, L(text), (float)size, 0.0f);
+    return MeasureTextEx(f, Tr(text), (float)size, 0.0f);
 }
 
 void I18n_DrawEx(const char *text, Vector2 pos, int size, Color tint) {
-    DrawImpl(L(text), pos, size, tint);
+    DrawImpl(Tr(text), pos, size, tint);
 }

@@ -670,7 +670,7 @@ static void Moth_Update(float deltaTime, double now) {
                     Moth_PickTarget(m);
                     if (!mothAnnounced) {
                         mothAnnounced = true;
-                        Chat_AddLine(L("Glowmoths shimmer between the islands."));
+                        Chat_AddLine(Tr("Glowmoths shimmer between the islands."));
                     }
                 }
             }
