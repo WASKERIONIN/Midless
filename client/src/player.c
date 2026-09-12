@@ -66,6 +66,13 @@ static double laserBeamUntil = 0.0;
 static Vector3 laserFrom = { 0 };
 static Vector3 laserTo = { 0 };
 static int voidShards = 3;   /* v48: warp travel currency */
+static int armorLvl = 0;     /* v58: forged armor plates 0..3 */
+
+/* ---- v58: quick slots + spell scroll ----------------------------------- */
+#define PLAYER_HOTBAR_SLOTS 4
+static int hotbarItem[PLAYER_HOTBAR_SLOTS] = { -1, -1, -1, -1 };
+static int scrollCount = 0;  /* spell scrolls carried */
+static double gazeUntil = 0.0; /* while active: the black hole lens is calm */
 
 int Player_GetShards(void) { return voidShards; }
 
@@ -75,14 +82,133 @@ void Player_AddShards(int n) {
     Player_SaveProgress();
 }
 
+/* ---- v58: armor -------------------------------------------------------- */
+int Player_GetArmorLvl(void) { return armorLvl; }
+
+bool Player_BuyArmorUpgrade(void) {
+    if (armorLvl >= 3) {
+        SoundFx_PlayClick();
+        Chat_AddLine("Your armor is fully forged.");
+        return false;
+    }
+    if (voidShards < LASER_UPGRADE_COST) {
+        SoundFx_PlayClick();
+        Chat_AddLine(TextFormat("Armor needs %d shards. Fell hunters, crawlers, wisps, spiders.", LASER_UPGRADE_COST));
+        return false;
+    }
+    Player_AddShards(-LASER_UPGRADE_COST);
+    armorLvl++;
+    if (armorLvl == 1) Chat_AddLine("Void plate seated - hits hurt 12% less.");
+    else if (armorLvl == 2) Chat_AddLine("Double plate - hits hurt 24% less.");
+    else Chat_AddLine("Aegis plating - hits hurt 36% less.");
+    SoundFx_PlayWebAttach();
+    Player_SaveProgress();
+    return true;
+}
+
+/* ---- v58: spell scroll - 'gaze true' ----------------------------------- */
+void Player_AddScroll(int n) {
+    scrollCount += n;
+    if (scrollCount > 9) scrollCount = 9;
+    if (scrollCount < 0) scrollCount = 0;
+    Player_HotbarAutoAdd(40);
+    Player_SaveProgress();
+}
+
+int Player_GetScrollCount(void) { return scrollCount; }
+
+int Player_TakeScroll(void) {
+    if (scrollCount <= 0) return 0;
+    scrollCount--;
+    Player_SaveProgress();
+    return 1;
+}
+
+double Player_GetGazeTimeLeft(void) {
+    double r = gazeUntil - GetTime();
+    return r > 0.0 ? r : 0.0;
+}
+
+/* ---- v58: quick slots --------------------------------------------------- */
+static const char *HotbarItemName(int item) {
+    switch (item) {
+        case 27: return "void mushroom";
+        case 40: return "spell scroll";
+        default: return "empty";
+    }
+}
+
+int Player_HotbarItem(int slot) {
+    if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return -1;
+    return hotbarItem[slot];
+}
+
+const char *Player_HotbarItemName(int slot) {
+    if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return "empty";
+    return HotbarItemName(hotbarItem[slot]);
+}
+
+bool Player_HotbarIsEmpty(void) {
+    for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++) if (hotbarItem[i] != -1) return false;
+    return true;
+}
+
+/* new items claim the first free slot (discovery order); duplicates stack */
+int Player_HotbarAutoAdd(int item) {
+    if (item != 27 && item != 40) return -1;
+    for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++)
+        if (hotbarItem[i] == item) return i;
+    for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++)
+        if (hotbarItem[i] == -1) { hotbarItem[i] = item; return i; }
+    return -1;
+}
+
+bool Player_HotbarAssign(int slot, int item) {
+    if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return false;
+    if (item != 27 && item != 40) { hotbarItem[slot] = -1; return true; }
+    if (item == 27 && Mobs_GetMushrooms() <= 0) return false;
+    if (item == 40 && scrollCount <= 0) return false;
+    hotbarItem[slot] = item;
+    return true;
+}
+
+void Player_HotbarUseSlot(int slot) {
+    if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return;
+    int item = hotbarItem[slot];
+    if (item == 27) {
+        if (Mobs_EatMushroom()) return;
+        SoundFx_PlayClick();
+        Chat_AddLine("No mushrooms in the satchel.");
+        return;
+    }
+    if (item == 40) {
+        if (scrollCount <= 0) { SoundFx_PlayClick(); Chat_AddLine("No spell scrolls."); return; }
+        scrollCount--;
+        gazeUntil = GetTime() + 25.0;
+        Player_SaveProgress();
+        SoundFx_PlayTeleport();
+        Chat_AddLine("The scroll burns - your gaze is true for 25 s. Look into the dark.");
+        return;
+    }
+}
+
+static void Hotbar_InitDefaults(void) {
+    for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++) hotbarItem[i] = -1;
+    /* v58: default layout = everything the player already carries,
+     * in discovery order */
+    int slot = 0;
+    if (Mobs_GetMushrooms() > 0 && slot < PLAYER_HOTBAR_SLOTS) hotbarItem[slot++] = 27;
+    if (scrollCount > 0 && slot < PLAYER_HOTBAR_SLOTS) hotbarItem[slot] = 40;
+}
+
 /* v48: progress persists next to settings.ini */
 void Player_SaveProgress(void) {
     const char *path = TextFormat("%scosmic_progress.ini", GetApplicationDirectory());
     FILE *f = fopen(path, "w");
     if (!f) return;
-    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\ncool=%d\nshrooms=%d\n",
+    fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\ncool=%d\nshrooms=%d\narmor=%d\nscroll=%d\n",
             voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl, burstLvl,
-            coolLvl, Mobs_GetMushrooms());
+            coolLvl, Mobs_GetMushrooms(), armorLvl, scrollCount);
     fclose(f);
 }
 
@@ -99,10 +225,13 @@ void Player_LoadProgress(void) {
         else if (sscanf(line, "laserRate=%d", &s) == 1) laserRateLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "burst=%d", &s) == 1) burstLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "cool=%d", &s) == 1) coolLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "armor=%d", &s) == 1) armorLvl = (s >= 0 && s <= 3) ? s : 0;
+        else if (sscanf(line, "scroll=%d", &s) == 1) scrollCount = (s > 0 && s < 10) ? s : 0;
         else if (sscanf(line, "shrooms=%d", &s) == 1) Mobs_SetMushrooms((s > 0 && s < 500) ? s : 0);
     }
     fclose(f);
     if (voidShards < 0) voidShards = 0;
+    Hotbar_InitDefaults();   /* v58: default quick slots = carried items */
 }
 
 int Player_GetLaserRangeLvl(void) { return laserRangeLvl; }
@@ -194,15 +323,19 @@ static void Player_FireLaserShot(Vector3 eyePosition, Vector3 forward, float cx9
 
 /* v51: death has teeth - one random upgrade level burns out */
 static const char *Player_LoseRandomUpgrade(void) {
-    int pool[3];
+    int pool[5];
     int n = 0;
     if (laserRangeLvl > 0) pool[n++] = 0;
     if (laserRateLvl > 0) pool[n++] = 1;
     if (burstLvl > 0) pool[n++] = 2;
+    if (coolLvl > 0) pool[n++] = 3;
+    if (armorLvl > 0) pool[n++] = 4;
     if (n == 0) return NULL;
     int pick = pool[GetRandomValue(0, n - 1)];
     if (pick == 0) { laserRangeLvl--; return "lens"; }
     if (pick == 1) { laserRateLvl--; return "coil"; }
+    if (pick == 3) { coolLvl--; return "coolant"; }
+    if (pick == 4) { armorLvl--; return "armor plate"; }
     burstLvl--;
     laserOverheated = false;
     laserHeat = 0.0f;
@@ -279,6 +412,9 @@ void Player_Damage(int amount, Vector3 fromDir) {
     if (player.flying) return;
     double now = GetTime();
     if (now < player.invulnUntil) return;
+    /* v58: forged armor plates soak part of every hit (-12% per level) */
+    amount -= amount * armorLvl * 12 / 100;
+    if (amount < 1) amount = 1;
     player.hp -= amount;
     player.invulnUntil = now + 0.9;
     player.lastHurtTime = now;
@@ -630,6 +766,16 @@ void Player_CheckInputs() {
             }
         }
 
+        /* v58: quick slots 1..4 */
+        {
+            int slotKey = -1;
+            if (IsKeyPressed(KEY_ONE)) slotKey = 0;
+            else if (IsKeyPressed(KEY_TWO)) slotKey = 1;
+            else if (IsKeyPressed(KEY_THREE)) slotKey = 2;
+            else if (IsKeyPressed(KEY_FOUR)) slotKey = 3;
+            if (slotKey >= 0) Player_HotbarUseSlot(slotKey);
+        }
+
         /* v49.1: B at a core opens the upgrade menu */
         if (IsKeyPressed(KEY_B) && !player.webActive && Player_NearWarpCore()) {
             Screens_UpgradeMenuToggle();
@@ -794,7 +940,7 @@ void Player_CheckInputs() {
                     }
                 }
             }
-        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Strike / Break Block
+        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !Screens_HotbarConsumeClick()) { //Strike / Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
             /* v45: a swing at a hunter takes priority over mining */
@@ -807,6 +953,12 @@ void Player_CheckInputs() {
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
                 SoundFx_PlayDig();
+                /* v58: any block can unearth a spell scroll (~2%) */
+                if (GetRandomValue(0, 49) == 0 && Player_GetScrollCount() < 9) {
+                    Player_AddScroll(1);
+                    SoundFx_PlayWebAttach();
+                    Chat_AddLine("A spell scroll tumbles out of the block! Press 1-4 to read it.");
+                }
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);

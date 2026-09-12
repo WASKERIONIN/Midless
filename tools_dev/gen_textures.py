@@ -620,6 +620,74 @@ def t_void_shard(index):
     return img
 
 
+def t_void_tuft(index):
+    """v58: short grass tuft - dense teal-green blades anchored to the
+    ground; the billboard is only a third of a block tall."""
+    img = blank_tile()
+    px = img.load()
+    D = (26, 92, 74)
+    M = (52, 148, 108)
+    L = (98, 214, 156)
+    H = (168, 255, 205)
+    blades = [
+        (7, 15, 7, 3, L), (8, 15, 9, 1, M), (6, 15, 5, 6, M),
+        (9, 15, 11, 4, D), (5, 15, 3, 9, D), (10, 15, 12, 8, M),
+        (7, 15, 6, 2, H), (9, 15, 10, 3, L),
+    ]
+    for x0, y0, x1, ytop, col in blades:
+        steps = y0 - ytop
+        for s in range(steps + 1):
+            xx = x0 + (x1 - x0) * s // max(steps, 1)
+            yy = y0 - s
+            px[xx, yy] = col
+    px[4, 13] = D
+    px[11, 13] = D
+    px[8, 4] = H
+    px[5, 8] = L
+    return img
+
+
+def t_spell_scroll(index):
+    """v58: spell scroll - rolled parchment with a teal seal ribbon and
+    gold rune sparks; the 'gaze true' charm against the black hole."""
+    img = blank_tile()
+    px = img.load()
+    PAP = (238, 222, 178)
+    PAP_D = (198, 176, 128)
+    PAP_S = (168, 142, 96)
+    SEAL = (64, 224, 208)
+    SEAL_D = (30, 150, 150)
+    GOLD = (255, 208, 110)
+    # unrolled middle sheet
+    for y in range(4, 12):
+        for x in range(4, 12):
+            c = PAP
+            if y in (4, 11) or x in (4, 11):
+                c = PAP_D
+            px[x, y] = c
+    # rolled ends
+    for y in range(3, 13):
+        for x in (2, 3, 12, 13):
+            c = PAP_D if x in (3, 12) else PAP_S
+            if y in (3, 12):
+                c = PAP_S
+            px[x, y] = c
+    px[2, 4] = PAP_D
+    px[13, 4] = PAP_D
+    px[2, 11] = PAP_D
+    px[13, 11] = PAP_D
+    # teal seal band across the middle
+    for x in range(2, 14):
+        px[x, 7] = SEAL
+        px[x, 8] = SEAL_D
+    px[7, 7] = (210, 255, 250)
+    # rune sparks
+    px[6, 5] = GOLD
+    px[9, 5] = GOLD
+    px[6, 10] = GOLD
+    px[9, 10] = PAP_S
+    return img
+
 def t_star_reed(index):
     """v57: star reed - tall teal stalk topped with a gold four-point star.
     Drawn for a billboard twice as tall as wide-ish (1.1 x 1.9 blocks)."""
@@ -879,6 +947,8 @@ def build_atlas():
         36: t_spider_hide(36),
         37: t_star_reed(37),
         38: t_moon_bell(38),
+        39: t_void_tuft(39),
+        40: t_spell_scroll(40),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

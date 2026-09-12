@@ -650,23 +650,29 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
 
 /* v57: per-block billboard silhouette - halfW + full height */
 static void World_FloraBillboardAt(Vector3 base, int id) {
-    float halfW = 0.30f, h = 0.60f;
+    float halfW = 0.30f, h = 0.60f, swayAmp = 0.045f;
     switch (id) {
-        case 12: halfW = 0.30f; h = 0.60f; break;   /* rose */
-        case 13: halfW = 0.30f; h = 0.60f; break;   /* dandelion */
-        case 28: halfW = 0.33f; h = 0.66f; break;   /* bellflower */
-        case 29: halfW = 0.32f; h = 0.64f; break;   /* starbloom */
-        case 30: halfW = 0.36f; h = 0.60f; break;   /* spiral fern */
-        case 31: halfW = 0.32f; h = 0.68f; break;   /* twin tulip */
-        case 32: halfW = 0.34f; h = 0.48f; break;   /* glow grass */
-        case 33: halfW = 0.36f; h = 0.68f; break;   /* lanternberry */
-        case 37: halfW = 0.55f; h = 1.90f; break;   /* star reed - two blocks tall */
-        case 38: halfW = 0.70f; h = 1.70f; break;   /* moon bell - two blocks tall */
+        case 12: halfW = 0.30f; h = 0.60f; swayAmp = 0.05f; break;   /* rose */
+        case 13: halfW = 0.30f; h = 0.60f; swayAmp = 0.05f; break;   /* dandelion */
+        case 28: halfW = 0.33f; h = 0.66f; swayAmp = 0.06f; break;   /* bellflower */
+        case 29: halfW = 0.32f; h = 0.64f; swayAmp = 0.055f; break;  /* starbloom */
+        case 30: halfW = 0.36f; h = 0.60f; swayAmp = 0.065f; break;  /* spiral fern */
+        case 31: halfW = 0.32f; h = 0.68f; swayAmp = 0.05f; break;   /* twin tulip */
+        case 32: halfW = 0.34f; h = 0.48f; swayAmp = 0.075f; break;  /* glow grass */
+        case 33: halfW = 0.36f; h = 0.68f; swayAmp = 0.05f; break;   /* lanternberry */
+        case 37: halfW = 0.55f; h = 1.90f; swayAmp = 0.13f; break;   /* star reed - tall, sways most */
+        case 38: halfW = 0.70f; h = 1.70f; swayAmp = 0.09f; break;   /* moon bell */
+        case 39: halfW = 0.36f; h = 0.21f; swayAmp = 0.085f; break;  /* v58: void tuft - 1/3 block */
         default: return;
     }
     float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });
     unsigned char bright = (unsigned char)(Clamp(brightF, 0.0f, 1.0f) * 255.0f);
-    Mobs_DrawBillboard(base, halfW, h, id, bright);
+    /* v58: gentle wind - each plant breathes on its own phase */
+    float t = (float)GetTime();
+    float phase = base.x * 3.17f + base.z * 2.29f;
+    float gust = 0.55f + 0.45f * sinf(t * 0.35f + base.z * 0.08f);   /* slow gust front */
+    float lean = swayAmp * gust * sinf(t * 1.9f + phase);
+    Mobs_DrawBillboard(base, halfW, h, id, bright, lean);
 }
 
 void World_DrawWireAuras(void) {

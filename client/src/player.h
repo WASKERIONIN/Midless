@@ -97,6 +97,18 @@ int Player_GetLaserRange(void);
 float Player_GetLaserCooldown(void);
 bool Player_BuyLaserUpgrade(int kind); /* 0 = range, 1 = rate */
 void Player_AddShards(int n);
+bool Player_BuyArmorUpgrade(void);      /* v58 */
+int Player_GetArmorLvl(void);           /* v58 */
+void Player_AddScroll(int n);           /* v58 */
+int Player_GetScrollCount(void);        /* v58 */
+int Player_TakeScroll(void);            /* v58 */
+double Player_GetGazeTimeLeft(void);    /* v58: seconds of clear black-hole sight */
+int Player_HotbarItem(int slot);               /* v58 */
+const char *Player_HotbarItemName(int slot);   /* v58 */
+bool Player_HotbarIsEmpty(void);        /* v58 */
+int Player_HotbarAutoAdd(int item);     /* v58 */
+bool Player_HotbarAssign(int slot, int item);  /* v58 */
+void Player_HotbarUseSlot(int slot);    /* v58 */
 void Player_SaveProgress(void);
 void Player_LoadProgress(void);
 float Player_GetLiquidSubmersion(void);

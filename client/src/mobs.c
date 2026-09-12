@@ -640,6 +640,7 @@ bool Mobs_TryCollectMushroom(void) {
         if (Vector3Distance(m->pos, pc) < 1.7f) {
             m->active = false;
             mushroomsStored++;
+            Player_HotbarAutoAdd(27);   /* v58: quick slot picks it up */
             SoundFx_PlayPlace();
             if (!mushHintShown) {
                 mushHintShown = true;
@@ -978,7 +979,7 @@ static void Mob_Band(Vector3 a, Vector3 b, Color c) {
 /* v57: shared billboard emitter - halfW is half the quad width, h the full
  * height above `base` (a block's bottom center). Used by the void mushrooms
  * and, since v57, by every island flora block from the chunk flora lists. */
-void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright) {
+void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright, float lean) {
     float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
     float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
     float w = halfW;
@@ -987,8 +988,13 @@ void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned c
     Vector3 bl = Vector3Subtract(base, Vector3Scale(right, w));
     Vector3 br = Vector3Add(base, Vector3Scale(right, w));
     Vector3 up = { 0, h, 0 };
+    /* v58: wind lean shifts only the top edge (bottom stays rooted) */
     Vector3 tl = Vector3Add(bl, up);
     Vector3 tr = Vector3Add(br, up);
+    if (lean != 0.0f) {
+        tl.x += lean; tl.z += lean * 0.6f;
+        tr.x += lean; tr.z += lean * 0.6f;
+    }
     /* v56: emitted in both windings - the icon renderer leaves backface
      * culling enabled session-wide, so a single-sided quad vanishes from
      * one side (that is why v55 mushrooms "disappeared") */
@@ -1005,7 +1011,7 @@ void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned c
 
 /* v55 void mushrooms keep their square, scale-driven billboard */
 static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned char bright) {
-    Mobs_DrawBillboard(base, 0.30f * scale, 0.60f * scale, tile, bright);
+    Mobs_DrawBillboard(base, 0.30f * scale, 0.60f * scale, tile, bright, 0.0f);
 }
 
 /* v55: textured lat-long blob - the spider's carapace (atlas tile based);

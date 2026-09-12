@@ -166,6 +166,13 @@ void Block_BuildDefinition(void) {
     blockDefinitions[38].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[38].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[38].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(39, "void_tuft", 39, 39, 39);
+    blockDefinitions[39].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[39].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[39].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[39].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[39].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

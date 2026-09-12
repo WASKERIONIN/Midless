@@ -267,6 +267,19 @@ void Screen_Shutdown(void) {
     BlockItemRenderer_Shutdown();
 }
 
+/* v58: quick-slot state shared between the satchel and the HUD strip */
+static int satchelPick = -1;            /* item tile picked in the satchel */
+static Rectangle hotbarRects[4];
+static bool hotbarRectsReady = false;
+
+bool Screens_HotbarConsumeClick(void) {
+    if (!hotbarRectsReady) return false;
+    Vector2 mp = GetMousePosition();
+    for (int i = 0; i < 4; i++)
+        if (CheckCollisionPointRec(mp, hotbarRects[i])) return true;
+    return false;
+}
+
 void Screen_DrawGame(void) {
 
     //Draw debug infos
@@ -414,35 +427,36 @@ void Screen_DrawGame(void) {
             int cl = Player_GetCoolLvl();
             struct {
                 const char *name; const char *effect; int lvl; int kind;
-            } cards[4] = {
+            } cards[5] = {
                 { "LENS",  "+6 m laser range",            rl, 0 },
                 { "COIL",  "faster shots",                lv, 1 },
                 { "BURST", "hold = volleys, endless at max", bl, 2 },
                 { "COOL",  "cooler coil, quicker shots",  cl, 3 },
+                { "ARMOR", "v58: every hit hurts 12% less", Player_GetArmorLvl(), 4 },
             };
 
-            int y0 = my + 56;
-            for (int c = 0; c < 4; c++) {
-                int cy = y0 + c * 94;
+            int y0 = my + 50;
+            for (int c = 0; c < 5; c++) {
+                int cy = y0 + c * 76;
                 bool maxed = cards[c].lvl >= 3;
 
                 /* track socket cells */
                 for (int p = 0; p < 3; p++) {
                     int px = mx + 430 + p * 40;
                     if (p < cards[c].lvl) {
-                        DrawRectangle(px, cy + 22, 34, 18, (Color){ 30, 90, 80, 235 });
-                        DrawRectangle(px + 2, cy + 24, 30, 14, (Color){ 96, 255, 214, 255 });
+                        DrawRectangle(px, cy + 12, 34, 18, (Color){ 30, 90, 80, 235 });
+                        DrawRectangle(px + 2, cy + 14, 30, 14, (Color){ 96, 255, 214, 255 });
                     } else {
-                        DrawRectangle(px, cy + 22, 34, 18, (Color){ 14, 8, 30, 235 });
+                        DrawRectangle(px, cy + 12, 34, 18, (Color){ 14, 8, 30, 235 });
                     }
-                    DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy + 22, 34, 18 }, 1,
+                    DrawRectangleLinesEx((Rectangle){ (float)px, (float)cy + 12, 34, 18 }, 1,
                                          p < cards[c].lvl ? (Color){ 220, 255, 250, 180 }
                                                           : (Color){ 94, 231, 255, 70 });
                 }
 
                 /* icon socket */
-                CosmicCell(mx + 24, cy + 6, 60, maxed);
-                int icx = mx + 54, icy = cy + 36;
+                CosmicCell(mx + 24, cy + 1, 52, maxed);
+                int icx = mx + 50, icy = cy + 27;
                 if (cards[c].kind == 0) {          /* lens */
                     DrawCircleLines(icx, icy, 16, (Color){ 96, 255, 214, 255 });
                     DrawCircleLines(icx, icy, 9, (Color){ 160, 245, 235, 220 });
@@ -455,35 +469,44 @@ void Screen_DrawGame(void) {
                     DrawCircle(icx - 11, icy + 6, 4, (Color){ 232, 84, 240, 255 });
                     DrawCircle(icx, icy - 4, 4, (Color){ 255, 150, 250, 255 });
                     DrawCircle(icx + 11, icy + 6, 4, (Color){ 148, 64, 255, 255 });
-                } else {                            /* cool */
+                } else if (cards[c].kind == 3) {    /* cool */
                     for (int a = 0; a < 6; a++) {
                         float an = 3.1416f * a / 3.0f;
-                        DrawLineEx((Vector2){ icx - cosf(an) * 16, icy - sinf(an) * 16 },
-                                   (Vector2){ icx + cosf(an) * 16, icy + sinf(an) * 16 },
+                        DrawLineEx((Vector2){ icx - cosf(an) * 15, icy - sinf(an) * 15 },
+                                   (Vector2){ icx + cosf(an) * 15, icy + sinf(an) * 15 },
                                    2.0f, (Color){ 110, 230, 255, 255 });
                     }
                     DrawCircle(icx, icy, 4, (Color){ 220, 250, 255, 255 });
+                } else {                            /* v58: armor plate */
+                    DrawRectangle(icx - 13, icy - 12, 26, 18, (Color){ 70, 80, 120, 235 });
+                    DrawRectangleLinesEx((Rectangle){ (float)icx - 13, (float)icy - 12, 26, 18 }, 2,
+                                         (Color){ 190, 205, 255, 255 });
+                    DrawRectangle(icx - 7, icy + 6, 14, 6, (Color){ 70, 80, 120, 235 });
+                    DrawRectangleLinesEx((Rectangle){ (float)icx - 7, (float)icy + 6, 14, 6 }, 1,
+                                         (Color){ 190, 205, 255, 200 });
+                    DrawCircle(icx, icy - 3, 3, (Color){ 120, 255, 214, 255 });
                 }
 
                 /* name + effect */
-                DrawText(cards[c].name, mx + 104, cy + 10, 22, maxed ? (Color){ 120, 190, 170, 255 }
+                DrawText(cards[c].name, mx + 104, cy + 2, 22, maxed ? (Color){ 120, 190, 170, 255 }
                                                                      : (Color){ 225, 245, 255, 255 });
-                DrawText(cards[c].effect, mx + 104, cy + 38, 14, (Color){ 165, 165, 190, 255 });
+                DrawText(cards[c].effect, mx + 104, cy + 30, 14, (Color){ 165, 165, 190, 255 });
 
                 /* buy button */
                 if (maxed) {
-                    CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 10), 124, 42 }, "MAX", false);
+                    CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 2), 124, 42 }, "MAX", false);
                 } else {
                     char btxt[48];
                     snprintf(btxt, sizeof(btxt), "FORGE  5");
-                    if (CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 10), 124, 42 }, btxt,
+                    if (CosmicButton((Rectangle){ (float)(mx + 576), (float)(cy + 2), 124, 42 }, btxt,
                                      Player_GetShards() >= 5)) {
-                        Player_BuyLaserUpgrade(cards[c].kind);
+                        if (cards[c].kind == 4) Player_BuyArmorUpgrade();
+                        else Player_BuyLaserUpgrade(cards[c].kind);
                     }
                 }
-                if (c < 3)
-                    DrawLineEx((Vector2){ (float)(mx + 24), (float)(cy + 86) },
-                               (Vector2){ (float)(mx + 700), (float)(cy + 86) }, 1, (Color){ 94, 231, 255, 30 });
+                if (c < 4)
+                    DrawLineEx((Vector2){ (float)(mx + 24), (float)(cy + 68) },
+                               (Vector2){ (float)(mx + 700), (float)(cy + 68) }, 1, (Color){ 94, 231, 255, 30 });
             }
 
             const char *hint = "B / ESC - close      falling or dying burns out one upgrade";
@@ -513,7 +536,8 @@ void Screen_DrawGame(void) {
             struct { int tile; int count; } items[8] = {
                 { 35, Player_GetShards() },
                 { 27, Mobs_GetMushrooms() },
-                { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 },
+                { 40, Player_GetScrollCount() },
+                { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 },
             };
             for (int i = 0; i < 8; i++) {
                 int cx = gx + (i % 4) * (cell + gap);
@@ -525,6 +549,15 @@ void Screen_DrawGame(void) {
                     int w = MeasureText(cnt, 18);
                     DrawText(cnt, cx + cell - w - 6 + 1, cy + cell - 22 + 1, 18, BLACK);
                     DrawText(cnt, cx + cell - w - 6, cy + cell - 22, 18, (Color){ 255, 240, 200, 255 });
+                    /* v58: click an item to pin it to a quick slot */
+                    if (satchelPick == items[i].tile)
+                        DrawRectangleLinesEx((Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell }, 2,
+                                             (Color){ 120, 255, 214, 255 });
+                    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
+                        CheckCollisionPointRec(GetMousePosition(), (Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell })) {
+                        satchelPick = items[i].tile;
+                        SoundFx_PlayClick();
+                    }
                 }
             }
             DrawText("carried", gx + 2, gy + 2 * cell + gap + 8, 14, (Color){ 130, 130, 160, 255 });
@@ -536,13 +569,14 @@ void Screen_DrawGame(void) {
                        (Color){ 94, 231, 255, 45 });
 
             DrawText("LASER FORGE", sx, gy - 4, 15, (Color){ 120, 190, 175, 255 });
-            struct { const char *name; int lvl; } ups[4] = {
+            struct { const char *name; int lvl; } ups[5] = {
                 { "LENS", Player_GetLaserRangeLvl() },
                 { "COIL", Player_GetLaserRateLvl() },
                 { "BURST", Player_GetBurstLvl() },
                 { "COOL", Player_GetCoolLvl() },
+                { "ARMOR", Player_GetArmorLvl() },
             };
-            for (int u = 0; u < 4; u++) {
+            for (int u = 0; u < 5; u++) {
                 int uy = gy + 20 + u * 34;
                 DrawText(ups[u].name, sx, uy + 2, 17, ups[u].lvl >= 3 ? (Color){ 120, 190, 170, 255 }
                                                                       : (Color){ 225, 245, 255, 255 });
@@ -550,22 +584,24 @@ void Screen_DrawGame(void) {
                 const char *lv = TextFormat("%d/3", ups[u].lvl);
                 DrawText(lv, sx + 172, uy + 2, 15, (Color){ 150, 150, 180, 255 });
             }
-            DrawText("forge at warp cores - B, 5 shards each", sx, gy + 162, 14, (Color){ 140, 140, 165, 255 });
+            DrawText("forge at warp cores - B, 5 shards each", sx, gy + 192, 14, (Color){ 140, 140, 165, 255 });
 
-            DrawLineEx((Vector2){ (float)sx, (float)gy + 186 }, (Vector2){ (float)(sx + 270), (float)gy + 186 }, 1,
+            DrawLineEx((Vector2){ (float)sx, (float)gy + 214 }, (Vector2){ (float)(sx + 270), (float)gy + 214 }, 1,
                        (Color){ 94, 231, 255, 45 });
-            DrawText("FIELD LOG", sx, gy + 196, 15, (Color){ 120, 190, 175, 255 });
+            DrawText("FIELD LOG", sx, gy + 224, 15, (Color){ 120, 190, 175, 255 });
             const char *log1 = TextFormat("Hunters felled: %d", Hunter_GetBounty());
-            DrawText(log1, sx, gy + 218, 16, (Color){ 255, 200, 120, 255 });
+            DrawText(log1, sx, gy + 246, 16, (Color){ 255, 200, 120, 255 });
             const char *log2 = TextFormat("Nearby: %d crawlers, %d wisps, %d spiders",
                                           Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
-            DrawText(log2, sx, gy + 242, 16, (Color){ 255, 140, 160, 255 });
+            DrawText(log2, sx, gy + 270, 16, (Color){ 255, 140, 160, 255 });
 
             /* footer */
             int fy = my + 352;
             DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
                      mx + 24, fy, 15, (Color){ 170, 170, 195, 255 });
-            DrawText("I / ESC - close", mx + 24, fy + 22, 14, (Color){ 140, 140, 165, 255 });
+            DrawText("Click an item, then a slot below to pin it to 1-4.",
+                     mx + 24, fy + 20, 14, (Color){ 170, 200, 190, 255 });
+            DrawText("I / ESC - close", mx + 24, fy + 38, 14, (Color){ 140, 140, 165, 255 });
         }
     }
 
@@ -580,6 +616,58 @@ void Screen_DrawGame(void) {
                        (Color){120, 60, 200, (unsigned char)(40 + 24 * glowPulse)}, BLANK);
 
     BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
+
+    /* v58: four quick slots at the bottom - miniatures of our items;
+     * click them (or press 1..4) to use, click in the satchel to assign */
+    {
+        int hbSize = 56, hbGap = 10;
+        int hbW = 4 * hbSize + 3 * hbGap;
+        int hx = screenWidth / 2 - hbW / 2;
+        int hy = screenHeight - 74;
+        Texture2D atlasHb = World_GetTerrainTexture();
+        bool assignMode = inventoryOpen && screenCursorEnabled && satchelPick >= 0;
+        for (int i = 0; i < 4; i++) {
+            int cx = hx + i * (hbSize + hbGap);
+            hotbarRects[i] = (Rectangle){ (float)cx, (float)hy, (float)hbSize, (float)hbSize };
+            hotbarRectsReady = true;
+            CosmicCell(cx, hy, hbSize, assignMode);
+            int item = Player_HotbarItem(i);
+            if (item >= 0) {
+                CosmicTileIcon(atlasHb, item, cx + 8, hy + 6, 40);
+                int cnt = (item == 27) ? Mobs_GetMushrooms() : (item == 40 ? Player_GetScrollCount() : 0);
+                const char *cntS = TextFormat("%d", cnt);
+                int tw = MeasureText(cntS, 15);
+                DrawText(cntS, cx + hbSize - tw - 5 + 1, hy + hbSize - 19 + 1, 15, BLACK);
+                DrawText(cntS, cx + hbSize - tw - 5, hy + hbSize - 19, 15, (Color){ 255, 240, 200, 255 });
+            }
+            const char *num = TextFormat("%d", i + 1);
+            DrawText(num, cx + 4 + 1, hy + 3 + 1, 13, BLACK);
+            DrawText(num, cx + 4, hy + 3, 13, (Color){ 160, 235, 220, 220 });
+        }
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            Vector2 mp = GetMousePosition();
+            for (int i = 0; i < 4; i++) {
+                if (CheckCollisionPointRec(mp, hotbarRects[i])) {
+                    if (assignMode) {
+                        Player_HotbarAssign(i, satchelPick);
+                        satchelPick = -1;
+                        SoundFx_PlayPlace();
+                    } else if (!screenCursorEnabled) {
+                        Player_HotbarUseSlot(i);
+                    }
+                }
+            }
+        }
+    }
+
+    /* v58: 'gaze true' reminder ring while the scroll wards the lens */
+    if (Player_GetGazeTimeLeft() > 0.0) {
+        DrawCircleLines(screenWidth / 2, screenHeight / 2, 15, (Color){ 64, 224, 208, 220 });
+        DrawCircleLines(screenWidth / 2, screenHeight / 2, 18, (Color){ 64, 224, 208, 90 });
+        const char *gz = TextFormat("gaze true: %ds", (int)(Player_GetGazeTimeLeft() + 0.9));
+        DrawText(gz, screenWidth / 2 - MeasureText(gz, 15) / 2 + 1, 9 + 1, 15, BLACK);
+        DrawText(gz, screenWidth / 2 - MeasureText(gz, 15) / 2, 9, 15, (Color){ 120, 255, 235, 255 });
+    }
 
     //Draw Chat
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);

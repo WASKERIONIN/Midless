@@ -20,7 +20,7 @@ int Mobs_CrawlerCount(void);
 int Mobs_WispCount(void);
 void Mobs_ExplosionDamage(Vector3 center, float radius, int damage);
 bool Mobs_SpawnSpider(Vector3 pos);          /* cocoon hatches; false = hatch busy */
-void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright); /* v57: chunk flora pass */
+void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright, float lean); /* v57 flora, v58 wind lean */
 int Mobs_GetMushrooms(void);
 void Mobs_SetMushrooms(int n);               /* progress restore */
 int Mobs_SpiderCount(void);                  /* satchel fauna line */

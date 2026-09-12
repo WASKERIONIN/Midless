@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
                cocoonOnFlower, species[12], species[13],
                species[28], species[29], species[30],
                species[31], species[32], species[33]);
-        printf("v57 scan: starReed=%d moonBell=%d\n", species[37], species[38]);
+        printf("v57 scan: starReed=%d moonBell=%d tuft=%d\n", species[37], species[38], species[39]);
         printf("v54 debug buckets 40..55:");
         for (int db = 40; db < 56; db++) if (species[db]) printf(" %d:%d", db, species[db]);
         printf("\n");

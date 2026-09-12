@@ -125,6 +125,16 @@ midless.define_block(38, {
     collider = block.collider.NONE,
 })
 
+-- v58: void tuft - low ground cover (one third of a block tall), it hides
+-- the bare dirt under flowers and mushrooms
+midless.define_block(39, {
+    name = "Void Tuft",
+    textures = { all = 39 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -244,6 +254,7 @@ local flower_id = 33                                   -- lanternberry default
 for _, band in ipairs({
     { -0.58, 12 }, -- rose
     { -0.36, 13 }, -- dandelion
+    { -0.25, 39 }, -- v58: void tuft ground cover
     { -0.14, 28 }, -- bellflower
     { 0.08, 29 },  -- starbloom
     { 0.30, 30 },  -- spiral fern
@@ -298,7 +309,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 13,
+    id = "midless:cosmic", version = 14,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),

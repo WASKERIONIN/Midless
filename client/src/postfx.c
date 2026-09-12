@@ -7,6 +7,7 @@
  */
 
 #include "postfx.h"
+#include "player.h"
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
@@ -182,7 +183,7 @@ void PostFx_EndScene(Camera camera) {
     BlackHoleScreen bh = BlackHole_GetScreenState(camera);
     float bhPos[2] = { bh.center.x, bh.center.y };
     float radius = bh.visible ? bh.radius * 1.35f : 0.0001f;
-    float strength = bh.visible ? 1.0f : 0.0f;
+    float strength = (bh.visible && Player_GetGazeTimeLeft() <= 0.0) ? 1.0f : 0.0f; /* v58: scroll of true gaze */
 
     SetShaderValue(shader, locResolution, res, SHADER_UNIFORM_VEC2);
     SetShaderValue(shader, locTime, &t, SHADER_UNIFORM_FLOAT);
