@@ -312,9 +312,9 @@ void Screen_DrawGame(void) {
 
     if (player.flying) {
         const char *flyText = "FLY MODE  Tab to walk  Space/Shift up/down";
-        int flyX = screenWidth / 2 - I18n_MeasureText(flyText, 16) / 2;
-        I18n_DrawText(flyText, flyX + 1, 9, 16, BLACK);
-        I18n_DrawText(flyText, flyX, 8, 16, (Color){94, 231, 255, 255});
+        int flyX = screenWidth / 2 - I18n_MeasureText(flyText, 19) / 2;
+        I18n_DrawText(flyText, flyX + 1, 10, 19, BLACK);
+        I18n_DrawText(flyText, flyX, 9, 19, (Color){94, 231, 255, 255});
     } else if (currentScreen == SCREEN_GAME) {
         /* v44 traversal hints with dash cooldown */
         double dashLeft = player.dashReadyTime - GetTime();
@@ -334,10 +334,10 @@ void Screen_DrawGame(void) {
             moveText = TextFormat("%s F web   SPACE x2 jump   glide   SHIFT dash x%d   I - SATCHEL", weaponTag, dashCharges);
         else
             moveText = TextFormat("%s dash recharges %.1f   I - SATCHEL", weaponTag, dashLeft);
-        int mvX = screenWidth / 2 - I18n_MeasureText(moveText, 16) / 2;
+        int mvX = screenWidth / 2 - I18n_MeasureText(moveText, 19) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
-        I18n_DrawText(moveText, mvX + 1, 9, 16, BLACK);
-        I18n_DrawText(moveText, mvX, 8, 16, mvCol);
+        I18n_DrawText(moveText, mvX + 1, 10, 19, BLACK);
+        I18n_DrawText(moveText, mvX, 9, 19, mvCol);
     }
 
     /* v45: vitals HUD - wireframe diamond pips + hunter bounty */
@@ -361,16 +361,16 @@ void Screen_DrawGame(void) {
             }
         }
         const char *bountyText = TextFormat("VOID HUNTERS FELLED: %d", Hunter_GetBounty());
-        I18n_DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
-        I18n_DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
+        I18n_DrawText(bountyText, bx + 1, by + 19, 18, BLACK);
+        I18n_DrawText(bountyText, bx, by + 18, 18, (Color){200, 160, 255, 220});
 
         /* v48: shard counter with a tiny wireframe diamond */
         int shards = Player_GetShards();
         const char *shardText = TextFormat("VOID SHARDS: %d", shards);
-        int sy = by + 34;
+        int sy = by + 42;
         Color shardCol = shards > 0 ? (Color){96, 255, 214, 255} : (Color){120, 120, 140, 220};
-        I18n_DrawText(shardText, bx + 1, sy + 1, 14, BLACK);
-        I18n_DrawText(shardText, bx, sy, 14, shardCol);
+        I18n_DrawText(shardText, bx + 1, sy + 1, 18, BLACK);
+        I18n_DrawText(shardText, bx, sy, 18, shardCol);
         Color dEdge = shardCol;
         DrawLine(bx + 128, sy + 3, bx + 132, sy + 7, dEdge);
         DrawLine(bx + 132, sy + 7, bx + 128, sy + 11, dEdge);
@@ -666,8 +666,8 @@ void Screen_DrawGame(void) {
         DrawCircleLines(screenWidth / 2, screenHeight / 2, 15, (Color){ 64, 224, 208, 220 });
         DrawCircleLines(screenWidth / 2, screenHeight / 2, 18, (Color){ 64, 224, 208, 90 });
         const char *gz = TextFormat("gaze true: %ds", (int)(Player_GetGazeTimeLeft() + 0.9));
-        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 15) / 2 + 1, 9 + 1, 15, BLACK);
-        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 15) / 2, 9, 15, (Color){ 120, 255, 235, 255 });
+        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 18) / 2 + 1, 10 + 1, 18, BLACK);
+        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 18) / 2, 10, 18, (Color){ 120, 255, 235, 255 });
     }
 
     //Draw Chat

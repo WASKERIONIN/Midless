@@ -21,6 +21,7 @@ static Sound hurtSnd;
 static Sound webShootSnd;
 static Sound boomSnd;
 static Sound webAttachSnd;
+static Sound cocoonSnd;   /* v59.2: the special hatch bloom */
 static bool ready;
 static float volume = 0.7f;
 static double nextBellIn = 30.0;
@@ -245,6 +246,43 @@ static void FillWind(short *data, int frames) {
     }
 }
 
+/* v59.2: cocoon opening - a soft sub bloom, a shimmer of inharmonic bell
+ * partials and the dry rustle of the shell splitting. Replaces the harsh
+ * hit sound that used to carry the moment. */
+static void FillCocoonOpen(short *data, int frames) {
+    float subPhase = 0.0f;
+    float part[4];
+    float det[4] = { 1.0f, 2.718f, 5.131f, 8.312f };
+    float partPhase[4] = { 0, 0, 0, 0 };
+    for (int i = 0; i < 4; i++) part[i] = 0.0f;
+    unsigned int seed = 20260912u;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / frames;
+        /* sub: 170 -> 46 Hz, blooms then fades */
+        float f = 46.0f + (170.0f - 46.0f) * expf(-t * 5.0f);
+        subPhase += 6.28318f * f / 22050.0f;
+        if (subPhase > 6.28318f) subPhase -= 6.28318f;
+        float sub = sinf(subPhase) * expf(-t * 3.2f) * 0.55f * (t < 0.04f ? t / 0.04f : 1.0f);
+        /* shimmer: partials fade in over 0.15 s, ring out */
+        float shimmer = 0.0f;
+        for (int p = 0; p < 4; p++) {
+            float amp = (0.30f / (p + 1)) * expf(-t * (2.1f + 0.7f * p)) *
+                        (t > 0.12f + 0.05f * p ? 1.0f : t / (0.12f + 0.05f * p));
+            partPhase[p] += 6.28318f * (520.0f * det[p] * (1.0f + 0.004f * sinf(t * 9.0f + p))) / 22050.0f;
+            if (partPhase[p] > 6.28318f) partPhase[p] -= 6.28318f;
+            shimmer += sinf(partPhase[p]) * amp;
+        }
+        /* shell rustle: decaying noise pops in the first 0.35 s */
+        seed = seed * 1664525u + 1013904223u;
+        float n = ((int)seed % 20000) / 10000.0f - 1.0f;
+        float rustle = n * expf(-t * 9.0f) * 0.30f * (0.6f + 0.4f * sinf(t * 60.0f));
+        float v = sub + shimmer * 0.16f + rustle;
+        if (v > 0.95f) v = 0.95f;
+        if (v < -0.95f) v = -0.95f;
+        data[i] = (short)(v * 9000.0f);
+    }
+}
+
 /* ---------------- v59: dungeon-synth radio ------------------------------
  * A tiny procedural synth streamed through an audio callback. Two loops
  * built on the classic dungeon-synth changes (Aeolian shuttle Am-G-F-G and
@@ -262,7 +300,8 @@ static const float NOTE_A2 = 110.0f, NOTE_C3 = 130.81f, NOTE_D3 = 146.83f,
     NOTE_E3 = 164.81f, NOTE_F3 = 174.61f, NOTE_G3 = 196.0f, NOTE_A3 = 220.0f,
     NOTE_B3 = 246.94f, NOTE_C4 = 261.63f, NOTE_D4 = 293.66f, NOTE_E4 = 329.63f,
     NOTE_F4 = 349.23f, NOTE_G4 = 392.0f, NOTE_A4 = 440.0f, NOTE_C5 = 523.25f,
-    NOTE_D5 = 587.33f;
+    NOTE_D5 = 587.33f, NOTE_BB3 = 233.08f, NOTE_GS4 = 415.30f, NOTE_E2 = 82.41f,
+    NOTE_D2 = 73.42f, NOTE_B4 = 493.88f, NOTE_E5 = 659.26f, NOTE_G5 = 783.99f;
 
 typedef struct MusTrack {
     const float *chords;      /* 4 chords x 3 notes (freqs), 0 = rest */
@@ -281,6 +320,17 @@ static const float motifChant[] = {
     NOTE_A4, NOTE_C5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, 0,
     NOTE_E4, NOTE_G4, NOTE_A4, NOTE_G4, NOTE_E4, NOTE_D4, NOTE_E4, 0
 };
+/* v59.2: "Wraith march" - a grim stepwise line over Dm - Bb - C - Dm */
+static const float motifWraith[] = {
+    NOTE_D4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_A4, NOTE_G4, NOTE_F4, NOTE_D4,
+    NOTE_C4, NOTE_D4, NOTE_F4, NOTE_E4, NOTE_D4, 0, NOTE_C4, 0
+};
+/* v59.2: "Frozen chapel" - the Andalusian lament (Am-G-F-E) answered by
+ * a thin choir third */
+static const float motifChapel[] = {
+    NOTE_E5, NOTE_D5, NOTE_C5, NOTE_B4, NOTE_A4, NOTE_GS4, NOTE_A4, 0,
+    NOTE_C5, NOTE_B4, NOTE_A4, NOTE_G4, NOTE_A4, 0, NOTE_E4, 0
+};
 
 /* Track 1: Am - G - F - G (Aeolian shuttle) */
 static const float chordsAm[] = {
@@ -292,11 +342,32 @@ static const float chordsDm[] = {
     NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_D4, NOTE_F4, NOTE_A4,
     NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_C4, NOTE_E4, NOTE_G4,
 };
-
-static const MusTrack tracks[2] = {
-    { chordsAm, motifHomme, 16, NOTE_A2, 0 },
-    { chordsDm, motifChant, 16, NOTE_D3, 1 },
+/* Track 3: Dm - Bb - C - Dm wraith march */
+static const float chordsWraith[] = {
+    NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_BB3, NOTE_D4, NOTE_F4,
+    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_D4, NOTE_F4, NOTE_A4,
 };
+/* Track 4: Am - G - F - E Andalusian lament */
+static const float chordsChapel[] = {
+    NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
+    NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_E3, NOTE_GS4, NOTE_B3,
+};
+
+static const MusTrack tracks[4] = {
+    { chordsAm,     motifHomme,  16, NOTE_A2, 0 },
+    { chordsDm,     motifChant,  16, NOTE_D2, 1 },
+    { chordsWraith, motifWraith, 16, NOTE_D2, 0 },
+    { chordsChapel, motifChapel, 16, NOTE_E2, 0 },
+};
+
+/* v59.2: the radio changes tracks - a fresh pick at every start and a
+ * random hand-off at each 8-bar cycle boundary (about every 37 s) */
+static unsigned int musLastCycle = 0xFFFFFFFFu;
+static unsigned int musSeed = 20260912u;
+static unsigned int Mus_NextRand(void) {
+    musSeed = musSeed * 1664525u + 1013904223u;
+    return musSeed >> 8;
+}
 
 static int musTrack = 0;
 static unsigned int musSample = 0;
@@ -313,6 +384,13 @@ static float Mus_NextSample(void) {
     unsigned int total = (unsigned int)(musSample / BAR);
     int chordIdx = (int)(total % 4);
     int barIn2 = (int)(total % 8);
+    /* v59.2: 8-bar cycle boundary -> sometimes hand off to another track */
+    unsigned int cycle = (unsigned int)(musSample / (BAR * 8.0f));
+    if (cycle != musLastCycle) {
+        musLastCycle = cycle;
+        if (cycle > 0 && (Mus_NextRand() % 100u) < 45u)
+            musTrack = (int)(Mus_NextRand() % 4u);
+    }
     float tInBar = (float)((double)musSample - (double)((unsigned long long)total * (unsigned long long)BAR)) / BAR; /* 0..1 */
 
     const float *ch = &T->chords[chordIdx * 3];
@@ -417,13 +495,14 @@ void SoundFx_Init(void) {
         musicReady = true;
         musicEnabled = gameSettings.music != 0;
         if (!musicEnabled) StopAudioStream(musicStream);
-        /* start deep and slow: track chosen by world seed feel */
-        musTrack = 0;
+        /* v59.2: every launch starts the radio on a random side */
+        musTrack = (int)(GetRandomValue(0, 3));
     }
     digSnd = MakeSound(3200, FillDig);
     placeSnd = MakeSound(3600, FillPlace);
     jumpSnd = MakeSound(1400, FillJump);
     teleportSnd = MakeSound(8800, FillTeleport);
+    cocoonSnd = MakeSound(48510, FillCocoonOpen);   /* v59.2 */
     clickSnd = MakeSound(900, FillClick);
     windSnd = MakeSound(22050 * 4, FillWind);
     droneSnd = MakeSound(22050 * 8, FillDrone);
@@ -488,6 +567,7 @@ void SoundFx_PlayDig(void) { if (ready) PlaySound(digSnd); }
 void SoundFx_PlayPlace(void) { if (ready) PlaySound(placeSnd); }
 void SoundFx_PlayJump(void) { if (ready) PlaySound(jumpSnd); }
 void SoundFx_PlayTeleport(void) { if (ready) PlaySound(teleportSnd); }
+void SoundFx_PlayCocoonOpen(void) { if (ready) PlaySound(cocoonSnd); }   /* v59.2 */
 void SoundFx_PlayClick(void) { if (ready) PlaySound(clickSnd); }
 
 void SoundFx_PlayHunterHit(void) { if (ready) PlaySound(hunterHitSnd); }

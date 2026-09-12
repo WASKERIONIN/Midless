@@ -510,6 +510,7 @@ static void Cocoon_Hatch(Vector3 cell) {
      * with both hatch slots busy the old code destroyed the egg for nobody */
     if (!Mobs_SpawnSpider(spawn)) return;
     World_SetBlock(cell, 0, true);
+    SoundFx_PlayCocoonOpen();   /* v59.2: the bloom instead of a harsh hit */
     Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
     Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
 }
@@ -722,42 +723,106 @@ static void Moth_Update(float deltaTime, double now) {
     }
 }
 
+/* v59.2: a moth is a real little body - a four-sided cone - with two
+ * textured wings flapping on its sides. Everything is emitted into the
+ * caller's atlas batch; tile 24 (pure white) carries the vertex colors. */
 static void Moth_Draw(double now) {
+    Matrix view = rlGetMatrixModelview();
+    Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
     for (int i = 0; i < MOTH_MAX; i++) {
         Moth *m = &moths[i];
         if (!m->active) continue;
-        unsigned char br = (unsigned char)(225.0f + 30.0f * sinf(now * 3.0f + m->phase));
-        /* wing flap: the quad breathes sideways */
-        float flap = 0.15f + 0.055f * sinf(now * 11.0f + m->phase);
-        Mobs_DrawBillboard(m->pos, flap, flap * 1.9f, 42, br, 0.0f);
+        float pulse = 0.80f + 0.20f * sinf(now * 3.0f + m->phase);
+        unsigned char br = (unsigned char)(225.0f * pulse);
+        unsigned char bg = (unsigned char)(250.0f * pulse);
+        unsigned char bb = (unsigned char)(240.0f * pulse);
+        float u24 = (24 % 16) / 16.0f, v24 = (24 / 16) / 16.0f;
+        float uW = (42 % 16) / 16.0f, vW = (42 / 16) / 16.0f;
+
+        /* ---- body: tiny 4-sided cone, apex up ---- */
+        Vector3 apex = { m->pos.x, m->pos.y + 0.10f, m->pos.z };
+        Vector3 base[4];
+        float br0 = 0.065f;
+        for (int k = 0; k < 4; k++) {
+            float an = 6.2832f * k / 4.0f + 0.7854f;
+            base[k] = (Vector3){ m->pos.x + cosf(an) * br0, m->pos.y - 0.08f,
+                                 m->pos.z + sinf(an) * br0 };
+        }
+        for (int k = 0; k < 4; k++) {
+            Vector3 a = base[k], b = base[(k + 1) % 4];
+            rlColor4ub(br, bg, bb, 255);
+            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
+            rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(b.x, b.y, b.z);
+            rlTexCoord2f(u24 + 0.5f / 16.0f, v24); rlVertex3f(apex.x, apex.y, apex.z);
+            /* both windings: the batch is drawn with culling possible */
+            rlColor4ub((unsigned char)(br * 3 / 4), (unsigned char)(bg * 3 / 4),
+                       (unsigned char)(bb * 3 / 4), 255);
+            rlTexCoord2f(u24 + 0.5f / 16.0f, v24); rlVertex3f(apex.x, apex.y, apex.z);
+            rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(b.x, b.y, b.z);
+            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
+        }
+
+        /* ---- wings: two quads hinged at the body, flapping hard ---- */
+        float flap = sinf(now * 11.0f + m->phase);
+        float lift = flap * 0.22f;             /* tip rises/falls */
+        float span = 0.26f * (0.75f + 0.25f * fabsf(flap));  /* foreshorten */
+        float u0 = uW, u1 = uW + 1.0f / 16.0f, v0 = vW, v1 = vW + 1.0f / 16.0f;
+        for (int side = 0; side < 2; side++) {
+            float sgn = side == 0 ? 1.0f : -1.0f;
+            Vector3 inLo  = { m->pos.x,                    m->pos.y - 0.015f, m->pos.z };
+            Vector3 inHi  = { m->pos.x,                    m->pos.y + 0.035f, m->pos.z };
+            Vector3 outLo = { m->pos.x + right.x * span * sgn, m->pos.y - 0.03f + lift * 0.4f,
+                              m->pos.z + right.z * span * sgn };
+            Vector3 outHi = { m->pos.x + right.x * span * 1.08f * sgn, m->pos.y + 0.05f + lift,
+                              m->pos.z + right.z * span * 1.08f * sgn };
+            rlColor4ub(br, bg, bb, 255);
+            rlTexCoord2f(u0, v1); rlVertex3f(inLo.x, inLo.y, inLo.z);
+            rlTexCoord2f(u0, v0); rlVertex3f(inHi.x, inHi.y, inHi.z);
+            rlTexCoord2f(u1, v0); rlVertex3f(outHi.x, outHi.y, outHi.z);
+            rlTexCoord2f(u1, v1); rlVertex3f(outLo.x, outLo.y, outLo.z);
+            /* reverse winding */
+            rlTexCoord2f(u1, v1); rlVertex3f(outLo.x, outLo.y, outLo.z);
+            rlTexCoord2f(u1, v0); rlVertex3f(outHi.x, outHi.y, outHi.z);
+            rlTexCoord2f(u0, v0); rlVertex3f(inHi.x, inHi.y, inHi.z);
+            rlTexCoord2f(u0, v1); rlVertex3f(inLo.x, inLo.y, inLo.z);
+        }
     }
 }
 
+/* v59.2: pollen - small camera-aligned quads in the SAME atlas batch
+ * (tile 24 white x vertex color). Exactly 6 vertices per ghost quad;
+ * the old version emitted 7, shearing every later triangle into those
+ * full-screen color bands. */
 static void Moth_PollenDraw(double now) {
+    Matrix view = rlGetMatrixModelview();
+    Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
+    Vector3 up = Vector3Normalize((Vector3){ view.m1, view.m5, view.m9 });
+    float u24 = (24 % 16) / 16.0f, v24 = (24 / 16) / 16.0f;
     for (int i = 0; i < POLLEN_MAX; i++) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
-        /* animated RGB split: three ghost quads cycling out of phase */
-        float k = p->life;
-        Vector3 right = Vector3Normalize((Vector3){ rlGetMatrixModelview().m0, rlGetMatrixModelview().m4, rlGetMatrixModelview().m8 });
-        float s = p->size * (0.5f + 0.5f * k);
+        float k = Clamp(p->life, 0.0f, 1.0f);
+        float s = p->size * (0.6f + 0.4f * k);
+        unsigned char alpha = (unsigned char)(120.0f * k);
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
             unsigned char g = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 2.094f));
-            unsigned char b = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 4.188f));
-            unsigned char alpha = (unsigned char)(140.0f * Clamp(k, 0.0f, 1.0f));
+            unsigned char bc = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 4.188f));
             Vector3 off = Vector3Scale(right, (ch - 1) * p->size * 0.9f);
-            Vector3 bl = Vector3Subtract(Vector3Add(p->pos, off), (Vector3){ s, 0, 0 });
-            Vector3 br2 = Vector3Add(Vector3Add(p->pos, off), (Vector3){ s, 0, 0 });
-            rlColor4ub(r, g, b, alpha);
-            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(bl.x, bl.y - s, bl.z);
-            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f); rlVertex3f(bl.x, bl.y + s, bl.z);
-            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f); rlVertex3f(br2.x, br2.y + s, br2.z);
-            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(br2.x, bl.y - s, br2.z);
-            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(br2.x, bl.y - s, br2.z);
-            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f); rlVertex3f(bl.x, bl.y + s, bl.z);
-            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(bl.x, bl.y - s, bl.z);
+            Vector3 c = Vector3Add(p->pos, off);
+            Vector3 rx = Vector3Scale(right, s), uy = Vector3Scale(up, s);
+            Vector3 a = Vector3Subtract(Vector3Subtract(c, rx), uy);
+            Vector3 b = Vector3Add(Vector3Subtract(c, rx), uy);
+            Vector3 d = Vector3Add(Vector3Add(c, rx), uy);
+            Vector3 e = Vector3Subtract(Vector3Add(c, rx), uy);
+            rlColor4ub(r, g, bc, alpha);
+            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
+            rlTexCoord2f(u24, v24); rlVertex3f(b.x, b.y, b.z);
+            rlTexCoord2f(u24 + 1.0f / 16.0f, v24); rlVertex3f(d.x, d.y, d.z);
+            rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(e.x, e.y, e.z);
+            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
+            rlTexCoord2f(u24 + 1.0f / 16.0f, v24); rlVertex3f(d.x, d.y, d.z);
         }
     }
 }
@@ -1213,41 +1278,66 @@ static void Mob_TexturedBlob(Vector3 c, float rx, float ry, float rz, float face
 void Mobs_Draw(void) {
     double now = (double)GetTime();
 
-    /* v59: the violet shell wears a real texture now (tile 43) - a full
-     * ovoid so it reads from every side, bottom included; the wire rings
-     * float 1.2% off the surface and keep the frame look */
+    /* v59.2: the violet shell is an UMBRELLA again (shallow cap, R wide)
+     * - the top wears the puffy cloud texture (tile 43), and looking up
+     * under it shows the window to another world: an alien starfield
+     * (tile 44) on the inner surface. Both sides, bottom included. */
     if (shellActive) {
         float R = 9.0f, cy2 = shellCenter.y;
         Texture2D shellTex = World_GetTerrainTexture();
         if (shellTex.id != 0) {
             rlSetTexture(shellTex.id);
             rlBegin(RL_QUADS);
-            float uT = (43 % 16) / 16.0f, vT = (43 / 16) / 16.0f;
-            const int SEG = 14;
-            const float BANDS[8] = { 0.25f, 0.70f, 1.15f, 1.60f, 2.05f, 2.50f, 2.85f, 3.1416f };
-            for (int b = 0; b < 7; b++) {
+            const int SEG = 16;
+            const float BANDS[7] = { 0.25f, 0.52f, 0.79f, 1.06f, 1.30f, 1.47f, 1.5708f };
+            float pulse = 0.88f + 0.12f * sinf((float)now * 0.8f);
+            unsigned char topB = (unsigned char)(255.0f * pulse);
+            unsigned char undB = (unsigned char)(205.0f * pulse);
+            for (int b = 0; b < 6; b++) {
                 float ph0 = BANDS[b], ph1 = BANDS[b + 1];
-                float vv0 = vT + (1.0f / 16.0f) * (ph0 / 3.1416f);
-                float vv1 = vT + (1.0f / 16.0f) * (ph1 / 3.1416f);
+                float r0 = R * sinf(ph0), y0 = cy2 + R * cosf(ph0) * 0.55f;
+                float r1 = R * sinf(ph1), y1 = cy2 + R * cosf(ph1) * 0.55f;
+                float vv0 = (43 % 16) / 16.0f + (1.0f / 16.0f) * (b / 6.0f);
+                float vv1 = (43 % 16) / 16.0f + (1.0f / 16.0f) * ((b + 1) / 6.0f);
+                float wu = (43 % 16) / 16.0f, wv = (43 / 16) / 16.0f;
+                vv0 = wv + (1.0f / 16.0f) * (b / 6.0f);
+                vv1 = wv + (1.0f / 16.0f) * ((b + 1) / 6.0f);
+                float su = (44 % 16) / 16.0f, sv = (44 / 16) / 16.0f;
+                float wv2 = (44 / 16) / 16.0f;
+                float ivv0 = wv2 + (1.0f / 16.0f) * (b / 6.0f);
+                float ivv1 = wv2 + (1.0f / 16.0f) * ((b + 1) / 6.0f);
                 for (int s = 0; s < SEG; s++) {
                     float th0 = 6.2832f * s / SEG, th1 = 6.2832f * (s + 1) / SEG;
-                    float r0 = R * sinf(ph0), y0 = cy2 + R * cosf(ph0) * 0.55f;
-                    float r1 = R * sinf(ph1), y1 = cy2 + R * cosf(ph1) * 0.55f;
-                    float uu0 = uT + (1.0f / 16.0f) * (float)s / SEG;
-                    float uu1 = uT + (1.0f / 16.0f) * (float)(s + 1) / SEG;
+                    float uu0 = wu + (1.0f / 16.0f) * (float)s / SEG;
+                    float uu1 = wu + (1.0f / 16.0f) * (float)(s + 1) / SEG;
+                    float iu0 = su + (1.0f / 16.0f) * (float)s / SEG;
+                    float iu1 = su + (1.0f / 16.0f) * (float)(s + 1) / SEG;
                     Vector3 a = { shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0 };
                     Vector3 b = { shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0 };
                     Vector3 c = { shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1 };
                     Vector3 d = { shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1 };
-                    rlColor4ub(255, 255, 255, 255);
+                    /* outside: cloud texture */
+                    rlColor4ub(topB, topB, topB, 255);
                     rlTexCoord2f(uu0, vv1); rlVertex3f(a.x, a.y, a.z);
                     rlTexCoord2f(uu1, vv1); rlVertex3f(b.x, b.y, b.z);
                     rlTexCoord2f(uu1, vv0); rlVertex3f(c.x, c.y, c.z);
                     rlTexCoord2f(uu0, vv0); rlVertex3f(d.x, d.y, d.z);
-                    rlTexCoord2f(uu0, vv0); rlVertex3f(d.x, d.y, d.z);
-                    rlTexCoord2f(uu1, vv0); rlVertex3f(c.x, c.y, c.z);
-                    rlTexCoord2f(uu1, vv1); rlVertex3f(b.x, b.y, b.z);
-                    rlTexCoord2f(uu0, vv1); rlVertex3f(a.x, a.y, a.z);
+                    /* inside: the other world's sky, slightly inset */
+                    float k0 = 0.995f, k1 = 0.995f;
+                    Vector3 a2 = { shellCenter.x + cosf(th0) * r0 * k0, y0 - 0.01f, shellCenter.z + sinf(th0) * r0 * k0 };
+                    Vector3 b2 = { shellCenter.x + cosf(th1) * r0 * k0, y0 - 0.01f, shellCenter.z + sinf(th1) * r0 * k0 };
+                    Vector3 c2 = { shellCenter.x + cosf(th1) * r1 * k1, y1 - 0.01f, shellCenter.z + sinf(th1) * r1 * k1 };
+                    Vector3 d2 = { shellCenter.x + cosf(th0) * r1 * k1, y1 - 0.01f, shellCenter.z + sinf(th0) * r1 * k1 };
+                    rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
+                    rlTexCoord2f(iu0, ivv1); rlVertex3f(a2.x, a2.y, a2.z);
+                    rlTexCoord2f(iu1, ivv1); rlVertex3f(b2.x, b2.y, b2.z);
+                    rlTexCoord2f(iu1, ivv0); rlVertex3f(c2.x, c2.y, c2.z);
+                    rlTexCoord2f(iu0, ivv0); rlVertex3f(d2.x, d2.y, d2.z);
+                    rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
+                    rlTexCoord2f(iu0, ivv0); rlVertex3f(d2.x, d2.y, d2.z);
+                    rlTexCoord2f(iu1, ivv0); rlVertex3f(c2.x, c2.y, c2.z);
+                    rlTexCoord2f(iu1, ivv1); rlVertex3f(b2.x, b2.y, b2.z);
+                    rlTexCoord2f(iu0, ivv1); rlVertex3f(a2.x, a2.y, a2.z);
                 }
             }
             rlEnd();
@@ -1452,6 +1542,21 @@ void Mobs_Draw(void) {
                 px = nx; py = ny; pz = nz;
             }
         }
+        /* v59.2: the light rain is back - streaks sliding down under the
+         * umbrella; it is the event's signature */
+        for (int k = 0; k < 48; k++) {
+            float seed = k * 7.13f;
+            float ang = fmodf(seed * 1.7f, 6.2832f);
+            float rad = (0.25f + 0.75f * fmodf(seed * 0.317f, 1.0f)) * R;
+            float drop = fmodf(t0 * (2.0f + fmodf(seed, 2.0f)) + seed, 14.0f);
+            float x = shellCenter.x + cosf(ang) * rad;
+            float z = shellCenter.z + sinf(ang) * rad;
+            float yTop = cy2 + R * 0.35f - drop;
+            if (yTop < shellCenter.y - 12.0f) continue;
+            rlColor4ub(190, 235, 255, 255);
+            rlVertex3f(x, yTop, z);
+            rlVertex3f(x, yTop - 0.45f, z);
+        }
         /* v59: ONE plain pentagram on the dome TOP (straight chords, no
          * ornaments) - it used to hang under the cloud as a twin spiral */
         {
@@ -1502,13 +1607,8 @@ void Mobs_Draw(void) {
             }
             Mob_FloraBillboard(m->pos, m->scale, 27, br);
         }
-        Moth_Draw(now);   /* v59: the moths share the atlas batch */
-        rlEnd();
-        rlDrawRenderBatchActive();
-        /* v59: RGB-shifting pollen, own untextured glow batch */
-        rlSetTexture(0);
-        rlBegin(RL_QUADS);
-        Moth_PollenDraw(now);
+        Moth_Draw(now);        /* cone bodies + flapping wings */
+        Moth_PollenDraw(now);  /* RGB-shift pollen, same atlas batch */
         rlEnd();
         rlDrawRenderBatchActive();
     }

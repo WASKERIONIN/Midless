@@ -645,6 +645,41 @@ def t_sedge(index):
     return img
 
 
+def t_undersky(index):
+    """v59.2: the other world's sky, seen through the shell's underside -
+    nothing like our purple void: near-black green, gold and ice-white
+    stars, one alien emerald nebula streak."""
+    img = Image.new("RGBA", (TILE, TILE), (6, 10, 8, 255))
+    px = img.load()
+    rndg = rng(index * 311 + 73)
+    # deep green-black wash with faint banding
+    for y in range(TILE):
+        shade = 10 + (y % 4) * 2
+        for x in range(TILE):
+            px[x, y] = (4 + shade // 2, 8 + shade, 7 + shade // 2, 255)
+    # emerald nebula streak across the middle
+    for x in range(TILE):
+        cyN = 7 + int(2.2 * __import__("math").sin(6.2832 * x / 16.0))
+        for dy in (-1, 0, 1):
+            yy = cyN + dy
+            if 0 <= yy < 16 and rndg.random() < 0.75:
+                px[x, yy] = (16, 92, 60, 255) if dy == 0 else (10, 46, 34, 255)
+    # alien stars: gold / ice / magenta-white
+    for _ in range(26):
+        sx, sy = rndg.randint(0, 15), rndg.randint(0, 15)
+        kind = rndg.random()
+        if kind < 0.4: c = (255, 214, 120, 255)
+        elif kind < 0.75: c = (215, 245, 255, 255)
+        else: c = (255, 170, 235, 255)
+        px[sx, sy] = c
+    # two bright crosses
+    for cx0, cy0 in ((4, 3), (12, 11)):
+        px[cx0, cy0] = (255, 255, 255, 255)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            xx, yy = (cx0 + dx) % 16, (cy0 + dy) % 16
+            px[xx, yy] = (180, 230, 210, 255)
+    return img
+
 def t_moth(index):
     """v59: glowmoth sprite - teal wings with magenta eyespots, tiny body,
     faint trailing shimmer; drawn as a small billboard."""
@@ -694,39 +729,60 @@ def t_moth(index):
 
 
 def t_cloud(index):
-    """v59: cloud shell texture - puffy violet-grey billows with pale tops
-    and teal glints, fully opaque (the terrain shader discards a<0.5)."""
-    img = Image.new("RGBA", (TILE, TILE), (58, 42, 96, 255))
+    """v59.2: shell texture - puffy violet cumulus, seamless wrapping,
+    built from 2 octaves of wrapped value noise; light comes from above,
+    tiny teal glints catch the eye. Reads as a real cloud from any side."""
+    img = Image.new("RGBA", (TILE, TILE), (0, 0, 0, 255))
     px = img.load()
-    rnd = rng(index * 977 + 41)
-    DARK = (58, 42, 96)
-    MID = (92, 70, 140)
-    LIT = (138, 112, 186)
-    PALE = (188, 168, 226)
-    TOP = (222, 208, 246)
-    GLOW = (120, 235, 220)
-    # periodic puff field: two sine octaves give seamless wrapping
+    rndg = rng(index * 613 + 7)
+    g8 = [[rndg.random() for _ in range(9)] for _ in range(9)]
+    for j in range(9):
+        g8[j][8] = g8[j][0]
+    for i in range(9):
+        g8[8][i] = g8[0][i]
+    g16 = [[rndg.random() for _ in range(17)] for _ in range(17)]
+    for j in range(17):
+        g16[j][16] = g16[j][0]
+    for i in range(17):
+        g16[16][i] = g16[0][i]
+
+    def val(g, n, fx, fy):
+        x, y = fx * n, fy * n
+        x0, y0 = int(x) % n, int(y) % n
+        x1, y1 = (x0 + 1) % n, (y0 + 1) % n
+        tx, ty = x - int(x), y - int(y)
+        tx = tx * tx * (3 - 2 * tx)
+        ty = ty * ty * (3 - 2 * ty)
+        a = g[y0][x0] * (1 - tx) + g[y0][x1] * tx
+        b = g[y1][x0] * (1 - tx) + g[y1][x1] * tx
+        return a * (1 - ty) + b * ty
+
+    SHADES = [
+        (44, 32, 78),     # deep folds
+        (78, 58, 122),    # body
+        (114, 92, 162),   # lit body
+        (158, 138, 202),  # crest light
+    ]
     for y in range(TILE):
         for x in range(TILE):
             fx, fy = x / TILE, y / TILE
-            v = (__import__("math").sin(6.2832 * (fx * 2.0 + fy * 1.0)) * 0.5 +
-                 __import__("math").sin(6.2832 * (fx * 1.0 - fy * 2.0) + 1.7) * 0.5 +
-                 __import__("math").sin(6.2832 * (fx * 3.0 + fy * 2.0) + 3.9) * 0.35)
-            c = MID
-            if v > 0.55:
-                c = PALE if v > 0.85 else LIT
-            elif v < -0.55:
-                c = DARK
-            px[x, y] = c
-    # bright tops: light comes from above
+            n = val(g8, 8, fx, fy) * 0.68 + val(g16, 16, fx, fy) * 0.32
+            # light from the top edge (the sky above the shell)
+            n += (1.0 - fy) * 0.22
+            band = int(n * 3.6)
+            if band < 0: band = 0
+            if band > 3: band = 3
+            r, gg, b = SHADES[band]
+            px[x, y] = (r, gg, b, 255)
+    # crest highlights along the top rows
     for x in range(TILE):
-        for y in range(TILE):
-            if y < 4 and px[x, y][0] > 80:
-                px[x, y] = TOP if y < 2 else PALE
-    # teal glints
-    for _ in range(10):
-        gx, gy = rnd.randint(0, 15), rnd.randint(0, 15)
-        px[gx, gy] = GLOW
+        for y in range(2):
+            if px[x, y][0] > 100:
+                px[x, y] = (210, 196, 240, 255)
+    # sparse teal glints
+    for _ in range(6):
+        gx, gy = rndg.randint(0, 15), rndg.randint(2, 15)
+        px[gx, gy] = (110, 225, 210, 255)
     return img
 
 def t_void_tuft(index):
@@ -1061,6 +1117,7 @@ def build_atlas():
         41: t_sedge(41),
         42: t_moth(42),
         43: t_cloud(43),
+        44: t_undersky(44),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

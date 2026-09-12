@@ -120,5 +120,5 @@ void MapView_Draw(void) {
     I18n_DrawText(TextFormat(label,
                         (int)floorf(player.position.x / CHUNK_SIZE_X),
                         (int)floorf(player.position.z / CHUNK_SIZE_Z)),
-             x, y + size + 4, 10, WHITE);
+             x, y + size + 4, 14, WHITE);
 }

@@ -135,7 +135,7 @@ static bool HandleCommand(const char *message) {
 void Chat_Draw(Vector2 offset, Color uiColor) {
 
     int chatWidth = 352;
-    int fontSize = 10;
+    int fontSize = 17;   /* v59.2: 10 was unreadable */
 
     if (chatEditMode) DrawRectangle(offset.x, offset.y - 184 + 46, chatWidth, 184, uiColor);
 
@@ -215,8 +215,8 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
         }
         /* v59: the typed line itself, in the UTF-8 font, with a caret */
         {
-            int fs = 18;
-            Rectangle box = { offset.x, offset.y + 22, chatWidth, 26 };
+            int fs = 17;
+            Rectangle box = { offset.x, offset.y + 22, chatWidth, 30 };
             DrawRectangleRec(box, (Color){ 6, 3, 14, 200 });
             DrawRectangleLinesEx(box, 1, (Color){ 94, 231, 255, 90 });
             char shown[136];

@@ -20,5 +20,6 @@ void SoundFx_PlayExplosion(void);
 void SoundFx_SetVolume(float volume01);
 float SoundFx_GetVolume(void);
 void SoundFx_SetMusicEnabled(bool on);   /* v59: dungeon-synth radio */
+void SoundFx_PlayCocoonOpen(void);       /* v59.2: soft hatch bloom */
 
 #endif
