@@ -862,19 +862,21 @@ static void Moth_Update(float deltaTime, double now) {
 
         /* glowing pollen trails behind the flight */
         if (now >= m->pollenAt) {
-            /* v59.5: sparse dust, not a continuous trail - a dense trail
-             * of long-lived slow particles READS AS A RIBBON from afar */
-            m->pollenAt = now + 0.22 + GetRandomValue(0, 14) / 100.0;
+            /* v59.6: the v59.5 anti-ribbon tuning starved the dust to
+             * invisibility; the REAL ribbon bug was the 6-vertex stream,
+             * and that is dead - so the shimmer is back: dense enough to
+             * see, falling gently, a second and a half of life */
+            m->pollenAt = now + 0.13 + GetRandomValue(0, 8) / 100.0;
             Pollen *p = &pollen[pollenNext];
             pollenNext = (pollenNext + 1) % POLLEN_MAX;
             p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
                                 m->pos.y + GetRandomValue(-6, 6) / 100.0f,
                                 m->pos.z + GetRandomValue(-8, 8) / 100.0f };
-            p->vel = (Vector3){ GetRandomValue(-25, 25) / 100.0f,
-                                -(55 + GetRandomValue(0, 35)) / 100.0f,
-                                GetRandomValue(-25, 25) / 100.0f };
-            p->life = 0.75f + GetRandomValue(0, 45) / 100.0f;
-            p->size = 0.035f + GetRandomValue(0, 25) / 1000.0f;
+            p->vel = (Vector3){ GetRandomValue(-20, 20) / 100.0f,
+                                -(28 + GetRandomValue(0, 17)) / 100.0f,
+                                GetRandomValue(-20, 20) / 100.0f };
+            p->life = 1.4f + GetRandomValue(0, 60) / 100.0f;
+            p->size = 0.05f + GetRandomValue(0, 30) / 1000.0f;
             p->shift = GetRandomValue(0, 628) / 100.0f;
         }
     }
@@ -882,7 +884,7 @@ static void Moth_Update(float deltaTime, double now) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
         p->life -= deltaTime;
-        p->vel.y -= 0.30f * deltaTime;   /* v59.5: dust falls away, no hanging */
+        p->vel.y -= 0.10f * deltaTime;   /* v59.6: gentle settle, no sinker drop */
         p->pos.x += p->vel.x * deltaTime * 0.4f + sinf(now * 1.7f + p->shift) * deltaTime * 0.12f;
         p->pos.y += p->vel.y * deltaTime;
         p->pos.z += p->vel.z * deltaTime * 0.4f;
@@ -974,7 +976,7 @@ static void Moth_PollenDraw(double now) {
         if (p->life <= 0.0f) continue;
         float k = Clamp(p->life, 0.0f, 1.0f);
         float s = p->size * (0.6f + 0.4f * k);
-        unsigned char alpha = (unsigned char)(85.0f * k);   /* twinkle, not a stripe */
+        unsigned char alpha = (unsigned char)(150.0f * k);   /* v59.6: visible again */
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
@@ -997,6 +999,61 @@ static void Moth_PollenDraw(double now) {
             rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(e.x, e.y, e.z);
         }
     }
+}
+
+/* v59.6: one shared sprite batch for every flora/moth rendering. The
+ * stock rlgl shader has no alpha cutout, so a sprite's TRANSPARENT
+ * texels wrote depth and punched invisible holes in whatever was drawn
+ * after them (flowers vanishing when you looked through another
+ * flower's quad). This batch runs a shader that discards alpha < 0.5
+ * and keeps the depth mask off - sprites can no longer clip anything. */
+static Shader spriteCutShader;
+static bool spriteCutReady = false;
+static const char *spriteCutVs =
+    "#version 330\n"
+    "in vec3 vertexPosition;"
+    "in vec2 vertexTexCoord;"
+    "in vec4 vertexColor;"
+    "uniform mat4 mvp;"
+    "out vec2 fragTexCoord;"
+    "out vec4 fragColor;"
+    "void main() {"
+    "    fragTexCoord = vertexTexCoord;"
+    "    fragColor = vertexColor;"
+    "    gl_Position = mvp * vec4(vertexPosition, 1.0);"
+    "}";
+static const char *spriteCutFs =
+    "#version 330\n"
+    "in vec2 fragTexCoord;"
+    "in vec4 fragColor;"
+    "uniform sampler2D texture0;"
+    "uniform vec4 colDiffuse;"
+    "out vec4 finalColor;"
+    "void main() {"
+    "    vec4 texelColor = texture(texture0, fragTexCoord);"
+    "    if (texelColor.a < 0.5) discard;"
+    "    finalColor = texelColor * colDiffuse * fragColor;"
+    "}";
+
+void Mobs_SpriteBatchBegin(Texture2D atlas) {
+    if (!spriteCutReady) {
+        spriteCutReady = true;
+        spriteCutShader = LoadShaderFromMemory(spriteCutVs, spriteCutFs);
+    }
+    BeginShaderMode(spriteCutShader);   /* flushes whatever batch was open */
+    rlDisableDepthMask();
+    rlBegin(RL_QUADS);                  /* begin first: rlBegin stamps the
+                                         * fresh record with the DEFAULT
+                                         * texture when it switches modes */
+    rlSetTexture(atlas.id);
+}
+
+void Mobs_SpriteBatchEnd(void) {
+    rlEnd();
+    rlDrawRenderBatchActive();
+    rlSetTexture(0);
+    rlEnableDepthMask();
+    EndShaderMode();
 }
 
 /* violet shell event: a shimmering dome parks over a nearby island and
@@ -1718,11 +1775,12 @@ void Mobs_Draw(void) {
     rlEnd();
     rlDrawRenderBatchActive();
 
-    /* v52: flora sprites - void mushrooms as textured crossed quads */
+    /* v52: flora sprites - void mushrooms as textured crossed quads.
+     * v59.6: sprite batch with alpha cutout (moth wings and pollen no
+     * longer erase geometry behind their transparent texels). */
     Texture2D atlas = World_GetTerrainTexture();
     if (atlas.id != 0) {
-        rlSetTexture(atlas.id);
-        rlBegin(RL_QUADS);
+        Mobs_SpriteBatchBegin(atlas);
         for (int i = 0; i < MUSH_MAX; i++) {
             Mushroom *m = &mushrooms[i];
             if (!m->active) continue;
@@ -1745,7 +1803,6 @@ void Mobs_Draw(void) {
         }
         Moth_Draw(now);        /* cone bodies + flapping wings */
         Moth_PollenDraw(now);  /* RGB-shift pollen, same atlas batch */
-        rlEnd();
-        rlDrawRenderBatchActive();
+        Mobs_SpriteBatchEnd();
     }
 }

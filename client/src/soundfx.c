@@ -322,6 +322,11 @@ typedef struct MusTrack {
     int   bellBars;           /* toll every N bars (0 = none) */
     float bellFreq;
     int   drone;              /* hold the first chord only */
+    /* v59.6: actual instruments - each station plays its own lead voice
+     * and pad family instead of one shared timbre */
+    int   leadVoice;          /* 0 soft, 1 lute pluck, 2 breath flute,
+                               * 3 choir, 4 glass bell */
+    int   padVoice;           /* 0 warm pad, 1 organ, 2 airy breath, 3 strings */
 } MusTrack;
 
 /* v59.4: a held root+fifth - the abyss does not chord, it breathes */
@@ -339,10 +344,12 @@ static const float motifChant[] = {
     NOTE_A4, NOTE_C5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, 0,
     NOTE_E4, NOTE_G4, NOTE_A4, NOTE_G4, NOTE_E4, NOTE_D4, NOTE_E4, 0
 };
-/* v59.2: "Wraith march" - a grim stepwise line over Dm - Bb - C - Dm */
-static const float motifWraith[] = {
-    NOTE_D4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_A4, NOTE_G4, NOTE_F4, NOTE_D4,
-    NOTE_C4, NOTE_D4, NOTE_F4, NOTE_E4, NOTE_D4, 0, NOTE_C4, 0
+/* v59.6: Dies irae - the 13th-century Gregorian plainchant opening
+ * (public domain), the most quoted doom motif in music; it leads the
+ * Wraith procession now */
+static const float motifDies[] = {
+    NOTE_F4, NOTE_E4, NOTE_F4, NOTE_D4,  NOTE_E4, NOTE_C4, NOTE_D4, NOTE_D4,
+    NOTE_F4, NOTE_E4, NOTE_F4, NOTE_D4,  NOTE_E4, NOTE_C4, NOTE_D4, 0
 };
 /* v59.2: "Frozen chapel" - the Andalusian lament (Am-G-F-E) answered by
  * a thin choir third */
@@ -368,14 +375,18 @@ static const float chordsChapel[] = {
 };
 
 static const MusTrack tracks[4] = {
-    /* 0 "Wanderer's march": firm dorian stride, plucked half-bar bass */
-    { chordsAm,     motifHomme,  16, NOTE_A2, 0, 3.8f, 2.0f, 0.50f, 5.5f, 0.24f, 0.30f, 0.20f, 1.0f, 0.20f, 4, 880.0f, 0 },
-    /* 1 "Abyss": one held fifth, sub swell, dark whispered chant */
-    { chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.36f, 0.0f, 0.30f, 0.10f, 0.09f, 0.5f, 0.10f, 2, 220.0f, 1 },
-    /* 2 "Wraith procession": quarter-note march bass, choir pad */
-    { chordsWraith, motifWraith, 16, NOTE_D2, 0, 4.6f, 4.0f, 0.40f, 7.5f, 0.22f, 0.45f, 0.18f, 1.0f, 0.15f, 3, 660.0f, 0 },
-    /* 3 "Frozen chapel": long lament, bright airy pad, icy high bells */
-    { chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.30f, 0.0f, 0.28f, 0.50f, 0.16f, 2.0f, 0.17f, 1, 1760.0f, 0 },
+    /* 0 "Wanderer's march": dorian stride, LUTE lead, warm pad.
+     * Quotes L'homme arme (15th c., public domain). */
+    { chordsAm,     motifHomme,  16, NOTE_A2, 0, 3.8f, 2.0f, 0.50f, 5.5f, 0.26f, 0.30f, 0.20f, 1.0f, 0.20f, 4, 880.0f, 0, 1, 0 },
+    /* 1 "Abyss": one held fifth over a breath drone, FLUTE lead.
+     * Chant-style stepwise line, whispered dynamics. */
+    { chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.40f, 0.0f, 0.32f, 0.10f, 0.11f, 0.5f, 0.10f, 2, 220.0f, 1, 2, 2 },
+    /* 2 "Wraith procession": quarter-note march, STRING pad, CHOIR lead.
+     * Quotes the Dies irae plainchant. */
+    { chordsWraith, motifDies,   16, NOTE_D2, 0, 4.6f, 4.0f, 0.42f, 7.5f, 0.24f, 0.45f, 0.19f, 1.0f, 0.15f, 3, 660.0f, 0, 3, 3 },
+    /* 3 "Frozen chapel": ORGAN pad, GLASS-BELL lead, icy tolling.
+     * The Andalusian lament (Am-G-F-E). */
+    { chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.34f, 0.0f, 0.30f, 0.50f, 0.18f, 2.0f, 0.17f, 1, 1760.0f, 0, 4, 1 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -400,8 +411,54 @@ static float musLp = 0.0f;
 /* per-voice continuous phases survive across callback calls */
 static float padPhase[3] = { 0, 0, 0 };
 static float padDet[3] = { 0, 0, 0 };
+static float padSawLp[3] = { 0, 0, 0 };
 static float bassPhase = 0.0f;
 static float melPhase = 0.0f;
+static float melPhaseB = 0.0f;   /* detuned partner voice (choir/airy) */
+
+/* v59.6: white noise for breathy timbres */
+static unsigned int musNSeed = 22221u;
+static float Mus_Noise(void) {
+    musNSeed = musNSeed * 1664525u + 1013904223u;
+    return (float)(musNSeed >> 8) / 8388608.0f - 1.0f;
+}
+
+/* v59.6: the lead instruments. `ph` is the base phase accumulated by the
+ * sampler; every voice keeps its own partner phases so timbres keep
+ * their character across notes and across stream callbacks. */
+static float Mus_LeadVoice(int voice, float freq, float ph, float env) {
+    static float vibPh = 0.0f, tremPh = 0.0f;
+    switch (voice) {
+        case 1: {   /* lute pluck: soft-rolled saw, decays like a string */
+            float saw = ph / 3.14159f - 1.0f;
+            static float plkLp = 0.0f;
+            plkLp += (saw - plkLp) * 0.30f;
+            return plkLp * env;
+        }
+        case 2: {   /* breath flute: sine + octave, vibrato, a whiff of air */
+            vibPh += 6.28318f * 4.7f / MUS_SR;
+            if (vibPh > 6.28318f) vibPh -= 6.28318f;
+            float wobble = 1.0f + 0.006f * sinf(vibPh);
+            float breathe = Mus_Noise() * 0.09f * env;
+            return (sinf(ph * wobble) + 0.22f * sinf(ph * 2.0f * wobble)) * env + breathe;
+        }
+        case 3: {   /* choir: two detuned voices + soft octave, slow swell */
+            melPhaseB += 6.28318f * freq * 1.0062f / MUS_SR;
+            if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
+            tremPh += 6.28318f * 0.45f / MUS_SR;
+            if (tremPh > 6.28318f) tremPh -= 6.28318f;
+            float swell = 0.75f + 0.25f * sinf(tremPh);
+            return (sinf(ph) + sinf(melPhaseB) + 0.45f * sinf(ph * 2.0f)) * env * swell / 1.45f;
+        }
+        case 4: {   /* glass bell: inharmonic partials, icy strike */
+            melPhaseB += 6.28318f * freq * 1.76f / MUS_SR;
+            if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
+            return (sinf(ph) + 0.55f * sinf(melPhaseB) + 0.30f * sinf(ph * 4.4f)) * env;
+        }
+        default:    /* soft woodwind-ish default */
+            return (sinf(ph) + 0.3f * sinf(ph * 2.0f)) * env;
+    }
+}
 
 static float Mus_NextSample(void) {
     const MusTrack *T = &tracks[musTrack];
@@ -409,12 +466,13 @@ static float Mus_NextSample(void) {
     unsigned int total = (unsigned int)(musSample / BAR);
     int chordIdx = T->drone ? 0 : (int)(total % 4);
     int barIn2 = (int)(total % 8);
-    /* v59.3: 8-bar boundary -> 70% chance to hand off, always elsewhere */
-    unsigned int cycle = (unsigned int)(musSample / (BAR * 8.0f));
+    /* v59.6: the station changes at every 4-bar pass (~15-30 s) - the
+     * hand-off was real but inaudible when all loops shared one timbre;
+     * now instruments differ per track, so the sweep is unmistakable */
+    unsigned int cycle = (unsigned int)(musSample / (BAR * 4.0f));
     if (cycle != musLastCycle) {
         musLastCycle = cycle;
-        if (cycle > 0 && (Mus_NextRand() % 100u) < 70u)
-            musTrack = Mus_PickDifferent();
+        if (cycle > 0) musTrack = Mus_PickDifferent();
     }
     float tInBar = (float)((double)musSample - (double)((unsigned long long)total * (unsigned long long)BAR)) / BAR; /* 0..1 */
 
@@ -427,9 +485,27 @@ static float Mus_NextSample(void) {
         if (ch[v] <= 0.0f) continue;
         padPhase[v] += 6.28318f * (ch[v] * (1.0f + padDet[v])) / MUS_SR;
         if (padPhase[v] > 6.28318f) padPhase[v] -= 6.28318f;
-        float s = sinf(padPhase[v]);
-        s += T->padHarm * sinf(padPhase[v] * 2.0f);
-        s += 0.18f * sinf(padPhase[v] * 3.002f);
+        float s;
+        switch (T->padVoice) {
+            case 1:   /* church organ: stacked octaves/fifths, steady */
+                s = sinf(padPhase[v]) + 0.60f * sinf(padPhase[v] * 2.0f) +
+                    0.30f * sinf(padPhase[v] * 3.001f) + 0.12f * sinf(padPhase[v] * 4.0f);
+                break;
+            case 2:   /* airy breath: detuned partner + a whisper of air */
+                s = sinf(padPhase[v]) + 0.45f * sinf(padPhase[v] * 1.007f) +
+                    Mus_Noise() * 0.14f;
+                break;
+            case 3: { /* strings: two rolled-off saws, slow bow */
+                float saw = padPhase[v] / 3.14159f - 1.0f;
+                padSawLp[v] += (saw - padSawLp[v]) * 0.16f;
+                s = padSawLp[v] + 0.4f * sinf(padPhase[v]);
+                break; }
+            default:  /* warm analog pad */
+                s = sinf(padPhase[v]);
+                s += T->padHarm * sinf(padPhase[v] * 2.0f);
+                s += 0.18f * sinf(padPhase[v] * 3.002f);
+                break;
+        }
         pad += s * (v == 0 ? 0.34f : 0.26f);
     }
     pad *= env * T->padGain;
@@ -473,8 +549,14 @@ static float Mus_NextSample(void) {
     xfadePos++;
     melPhase += 6.28318f * (curNote * T->leadOct) / MUS_SR;
     if (melPhase > 6.28318f) melPhase -= 6.28318f;
-    float mEnv = (1.0f - stepT * 0.35f) * T->leadGain;
-    mel = (sinf(melPhase) + 0.3f * sinf(melPhase * 2.0f)) * mEnv;
+    float mEnv;
+    if (T->leadVoice == 1)        /* pluck: strike then decay */
+        mEnv = (expf(-(float)xfadePos / (MUS_SR * 0.50f)) * 0.85f + 0.10f) * T->leadGain * 2.4f;
+    else if (T->leadVoice == 4)   /* bell: long icy decay */
+        mEnv = (expf(-(float)xfadePos / (MUS_SR * 1.60f)) * 0.80f + 0.08f) * T->leadGain * 2.0f;
+    else
+        mEnv = (1.0f - stepT * 0.35f) * T->leadGain;
+    mel = Mus_LeadVoice(T->leadVoice, curNote * T->leadOct, melPhase, mEnv);
 
     /* v59.4: a per-track bell toll - chapel ice, abyss tocsin */
     if (T->bellBars > 0 && total % (unsigned int)T->bellBars == 0 && tInBar < 0.30f) {
@@ -485,7 +567,7 @@ static float Mus_NextSample(void) {
     float mix = pad + bass + mel;
     /* one-pole lowpass, per-track brightness */
     musLp += (mix - musLp) * T->lpCoef;
-    float outv = musLp * 1.25f + mix * 0.4f;
+    float outv = musLp * 1.30f + mix * 0.55f;   /* v59.6: louder make-up */
 
     musSample++;
     return outv * musicVol;
@@ -501,8 +583,10 @@ static void MusicCallback(void *bufferData, unsigned int frames) {
         float v = Mus_NextSample();
         if (v > 0.95f) v = 0.95f;
         if (v < -0.95f) v = -0.95f;
-        d[i * 2] = (short)(v * 9000.0f);
-        d[i * 2 + 1] = (short)(v * 8200.0f);
+        /* v59.6: the mix sat far below the stream's headroom - nearly
+         * twice as loud now, with the existing soft clip as the guard */
+        d[i * 2] = (short)(v * 15500.0f);
+        d[i * 2 + 1] = (short)(v * 14200.0f);
     }
 }
 

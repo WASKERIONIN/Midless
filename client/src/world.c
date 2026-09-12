@@ -726,12 +726,14 @@ void World_DrawWireAuras(void) {
         if (chunk->floraCount > 0) {
             Texture2D atlas = World_GetTerrainTexture();
             if (atlas.id != 0) {
-                rlSetTexture(atlas.id);
-                rlDisableDepthMask();
+                /* v59.6: shared sprite batch - the alpha-cutout shader
+                 * keeps flower quads from punching holes into anything
+                 * drawn after them (the "flowers vanish in the distance"
+                 * artifact when you looked through a bloom's quad). */
+                Mobs_SpriteBatchBegin(atlas);
                 for (int s = 0; s < chunk->floraCount; s++)
                     World_FloraBillboardAt(chunk->floraPos[s], chunk->floraBlock[s]);
-                rlEnableDepthMask();
-                rlSetTexture(0);
+                Mobs_SpriteBatchEnd();
             }
         }
     }
