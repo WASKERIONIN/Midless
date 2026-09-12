@@ -649,6 +649,27 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
 }
 
 /* v57: per-block billboard silhouette - halfW + full height */
+/* v59: a little skirt of grass at the stem base - flowers stop looking
+ * stabbed into the dirt; several blades around the perimeter with varied
+ * height and phase so they never read as a flat decal */
+static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
+                             float t, float gust, float phase) {
+    const float offs[5][2] = { { 0, 0 }, { 0.16f, 0.13f }, { -0.15f, 0.14f },
+                               { 0.14f, -0.16f }, { -0.13f, -0.15f } };
+    for (int i = 0; i < 5; i++) {
+        Vector3 at = { base.x + offs[i][0], base.y, base.z + offs[i][1] };
+        float hMul = (i == 0) ? 1.0f : (0.72f + 0.20f * ((float)(((i * 37) % 5)) / 5.0f));
+        float amp = 0.075f * gust;
+        float lean = amp * sinf(t * 2.1f + phase + i * 1.7f);
+        Mobs_DrawBillboard(at, 0.24f * scale, 0.21f * scale * hMul, 39, bright, lean);
+        /* the taller sedge layers over the tuft on the ring blades */
+        if (i > 0) {
+            float sh = 0.30f * scale * (0.85f + 0.25f * ((float)((i * 53) % 4) / 4.0f));
+            Mobs_DrawBillboard(at, 0.22f * scale, sh, 41, bright, lean * 1.15f);
+        }
+    }
+}
+
 static void World_FloraBillboardAt(Vector3 base, int id) {
     float halfW = 0.30f, h = 0.60f, swayAmp = 0.045f;
     switch (id) {
@@ -662,7 +683,8 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 33: halfW = 0.36f; h = 0.68f; swayAmp = 0.05f; break;   /* lanternberry */
         case 37: halfW = 0.55f; h = 1.90f; swayAmp = 0.13f; break;   /* star reed - tall, sways most */
         case 38: halfW = 0.70f; h = 1.70f; swayAmp = 0.09f; break;   /* moon bell */
-        case 39: halfW = 0.36f; h = 0.21f; swayAmp = 0.085f; break;  /* v58: void tuft - 1/3 block */
+        case 39: halfW = 0.36f; h = 0.21f; swayAmp = 0.085f; break;  /* void tuft */
+        case 41: halfW = 0.34f; h = 0.30f; swayAmp = 0.09f; break;   /* sedge */
         default: return;
     }
     float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });
@@ -672,7 +694,15 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     float phase = base.x * 3.17f + base.z * 2.29f;
     float gust = 0.55f + 0.45f * sinf(t * 0.35f + base.z * 0.08f);   /* slow gust front */
     float lean = swayAmp * gust * sinf(t * 1.9f + phase);
+    /* v59: grass under everything that blooms (tuft/sedge are grass already) */
+    if (id != 39 && id != 41 && id != 32) World_GrassSkirt(base, id >= 37 ? 1.6f : 1.0f, bright, t, gust, phase);
     Mobs_DrawBillboard(base, halfW, h, id, bright, lean);
+    if (id == 39) {
+        /* v59: a taller sedge strand beside every tuft, its own phase */
+        Vector3 at = { base.x + 0.14f, base.y, base.z - 0.11f };
+        Mobs_DrawBillboard(at, 0.20f, 0.32f, 41, bright,
+                           0.085f * gust * sinf(t * 2.3f + phase + 1.3f));
+    }
 }
 
 void World_DrawWireAuras(void) {

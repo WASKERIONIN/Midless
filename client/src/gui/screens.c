@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string.h>
 #include "raylib.h"
+#include "i18n.h"
 #include "raygui.h"
 #include "screens.h"
 #include "chat.h"
@@ -71,11 +72,11 @@ static bool CosmicButton(Rectangle bounds, const char *label, bool enabled) {
         !enabled ? (Color){ 90, 92, 120, 150 } :
         hover   ? (Color){ 96, 255, 214, 255 } : (Color){ 94, 231, 255, 110 });
     int fs = 18;
-    int tw = MeasureText(label, fs);
+    int tw = I18n_MeasureText(label, fs);
     Color tc = !enabled ? (Color){ 125, 125, 150, 255 }
              : hover   ? (Color){ 225, 255, 250, 255 }
                        : (Color){ 170, 235, 225, 255 };
-    DrawText(label, (int)(bounds.x + bounds.width / 2.0f - tw / 2.0f),
+    I18n_DrawText(label, (int)(bounds.x + bounds.width / 2.0f - tw / 2.0f),
              (int)(bounds.y + bounds.height / 2.0f - fs / 2.0f), fs, tc);
     return hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 }
@@ -294,26 +295,26 @@ void Screen_DrawGame(void) {
         }
     
         const char* versionText = "Midless Cosmic Edition";
-        DrawText(versionText, 9, 9, 20, BLACK);
-        DrawText(versionText, 8, 8, 20, WHITE);
+        I18n_DrawText(versionText, 9, 9, 20, BLACK);
+        I18n_DrawText(versionText, 8, 8, 20, WHITE);
 
-        DrawText(debugText, 9, 29, 20, BLACK);
-        DrawText(coordText, 9, 49, 20, BLACK);
-        DrawText(debugText, 8, 28, 20, WHITE);
-        DrawText(coordText, 8, 48, 20, WHITE);
+        I18n_DrawText(debugText, 9, 29, 20, BLACK);
+        I18n_DrawText(coordText, 9, 49, 20, BLACK);
+        I18n_DrawText(debugText, 8, 28, 20, WHITE);
+        I18n_DrawText(coordText, 8, 48, 20, WHITE);
 
         int birds = 0, fly = 0, sit = 0, peck = 0;
         Bird_GetStats(&birds, &fly, &sit, &peck);
         const char *birdText = TextFormat("Finches: %i fly:%i sit:%i peck:%i", birds, fly, sit, peck);
-        DrawText(birdText, 9, 69, 20, BLACK);
-        DrawText(birdText, 8, 68, 20, (Color){168, 216, 255, 255});
+        I18n_DrawText(birdText, 9, 69, 20, BLACK);
+        I18n_DrawText(birdText, 8, 68, 20, (Color){168, 216, 255, 255});
     }
 
     if (player.flying) {
         const char *flyText = "FLY MODE  Tab to walk  Space/Shift up/down";
-        int flyX = screenWidth / 2 - MeasureText(flyText, 16) / 2;
-        DrawText(flyText, flyX + 1, 9, 16, BLACK);
-        DrawText(flyText, flyX, 8, 16, (Color){94, 231, 255, 255});
+        int flyX = screenWidth / 2 - I18n_MeasureText(flyText, 16) / 2;
+        I18n_DrawText(flyText, flyX + 1, 9, 16, BLACK);
+        I18n_DrawText(flyText, flyX, 8, 16, (Color){94, 231, 255, 255});
     } else if (currentScreen == SCREEN_GAME) {
         /* v44 traversal hints with dash cooldown */
         double dashLeft = player.dashReadyTime - GetTime();
@@ -333,10 +334,10 @@ void Screen_DrawGame(void) {
             moveText = TextFormat("%s F web   SPACE x2 jump   glide   SHIFT dash x%d   I - SATCHEL", weaponTag, dashCharges);
         else
             moveText = TextFormat("%s dash recharges %.1f   I - SATCHEL", weaponTag, dashLeft);
-        int mvX = screenWidth / 2 - MeasureText(moveText, 16) / 2;
+        int mvX = screenWidth / 2 - I18n_MeasureText(moveText, 16) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
-        DrawText(moveText, mvX + 1, 9, 16, BLACK);
-        DrawText(moveText, mvX, 8, 16, mvCol);
+        I18n_DrawText(moveText, mvX + 1, 9, 16, BLACK);
+        I18n_DrawText(moveText, mvX, 8, 16, mvCol);
     }
 
     /* v45: vitals HUD - wireframe diamond pips + hunter bounty */
@@ -360,16 +361,16 @@ void Screen_DrawGame(void) {
             }
         }
         const char *bountyText = TextFormat("VOID HUNTERS FELLED: %d", Hunter_GetBounty());
-        DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
-        DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
+        I18n_DrawText(bountyText, bx + 1, by + 17, 14, BLACK);
+        I18n_DrawText(bountyText, bx, by + 16, 14, (Color){200, 160, 255, 220});
 
         /* v48: shard counter with a tiny wireframe diamond */
         int shards = Player_GetShards();
         const char *shardText = TextFormat("VOID SHARDS: %d", shards);
         int sy = by + 34;
         Color shardCol = shards > 0 ? (Color){96, 255, 214, 255} : (Color){120, 120, 140, 220};
-        DrawText(shardText, bx + 1, sy + 1, 14, BLACK);
-        DrawText(shardText, bx, sy, 14, shardCol);
+        I18n_DrawText(shardText, bx + 1, sy + 1, 14, BLACK);
+        I18n_DrawText(shardText, bx, sy, 14, shardCol);
         Color dEdge = shardCol;
         DrawLine(bx + 128, sy + 3, bx + 132, sy + 7, dEdge);
         DrawLine(bx + 132, sy + 7, bx + 128, sy + 11, dEdge);
@@ -382,14 +383,14 @@ void Screen_DrawGame(void) {
         if (Hunter_GetSurgeTimeLeft() > 0.0f) {
             float pulse = 0.75f + 0.25f * sinf(GetTime() * 6.0f);
             const char *tideText = TextFormat("VOID TIDE  %.0f", Hunter_GetSurgeTimeLeft());
-            int tx = screenWidth / 2 - MeasureText(tideText, 28) / 2;
-            DrawText(tideText, tx + 2, 44, 28, BLACK);
-            DrawText(tideText, tx, 42, 28, (Color){255, 90, 120, (unsigned char)(255.0f * pulse)});
+            int tx = screenWidth / 2 - I18n_MeasureText(tideText, 28) / 2;
+            I18n_DrawText(tideText, tx + 2, 44, 28, BLACK);
+            I18n_DrawText(tideText, tx, 42, 28, (Color){255, 90, 120, (unsigned char)(255.0f * pulse)});
         } else if (tideIncoming > 0.0) {
             const char *warnText = TextFormat("THE VOID STIRS - TIDE IN %.0f", tideIncoming);
-            int wx = screenWidth / 2 - MeasureText(warnText, 20) / 2;
-            DrawText(warnText, wx + 1, 45, 20, BLACK);
-            DrawText(warnText, wx, 44, 20, (Color){255, 190, 110, 230});
+            int wx = screenWidth / 2 - I18n_MeasureText(warnText, 20) / 2;
+            I18n_DrawText(warnText, wx + 1, 45, 20, BLACK);
+            I18n_DrawText(warnText, wx, 44, 20, (Color){255, 190, 110, 230});
         }
 
         /* hurt flash */
@@ -411,15 +412,15 @@ void Screen_DrawGame(void) {
             DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 752, 480 });
 
             const char *title = "WARP CORE FORGE";
-            DrawText(title, mx + 2, my + 3, 28, BLACK);
-            DrawText(title, mx, my, 28, (Color){ 96, 255, 214, 255 });
+            I18n_DrawText(title, mx + 2, my + 3, 28, BLACK);
+            I18n_DrawText(title, mx, my, 28, (Color){ 96, 255, 214, 255 });
             DrawLineEx((Vector2){ (float)mx, (float)my + 40 }, (Vector2){ (float)(mx + 720), (float)my + 40 },
                        1, (Color){ 94, 231, 255, 60 });
 
             /* shard chip, top right */
             CosmicTileIcon(World_GetTerrainTexture(), 35, mx + 620, my + 8, 28);
             const char *shardLine = TextFormat("x %d", Player_GetShards());
-            DrawText(shardLine, mx + 654, my + 14, 20, (Color){ 200, 160, 255, 255 });
+            I18n_DrawText(shardLine, mx + 654, my + 14, 20, (Color){ 200, 160, 255, 255 });
 
             int rl = Player_GetLaserRangeLvl();
             int lv = Player_GetLaserRateLvl();
@@ -488,9 +489,9 @@ void Screen_DrawGame(void) {
                 }
 
                 /* name + effect */
-                DrawText(cards[c].name, mx + 104, cy + 2, 22, maxed ? (Color){ 120, 190, 170, 255 }
+                I18n_DrawText(cards[c].name, mx + 104, cy + 2, 22, maxed ? (Color){ 120, 190, 170, 255 }
                                                                      : (Color){ 225, 245, 255, 255 });
-                DrawText(cards[c].effect, mx + 104, cy + 30, 14, (Color){ 165, 165, 190, 255 });
+                I18n_DrawText(cards[c].effect, mx + 104, cy + 30, 14, (Color){ 165, 165, 190, 255 });
 
                 /* buy button */
                 if (maxed) {
@@ -510,7 +511,7 @@ void Screen_DrawGame(void) {
             }
 
             const char *hint = "B / ESC - close      falling or dying burns out one upgrade";
-            DrawText(hint, mx, my + 442, 14, (Color){ 150, 150, 175, 255 });
+            I18n_DrawText(hint, mx, my + 442, 14, (Color){ 150, 150, 175, 255 });
         }
     }
 
@@ -525,8 +526,8 @@ void Screen_DrawGame(void) {
             DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 736, 404 });
 
             const char *title = "VOID SATCHEL";
-            DrawText(title, mx + 2, my + 3, 26, BLACK);
-            DrawText(title, mx, my, 26, (Color){ 96, 255, 214, 255 });
+            I18n_DrawText(title, mx + 2, my + 3, 26, BLACK);
+            I18n_DrawText(title, mx, my, 26, (Color){ 96, 255, 214, 255 });
 
             Texture2D atlas = World_GetTerrainTexture();
 
@@ -546,9 +547,9 @@ void Screen_DrawGame(void) {
                 if (items[i].tile >= 0) {
                     CosmicTileIcon(atlas, items[i].tile, cx + 10, cy + 8, 52);
                     const char *cnt = TextFormat("%d", items[i].count);
-                    int w = MeasureText(cnt, 18);
-                    DrawText(cnt, cx + cell - w - 6 + 1, cy + cell - 22 + 1, 18, BLACK);
-                    DrawText(cnt, cx + cell - w - 6, cy + cell - 22, 18, (Color){ 255, 240, 200, 255 });
+                    int w = I18n_MeasureText(cnt, 18);
+                    I18n_DrawText(cnt, cx + cell - w - 6 + 1, cy + cell - 22 + 1, 18, BLACK);
+                    I18n_DrawText(cnt, cx + cell - w - 6, cy + cell - 22, 18, (Color){ 255, 240, 200, 255 });
                     /* v58: click an item to pin it to a quick slot */
                     if (satchelPick == items[i].tile)
                         DrawRectangleLinesEx((Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell }, 2,
@@ -560,7 +561,7 @@ void Screen_DrawGame(void) {
                     }
                 }
             }
-            DrawText("carried", gx + 2, gy + 2 * cell + gap + 8, 14, (Color){ 130, 130, 160, 255 });
+            I18n_DrawText("carried", gx + 2, gy + 2 * cell + gap + 8, 14, (Color){ 130, 130, 160, 255 });
 
             /* ---- details (right side) ---- */
             int sx = gx + 4 * (cell + gap) + 26;
@@ -568,7 +569,7 @@ void Screen_DrawGame(void) {
                        (Vector2){ (float)(sx - 14), (float)gy + 2 * cell + gap + 2 }, 1,
                        (Color){ 94, 231, 255, 45 });
 
-            DrawText("LASER FORGE", sx, gy - 4, 15, (Color){ 120, 190, 175, 255 });
+            I18n_DrawText("LASER FORGE", sx, gy - 4, 15, (Color){ 120, 190, 175, 255 });
             struct { const char *name; int lvl; } ups[5] = {
                 { "LENS", Player_GetLaserRangeLvl() },
                 { "COIL", Player_GetLaserRateLvl() },
@@ -578,30 +579,30 @@ void Screen_DrawGame(void) {
             };
             for (int u = 0; u < 5; u++) {
                 int uy = gy + 20 + u * 34;
-                DrawText(ups[u].name, sx, uy + 2, 17, ups[u].lvl >= 3 ? (Color){ 120, 190, 170, 255 }
+                I18n_DrawText(ups[u].name, sx, uy + 2, 17, ups[u].lvl >= 3 ? (Color){ 120, 190, 170, 255 }
                                                                       : (Color){ 225, 245, 255, 255 });
                 CosmicPips(sx + 90, uy + 6, ups[u].lvl);
                 const char *lv = TextFormat("%d/3", ups[u].lvl);
-                DrawText(lv, sx + 172, uy + 2, 15, (Color){ 150, 150, 180, 255 });
+                I18n_DrawText(lv, sx + 172, uy + 2, 15, (Color){ 150, 150, 180, 255 });
             }
-            DrawText("forge at warp cores - B, 5 shards each", sx, gy + 192, 14, (Color){ 140, 140, 165, 255 });
+            I18n_DrawText("forge at warp cores - B, 5 shards each", sx, gy + 192, 14, (Color){ 140, 140, 165, 255 });
 
             DrawLineEx((Vector2){ (float)sx, (float)gy + 214 }, (Vector2){ (float)(sx + 270), (float)gy + 214 }, 1,
                        (Color){ 94, 231, 255, 45 });
-            DrawText("FIELD LOG", sx, gy + 224, 15, (Color){ 120, 190, 175, 255 });
+            I18n_DrawText("FIELD LOG", sx, gy + 224, 15, (Color){ 120, 190, 175, 255 });
             const char *log1 = TextFormat("Hunters felled: %d", Hunter_GetBounty());
-            DrawText(log1, sx, gy + 246, 16, (Color){ 255, 200, 120, 255 });
+            I18n_DrawText(log1, sx, gy + 246, 16, (Color){ 255, 200, 120, 255 });
             const char *log2 = TextFormat("Nearby: %d crawlers, %d wisps, %d spiders",
                                           Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
-            DrawText(log2, sx, gy + 270, 16, (Color){ 255, 140, 160, 255 });
+            I18n_DrawText(log2, sx, gy + 270, 16, (Color){ 255, 140, 160, 255 });
 
             /* footer */
             int fy = my + 352;
-            DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
+            I18n_DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
                      mx + 24, fy, 15, (Color){ 170, 170, 195, 255 });
-            DrawText("Click an item, then a slot below to pin it to 1-4.",
+            I18n_DrawText("Click an item, then a slot below to pin it to 1-4.",
                      mx + 24, fy + 20, 14, (Color){ 170, 200, 190, 255 });
-            DrawText("I / ESC - close", mx + 24, fy + 38, 14, (Color){ 140, 140, 165, 255 });
+            I18n_DrawText("I / ESC - close", mx + 24, fy + 38, 14, (Color){ 140, 140, 165, 255 });
         }
     }
 
@@ -636,13 +637,13 @@ void Screen_DrawGame(void) {
                 CosmicTileIcon(atlasHb, item, cx + 8, hy + 6, 40);
                 int cnt = (item == 27) ? Mobs_GetMushrooms() : (item == 40 ? Player_GetScrollCount() : 0);
                 const char *cntS = TextFormat("%d", cnt);
-                int tw = MeasureText(cntS, 15);
-                DrawText(cntS, cx + hbSize - tw - 5 + 1, hy + hbSize - 19 + 1, 15, BLACK);
-                DrawText(cntS, cx + hbSize - tw - 5, hy + hbSize - 19, 15, (Color){ 255, 240, 200, 255 });
+                int tw = I18n_MeasureText(cntS, 15);
+                I18n_DrawText(cntS, cx + hbSize - tw - 5 + 1, hy + hbSize - 19 + 1, 15, BLACK);
+                I18n_DrawText(cntS, cx + hbSize - tw - 5, hy + hbSize - 19, 15, (Color){ 255, 240, 200, 255 });
             }
             const char *num = TextFormat("%d", i + 1);
-            DrawText(num, cx + 4 + 1, hy + 3 + 1, 13, BLACK);
-            DrawText(num, cx + 4, hy + 3, 13, (Color){ 160, 235, 220, 220 });
+            I18n_DrawText(num, cx + 4 + 1, hy + 3 + 1, 13, BLACK);
+            I18n_DrawText(num, cx + 4, hy + 3, 13, (Color){ 160, 235, 220, 220 });
         }
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mp = GetMousePosition();
@@ -665,8 +666,8 @@ void Screen_DrawGame(void) {
         DrawCircleLines(screenWidth / 2, screenHeight / 2, 15, (Color){ 64, 224, 208, 220 });
         DrawCircleLines(screenWidth / 2, screenHeight / 2, 18, (Color){ 64, 224, 208, 90 });
         const char *gz = TextFormat("gaze true: %ds", (int)(Player_GetGazeTimeLeft() + 0.9));
-        DrawText(gz, screenWidth / 2 - MeasureText(gz, 15) / 2 + 1, 9 + 1, 15, BLACK);
-        DrawText(gz, screenWidth / 2 - MeasureText(gz, 15) / 2, 9, 15, (Color){ 120, 255, 235, 255 });
+        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 15) / 2 + 1, 9 + 1, 15, BLACK);
+        I18n_DrawText(gz, screenWidth / 2 - I18n_MeasureText(gz, 15) / 2, 9, 15, (Color){ 120, 255, 235, 255 });
     }
 
     //Draw Chat
@@ -697,8 +698,8 @@ void Screen_DrawPause(void) {
     DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(52 + 5 * 52 + 14)});
 
     const char *ptitle = "PAUSED";
-    DrawText(ptitle, offsetX + 165 - MeasureText(ptitle, 26) / 2 + 1, offsetY + 8 + 1, 26, BLACK);
-    DrawText(ptitle, offsetX + 165 - MeasureText(ptitle, 26) / 2, offsetY + 8, 26, (Color){ 96, 255, 214, 255 });
+    I18n_DrawText(ptitle, offsetX + 165 - I18n_MeasureText(ptitle, 26) / 2 + 1, offsetY + 8 + 1, 26, BLACK);
+    I18n_DrawText(ptitle, offsetX + 165 - I18n_MeasureText(ptitle, 26) / 2, offsetY + 8, 26, (Color){ 96, 255, 214, 255 });
 
     int index = 1;   /* row 0 is the title */
 
@@ -760,18 +761,18 @@ void Screen_DrawOptions(void) {
     /* v55: options at a readable size */
     int offsetY = screenHeight / 2 - 196;
     int offsetX = screenWidth / 2 - 150;
-    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 8 * 50 + 10)});
+    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 10 * 50 + 10)});
 
     const char *otitle = "OPTIONS";
-    DrawText(otitle, offsetX + 150 - MeasureText(otitle, 24) / 2 + 1, offsetY + 6 + 1, 24, BLACK);
-    DrawText(otitle, offsetX + 150 - MeasureText(otitle, 24) / 2, offsetY + 6, 24, (Color){ 96, 255, 214, 255 });
+    I18n_DrawText(otitle, offsetX + 150 - I18n_MeasureText(otitle, 24) / 2 + 1, offsetY + 6 + 1, 24, BLACK);
+    I18n_DrawText(otitle, offsetX + 150 - I18n_MeasureText(otitle, 24) / 2, offsetY + 6, 24, (Color){ 96, 255, 214, 255 });
 
     int index = 1;
     offsetY += index * 48;
 
     const char* drawDistanceTxt = "Draw Distance: 20 (fixed)";
-    DrawText(drawDistanceTxt, offsetX + 150 - MeasureText(drawDistanceTxt, 16) / 2 + 1, offsetY + 13 + 1, 16, BLACK);
-    DrawText(drawDistanceTxt, offsetX + 150 - MeasureText(drawDistanceTxt, 16) / 2, offsetY + 13, 16, (Color){ 200, 200, 220, 255 });
+    I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2 + 1, offsetY + 13 + 1, 16, BLACK);
+    I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2, offsetY + 13, 16, (Color){ 200, 200, 220, 255 });
 
     offsetY += 50;
 
@@ -829,11 +830,31 @@ void Screen_DrawOptions(void) {
 
     offsetY += 50;
 
+    /* v59: dungeon-synth radio */
+    const char *muTxt = gameSettings.music ? "Music: ON" : "Music: OFF";
+    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, muTxt, true)) {
+        gameSettings.music = !gameSettings.music;
+        SoundFx_SetMusicEnabled(gameSettings.music != 0);
+        Settings_Save();
+    }
+
+    offsetY += 50;
+
+    /* v59: language */
+    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42},
+                     TextFormat("Language: %s", I18n_LangLabel(I18n_GetLanguage())), true)) {
+        I18n_SetLanguage((I18n_GetLanguage() + 1) % LANG_COUNT);
+        gameSettings.language = I18n_GetLanguage();
+        Settings_Save();
+    }
+
+    offsetY += 50;
+
     float vol = SoundFx_GetVolume();
     GuiSlider((Rectangle){offsetX, offsetY, 300, 38}, "", "", &vol, 0.0f, 1.0f);
     const char *volTxt = TextFormat("Volume: %i%%", (int)(vol * 100.0f + 0.5f));
-    DrawText(volTxt, offsetX + 150 - MeasureText(volTxt, 16) / 2 + 1, offsetY + 42 + 1, 16, BLACK);
-    DrawText(volTxt, offsetX + 150 - MeasureText(volTxt, 16) / 2, offsetY + 42, 16, (Color){ 200, 200, 220, 255 });
+    I18n_DrawText(volTxt, offsetX + 150 - I18n_MeasureText(volTxt, 16) / 2 + 1, offsetY + 42 + 1, 16, BLACK);
+    I18n_DrawText(volTxt, offsetX + 150 - I18n_MeasureText(volTxt, 16) / 2, offsetY + 42, 16, (Color){ 200, 200, 220, 255 });
     if (fabsf(vol - SoundFx_GetVolume()) > 0.001f) {
         SoundFx_SetVolume(vol);
         gameSettings.volume = (int)(vol * 100.0f + 0.5f);
@@ -850,7 +871,7 @@ void Screen_DrawOptions(void) {
 
 void Screen_DrawJoining(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-    DrawText("Joining Server...", screenWidth / 2 - 80, screenHeight / 2 - 30, 20, WHITE);
+    I18n_DrawText("Joining Server...", screenWidth / 2 - 80, screenHeight / 2 - 30, 20, WHITE);
 }
 
 char nameInput[16] = "Player";
@@ -876,17 +897,17 @@ void Screen_DrawLogin(void) {
     /* glow layering under the title */
     for (int layer = 3; layer >= 1; layer--) {
         Color glow = (Color){150, 40, 220, (unsigned char)(26 * layer + 8 * pulse * layer)};
-        DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120 + layer, 80, glow);
+        I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2), offsetY - 120 + layer, 80, glow);
     }
-    DrawText(title, offsetX - (MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
-    DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
-    DrawText(subtitle, offsetX - (MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
+    I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
+    I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
+    I18n_DrawText(subtitle, offsetX - (I18n_MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
 
     const char *hint = "WASD move - Space jump - Tab fly - M map - T chat - F5 camera";
-    DrawText(hint, offsetX - MeasureText(hint, 12) / 2, screenHeight - 26, 12,
+    I18n_DrawText(hint, offsetX - I18n_MeasureText(hint, 12) / 2, screenHeight - 26, 12,
              (Color){150, 160, 200, 200});
     const char *tag = "floating islands - starlit void - the sun is a black hole";
-    DrawText(tag, offsetX - MeasureText(tag, 12) / 2, screenHeight - 44, 12,
+    I18n_DrawText(tag, offsetX - I18n_MeasureText(tag, 12) / 2, screenHeight - 44, 12,
              (Color){190, 120, 230, 180});
 
     //Name Input
@@ -958,8 +979,8 @@ void Screen_DrawLoading(void) {
     if (loadingFailed) {
         const char *err = "Could not start the world.";
         const char *hint = "Delete the 'world' folder next to game.exe, then try again.";
-        DrawText(err, screenWidth / 2 - MeasureText(err, 20) / 2, screenHeight / 2 - 30, 20, WHITE);
-        DrawText(hint, screenWidth / 2 - MeasureText(hint, 16) / 2, screenHeight / 2 + 8, 16,
+        I18n_DrawText(err, screenWidth / 2 - I18n_MeasureText(err, 20) / 2, screenHeight / 2 - 30, 20, WHITE);
+        I18n_DrawText(hint, screenWidth / 2 - I18n_MeasureText(hint, 16) / 2, screenHeight / 2 + 8, 16,
                  (Color){180, 180, 200, 255});
         if (MenuButton((Rectangle){screenWidth / 2 - 80, screenHeight / 2 + 50, 160, 30}, "Back")) {
             loadingStarted = false;
@@ -970,8 +991,8 @@ void Screen_DrawLoading(void) {
         return;
     }
 
-    DrawText("Loading World...", screenWidth / 2 - 90, screenHeight / 2, 20, WHITE);
-    DrawText("ESC to cancel", screenWidth / 2 - 70, screenHeight / 2 + 28, 16,
+    I18n_DrawText("Loading World...", screenWidth / 2 - 90, screenHeight / 2, 20, WHITE);
+    I18n_DrawText("ESC to cancel", screenWidth / 2 - 70, screenHeight / 2 + 28, 16,
              (Color){160, 160, 180, 255});
 }
 

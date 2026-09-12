@@ -86,6 +86,8 @@ jobs:
           [ -f "$dll" ] && cp "$dll" "$OUT/" && echo "  $(basename $dll)"
         done
 
+        mkdir -p "$OUT/fonts"
+        cp client/fonts/*.ttf "$OUT/fonts/"
         if [ -d client/textures ]; then
           cp client/textures/*.png "$OUT/textures/"
         fi

@@ -17,6 +17,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "player.h"
+#include "i18n.h"
 #include "world.h"
 #include "resource.h"
 #include "textures.h"
@@ -96,6 +97,7 @@ int main(void) {
     Bird_Init();
     Hunter_Init();
     Mobs_Init();
+    I18n_SetLanguage(gameSettings.language);   /* v59: loads the UTF-8 font once */
     Player_LoadProgress();
     
     bool exitProgram = false;
@@ -220,7 +222,8 @@ void Game_RunLoop(void) {
                     blockSize = Vector3Scale(blockSize, 1.0f / 16);
                     selectionBoxPos = Vector3Add(selectionBoxPos,
                         Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
-                    DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+                    /* v59: wireframe outline - the old 40-alpha white cube read as a solid bar */
+                    DrawCubeWires(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 180});
                 }
             EndMode3D();
 

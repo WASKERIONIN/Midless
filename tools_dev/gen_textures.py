@@ -620,6 +620,115 @@ def t_void_shard(index):
     return img
 
 
+def t_sedge(index):
+    """v59: thin sedge blades - wispy strands sticking in different
+    directions, slightly taller than the tuft; layered over it."""
+    img = blank_tile()
+    px = img.load()
+    D = (30, 104, 88)
+    M = (62, 168, 128)
+    L = (120, 226, 176)
+    H = (188, 255, 214)
+    strands = [
+        (8, 15, 12, 1, L), (7, 15, 3, 2, M), (8, 15, 10, 0, M),
+        (6, 15, 1, 5, D), (9, 15, 14, 4, D), (7, 15, 5, 1, L),
+        (8, 15, 7, 2, H), (6, 15, 8, 3, M), (9, 15, 13, 1, L),
+    ]
+    for x0, y0, x1, ytop, col in strands:
+        steps = y0 - ytop
+        for s in range(steps + 1):
+            xx = x0 + (x1 - x0) * s // max(steps, 1)
+            yy = y0 - s
+            px[xx, yy] = col
+    px[2, 4] = H
+    px[13, 3] = H
+    return img
+
+
+def t_moth(index):
+    """v59: glowmoth sprite - teal wings with magenta eyespots, tiny body,
+    faint trailing shimmer; drawn as a small billboard."""
+    img = blank_tile()
+    px = img.load()
+    WING = (64, 224, 208)
+    WING_D = (30, 150, 150)
+    SPOT = (255, 110, 240)
+    BODY = (240, 250, 240)
+    # upper wings
+    for x in range(3, 7):
+        px[x, 5] = WING
+        px[16 - x, 5] = WING
+    for x in range(2, 8):
+        px[x, 6] = WING if 3 <= x <= 6 else WING_D
+        px[15 - x, 6] = WING if 3 <= x <= 6 else WING_D
+    # lower wings
+    for x in range(3, 8):
+        px[x, 7] = WING_D
+        px[15 - x, 7] = WING_D
+    for x in range(4, 7):
+        px[x, 8] = WING_D
+        px[15 - x, 8] = WING_D
+    # eyespots
+    px[4, 6] = SPOT
+    px[11, 6] = SPOT
+    # body
+    px[7, 5] = BODY
+    px[8, 5] = BODY
+    px[7, 6] = BODY
+    px[8, 6] = BODY
+    px[7, 7] = BODY
+    px[8, 7] = BODY
+    px[7, 8] = (200, 215, 205)
+    px[8, 8] = (200, 215, 205)
+    # antennae
+    px[6, 4] = BODY
+    px[9, 4] = BODY
+    px[5, 3] = (220, 255, 250)
+    px[10, 3] = (220, 255, 250)
+    # glow dust around
+    px[2, 9] = (150, 255, 235)
+    px[13, 9] = (150, 255, 235)
+    px[12, 4] = (255, 160, 245)
+    px[3, 4] = (255, 160, 245)
+    return img
+
+
+def t_cloud(index):
+    """v59: cloud shell texture - puffy violet-grey billows with pale tops
+    and teal glints, fully opaque (the terrain shader discards a<0.5)."""
+    img = Image.new("RGBA", (TILE, TILE), (58, 42, 96, 255))
+    px = img.load()
+    rnd = rng(index * 977 + 41)
+    DARK = (58, 42, 96)
+    MID = (92, 70, 140)
+    LIT = (138, 112, 186)
+    PALE = (188, 168, 226)
+    TOP = (222, 208, 246)
+    GLOW = (120, 235, 220)
+    # periodic puff field: two sine octaves give seamless wrapping
+    for y in range(TILE):
+        for x in range(TILE):
+            fx, fy = x / TILE, y / TILE
+            v = (__import__("math").sin(6.2832 * (fx * 2.0 + fy * 1.0)) * 0.5 +
+                 __import__("math").sin(6.2832 * (fx * 1.0 - fy * 2.0) + 1.7) * 0.5 +
+                 __import__("math").sin(6.2832 * (fx * 3.0 + fy * 2.0) + 3.9) * 0.35)
+            c = MID
+            if v > 0.55:
+                c = PALE if v > 0.85 else LIT
+            elif v < -0.55:
+                c = DARK
+            px[x, y] = c
+    # bright tops: light comes from above
+    for x in range(TILE):
+        for y in range(TILE):
+            if y < 4 and px[x, y][0] > 80:
+                px[x, y] = TOP if y < 2 else PALE
+    # teal glints
+    for _ in range(10):
+        gx, gy = rnd.randint(0, 15), rnd.randint(0, 15)
+        px[gx, gy] = GLOW
+    return img
+
 def t_void_tuft(index):
     """v58: short grass tuft - dense teal-green blades anchored to the
     ground; the billboard is only a third of a block tall."""
@@ -949,6 +1058,9 @@ def build_atlas():
         38: t_moon_bell(38),
         39: t_void_tuft(39),
         40: t_spell_scroll(40),
+        41: t_sedge(41),
+        42: t_moth(42),
+        43: t_cloud(43),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

@@ -11,6 +11,8 @@ typedef struct GameSettings {
     int drawDistance;
     int volume;
     int vsync;    /* v56: FLAG_VSYNC_HINT, applied at window creation */
+    int language; /* v59: 0 en, 1 ru, 2 zh, 3 ja, 4 ko */
+    int music;    /* v59: dungeon-synth radio on/off */
     int resver;   /* v56: settings-layout version for one-time migrations */
 } GameSettings;
 

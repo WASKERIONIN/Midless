@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "raylib.h"
+#include "i18n.h"
 #include "raygui.h"
 #include "chat.h"
 #include "screens.h"
@@ -34,6 +35,7 @@ void Chat_AddOwnedLine(char *line) {
 }
 
 void Chat_AddLine(const char *text) {
+    text = L(text);   /* v59: chat speaks the player's language */
     if (!text) return;
     int len = TextLength(text);
     char *copy = MemAlloc((size_t)len + 1);
@@ -154,7 +156,7 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
             int drawLinesCnt = 0;
             for (int i = 0; i < textLength && drawLinesCnt < 8; i++) {
                 const char *sub = TextSubtext(chatLines[index], startPos, i - startPos + 1);
-                int textWidth = MeasureText(sub, fontSize);
+                int textWidth = (int)I18n_MeasureText(sub, fontSize);
                 if (textWidth >= chatWidth - fontSize - 4 || i == textLength - 1) {
                     TextCopy(drawLines[drawLinesCnt], sub);
                     drawLinesCnt++;
@@ -163,9 +165,9 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
             }
             for (int i = drawLinesCnt - 1; i >= 0; i--) {
                 if (!drawLines[i]) continue;
-                DrawText(drawLines[i], offset.x + 4 + 1, offset.y - lineAdded * fontSize + 1, fontSize,
+                I18n_DrawText(drawLines[i], offset.x + 4 + 1, (int)(offset.y - lineAdded * fontSize + 1), fontSize,
                          shadowColor);
-                DrawText(drawLines[i], offset.x + 4, offset.y - lineAdded * fontSize, fontSize, textColor);
+                I18n_DrawText(drawLines[i], offset.x + 4, (int)(offset.y - lineAdded * fontSize), fontSize, textColor);
                 lineAdded++;
             }
         }
@@ -176,7 +178,27 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     }
 
     if (chatEditMode) {
-        GuiTextBox((Rectangle){offset.x, offset.y + 22, chatWidth, 24}, chatInput, 64, chatEditMode);
+        /* v59: custom UTF-8 input - GuiTextBox's default font had no
+         * Cyrillic; GetCharPressed delivers proper codepoints */
+        int cp = GetCharPressed();
+        while (cp > 0) {
+            if (cp >= 32) {
+                int len = 0;
+                const char *enc = CodepointToUTF8(cp, &len);
+                if (enc && len > 0) {
+                    int cur = (int)strlen(chatInput);
+                    if (cur + len < 60) { memcpy(chatInput + cur, enc, len); chatInput[cur + len] = 0; }
+                }
+            }
+            cp = GetCharPressed();
+        }
+        int back = GetKeyPressed();
+        if (back == KEY_BACKSPACE) {
+            int cur = (int)strlen(chatInput);
+            while (cur > 0 && ((unsigned char)chatInput[cur - 1] & 0xC0) == 0x80) cur--;
+            if (cur > 0) cur--;
+            chatInput[cur] = 0;
+        }
         if (IsKeyPressed(KEY_UP) && historyCount > 0) {
             if (historyView < 0) historyView = historyCount - 1;
             else if (historyView > 0) historyView--;
@@ -189,6 +211,20 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
                 chatInput[0] = 0;
             } else {
                 strncpy(chatInput, history[historyView], 63);
+            }
+        }
+        /* v59: the typed line itself, in the UTF-8 font, with a caret */
+        {
+            int fs = 18;
+            Rectangle box = { offset.x, offset.y + 22, chatWidth, 26 };
+            DrawRectangleRec(box, (Color){ 6, 3, 14, 200 });
+            DrawRectangleLinesEx(box, 1, (Color){ 94, 231, 255, 90 });
+            char shown[136];
+            snprintf(shown, sizeof(shown), "> %s", chatInput);
+            I18n_DrawText(shown, (int)box.x + 6, (int)box.y + 4, fs, (Color){ 235, 245, 255, 255 });
+            if (((int)(GetTime() * 2.5)) % 2 == 0) {
+                float w = I18n_MeasureText(shown, fs);
+                DrawRectangle((int)(box.x + 8 + w), (int)box.y + 4, 2, fs, (Color){ 120, 255, 230, 220 });
             }
         }
     }

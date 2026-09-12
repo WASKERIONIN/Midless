@@ -12,6 +12,7 @@
 #include "rlgl.h"
 #include "mobs.h"
 #include "player.h"
+#include "i18n.h"
 #include "world.h"
 #include "block.h"
 #include "hunter.h"
@@ -601,6 +602,166 @@ static Mushroom mushrooms[MUSH_MAX];
 static int mushroomsStored = 0;   /* inventory count */
 static bool mushHintShown;
 
+/* ---------------------------- v59: glowmoths ---------------------------- */
+#define MOTH_MAX 10
+#define POLLEN_MAX 200
+typedef struct Moth {
+    bool active;
+    Vector3 pos;
+    Vector3 vel;
+    Vector3 target;
+    double targetAt;
+    float phase;
+    double pollenAt;
+} Moth;
+typedef struct Pollen {
+    Vector3 pos;
+    Vector3 vel;
+    float life;
+    float size;
+    float shift;
+} Pollen;
+static Moth moths[MOTH_MAX];
+static Pollen pollen[POLLEN_MAX];
+static int pollenNext;
+static bool mothAnnounced;
+
+int Mobs_MothCount(void) {
+    int n = 0;
+    for (int i = 0; i < MOTH_MAX; i++) if (moths[i].active) n++;
+    return n;
+}
+
+static void Moth_PickTarget(Moth *m) {
+    for (int attempt = 0; attempt < 6; attempt++) {
+        float ang = GetRandomValue(0, 3599) * 0.001745f;
+        float dist = 6.0f + GetRandomValue(0, 900) / 100.0f;
+        Vector3 want = { m->pos.x + cosf(ang) * dist,
+                         m->pos.y + (GetRandomValue(-400, 500) / 100.0f),
+                         m->pos.z + sinf(ang) * dist };
+        if (World_GetBlock(want) != 0) continue;   /* drift through open space only */
+        m->target = want;
+        m->targetAt = GetTime() + 7.0 + GetRandomValue(0, 500) / 100.0;
+        return;
+    }
+    m->target = (Vector3){ m->pos.x + GetRandomValue(-600, 600) / 100.0f,
+                           m->pos.y + GetRandomValue(-200, 300) / 100.0f,
+                           m->pos.z + GetRandomValue(-600, 600) / 100.0f };
+    m->targetAt = GetTime() + 5.0;
+}
+
+static void Moth_Update(float deltaTime, double now) {
+    Vector3 pc = Mob_PlayerCenter();
+    for (int i = 0; i < MOTH_MAX; i++) {
+        Moth *m = &moths[i];
+        if (!m->active) {
+            /* roam the islands; appear anywhere around the player */
+            if (GetRandomValue(0, 100) < 6) {
+                float ang = GetRandomValue(0, 3599) * 0.001745f;
+                float dist = 8.0f + GetRandomValue(0, 900) / 100.0f;
+                Vector3 want = { pc.x + cosf(ang) * dist, pc.y + GetRandomValue(-200, 500) / 100.0f,
+                                 pc.z + sinf(ang) * dist };
+                if (World_GetBlock(want) == 0) {
+                    m->active = true;
+                    m->pos = want;
+                    m->vel = (Vector3){ 0 };
+                    m->phase = GetRandomValue(0, 628) / 100.0f;
+                    m->pollenAt = 0.0;
+                    Moth_PickTarget(m);
+                    if (!mothAnnounced) {
+                        mothAnnounced = true;
+                        Chat_AddLine(L("Glowmoths shimmer between the islands."));
+                    }
+                }
+            }
+            continue;
+        }
+        if (Vector3Distance(m->pos, pc) > 52.0f) { m->active = false; continue; }
+
+        /* never brush through the player */
+        Vector3 away = Vector3Subtract(m->pos, pc);
+        float pd = Vector3Length(away);
+        if (pd < 2.2f && pd > 0.001f)
+            m->vel = Vector3Add(m->vel, Vector3Scale(away, 3.5f * deltaTime / pd));
+
+        if (now >= m->targetAt || Vector3Distance(m->pos, m->target) < 1.0f) Moth_PickTarget(m);
+        Vector3 to = Vector3Subtract(m->target, m->pos);
+        float td = Vector3Length(to);
+        if (td > 0.01f) {
+            Vector3 want = Vector3Scale(to, 1.45f / td);
+            /* butterfly wobble */
+            want.x += sinf(now * 2.3f + m->phase) * 0.55f;
+            want.y += sinf(now * 3.1f + m->phase * 2.0f) * 0.40f;
+            want.z += cosf(now * 1.9f + m->phase) * 0.55f;
+            m->vel = Vector3Lerp(m->vel, want, 1.0f - powf(0.35f, deltaTime));
+        }
+        m->pos = Vector3Add(m->pos, Vector3Scale(m->vel, deltaTime));
+
+        /* glowing pollen trails behind the flight */
+        if (now >= m->pollenAt) {
+            m->pollenAt = now + 0.10;
+            Pollen *p = &pollen[pollenNext];
+            pollenNext = (pollenNext + 1) % POLLEN_MAX;
+            p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
+                                m->pos.y + GetRandomValue(-6, 6) / 100.0f,
+                                m->pos.z + GetRandomValue(-8, 8) / 100.0f };
+            p->vel = (Vector3){ GetRandomValue(-15, 15) / 100.0f, -0.22f, GetRandomValue(-15, 15) / 100.0f };
+            p->life = 1.7f + GetRandomValue(0, 60) / 100.0f;
+            p->size = 0.045f + GetRandomValue(0, 40) / 1000.0f;
+            p->shift = GetRandomValue(0, 628) / 100.0f;
+        }
+    }
+    for (int i = 0; i < POLLEN_MAX; i++) {
+        Pollen *p = &pollen[i];
+        if (p->life <= 0.0f) continue;
+        p->life -= deltaTime;
+        p->vel.y -= 0.05f * deltaTime;
+        p->pos.x += p->vel.x * deltaTime * 0.4f + sinf(now * 1.7f + p->shift) * deltaTime * 0.12f;
+        p->pos.y += p->vel.y * deltaTime;
+        p->pos.z += p->vel.z * deltaTime * 0.4f;
+    }
+}
+
+static void Moth_Draw(double now) {
+    for (int i = 0; i < MOTH_MAX; i++) {
+        Moth *m = &moths[i];
+        if (!m->active) continue;
+        unsigned char br = (unsigned char)(225.0f + 30.0f * sinf(now * 3.0f + m->phase));
+        /* wing flap: the quad breathes sideways */
+        float flap = 0.15f + 0.055f * sinf(now * 11.0f + m->phase);
+        Mobs_DrawBillboard(m->pos, flap, flap * 1.9f, 42, br, 0.0f);
+    }
+}
+
+static void Moth_PollenDraw(double now) {
+    for (int i = 0; i < POLLEN_MAX; i++) {
+        Pollen *p = &pollen[i];
+        if (p->life <= 0.0f) continue;
+        /* animated RGB split: three ghost quads cycling out of phase */
+        float k = p->life;
+        Vector3 right = Vector3Normalize((Vector3){ rlGetMatrixModelview().m0, rlGetMatrixModelview().m4, rlGetMatrixModelview().m8 });
+        float s = p->size * (0.5f + 0.5f * k);
+        for (int ch = 0; ch < 3; ch++) {
+            float ph = p->shift + ch * 2.094f;
+            unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
+            unsigned char g = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 2.094f));
+            unsigned char b = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 4.188f));
+            unsigned char alpha = (unsigned char)(140.0f * Clamp(k, 0.0f, 1.0f));
+            Vector3 off = Vector3Scale(right, (ch - 1) * p->size * 0.9f);
+            Vector3 bl = Vector3Subtract(Vector3Add(p->pos, off), (Vector3){ s, 0, 0 });
+            Vector3 br2 = Vector3Add(Vector3Add(p->pos, off), (Vector3){ s, 0, 0 });
+            rlColor4ub(r, g, b, alpha);
+            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(bl.x, bl.y - s, bl.z);
+            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f); rlVertex3f(bl.x, bl.y + s, bl.z);
+            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f); rlVertex3f(br2.x, br2.y + s, br2.z);
+            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(br2.x, bl.y - s, br2.z);
+            rlTexCoord2f((24 % 16) / 16.0f + 1.0f / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(br2.x, bl.y - s, br2.z);
+            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f); rlVertex3f(bl.x, bl.y + s, bl.z);
+            rlTexCoord2f((24 % 16) / 16.0f, (24 / 16) / 16.0f + 1.0f / 16.0f); rlVertex3f(bl.x, bl.y - s, bl.z);
+        }
+    }
+}
+
 /* violet shell event: a shimmering dome parks over a nearby island and
  * rains void spores; mushrooms sprout on plain dirt while it rains */
 static bool shellActive;
@@ -828,6 +989,7 @@ void Mobs_Update(float deltaTime) {
     Cocoon_Scan(deltaTime);
     Shell_Update(deltaTime, now);
     Mushrooms_Update(now);
+    Moth_Update(deltaTime, now);   /* v59: glowmoths */
 
     /* v51: mobs set off volatile barrels under (or inside) them */
     for (int i = 0; i < CRAWLER_MAX; i++)
@@ -885,7 +1047,8 @@ static void Mob_CrawlerDamage(Crawler *c, Vector3 rd) {
     c->hp -= 1.0f;
     c->vel = Vector3Add(Vector3Scale(rd, 2.4f), (Vector3){ 0, 0.4f, 0 });
     Particle_SpawnImpact(c->pos);
-    c->aggroTimer = CRAWLER_SIGHT_MEM;
+    /* v59: only the crawler you actually hit gets angry - the old blanket
+     * aggro telegraphed the player to every crawler on the island */
     if (c->hp <= 0.0f) {
         c->active = false;
         Hunter_WireBurst(c->pos);          /* v52: its own wireframe burst */
@@ -904,6 +1067,7 @@ bool Mobs_MeleeHit(Vector3 origin, Vector3 dir, float maxDist) {
         Crawler *c = &crawlers[hit.index];
         Vector3 rd = Vector3Scale(dir, 1.0f);
         Mob_CrawlerDamage(c, rd);
+        c->aggroTimer = 1.2f;   /* v59: a struck crawler remembers you briefly */
         return true;
     }
     if (hit.kind == 2) {
@@ -934,6 +1098,7 @@ bool Mobs_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint
         Crawler *c = &crawlers[hit.index];
         Vector3 rd = Vector3Normalize(dir);
         Mob_CrawlerDamage(c, rd);
+        c->aggroTimer = 1.2f;   /* v59: local aggro only */
     } else if (hit.kind == 3) {
         Spider_Damage(&spiders[hit.index], Vector3Normalize(dir));
     } else {
@@ -1047,6 +1212,49 @@ static void Mob_TexturedBlob(Vector3 c, float rx, float ry, float rz, float face
 
 void Mobs_Draw(void) {
     double now = (double)GetTime();
+
+    /* v59: the violet shell wears a real texture now (tile 43) - a full
+     * ovoid so it reads from every side, bottom included; the wire rings
+     * float 1.2% off the surface and keep the frame look */
+    if (shellActive) {
+        float R = 9.0f, cy2 = shellCenter.y;
+        Texture2D shellTex = World_GetTerrainTexture();
+        if (shellTex.id != 0) {
+            rlSetTexture(shellTex.id);
+            rlBegin(RL_QUADS);
+            float uT = (43 % 16) / 16.0f, vT = (43 / 16) / 16.0f;
+            const int SEG = 14;
+            const float BANDS[8] = { 0.25f, 0.70f, 1.15f, 1.60f, 2.05f, 2.50f, 2.85f, 3.1416f };
+            for (int b = 0; b < 7; b++) {
+                float ph0 = BANDS[b], ph1 = BANDS[b + 1];
+                float vv0 = vT + (1.0f / 16.0f) * (ph0 / 3.1416f);
+                float vv1 = vT + (1.0f / 16.0f) * (ph1 / 3.1416f);
+                for (int s = 0; s < SEG; s++) {
+                    float th0 = 6.2832f * s / SEG, th1 = 6.2832f * (s + 1) / SEG;
+                    float r0 = R * sinf(ph0), y0 = cy2 + R * cosf(ph0) * 0.55f;
+                    float r1 = R * sinf(ph1), y1 = cy2 + R * cosf(ph1) * 0.55f;
+                    float uu0 = uT + (1.0f / 16.0f) * (float)s / SEG;
+                    float uu1 = uT + (1.0f / 16.0f) * (float)(s + 1) / SEG;
+                    Vector3 a = { shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0 };
+                    Vector3 b = { shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0 };
+                    Vector3 c = { shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1 };
+                    Vector3 d = { shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1 };
+                    rlColor4ub(255, 255, 255, 255);
+                    rlTexCoord2f(uu0, vv1); rlVertex3f(a.x, a.y, a.z);
+                    rlTexCoord2f(uu1, vv1); rlVertex3f(b.x, b.y, b.z);
+                    rlTexCoord2f(uu1, vv0); rlVertex3f(c.x, c.y, c.z);
+                    rlTexCoord2f(uu0, vv0); rlVertex3f(d.x, d.y, d.z);
+                    rlTexCoord2f(uu0, vv0); rlVertex3f(d.x, d.y, d.z);
+                    rlTexCoord2f(uu1, vv0); rlVertex3f(c.x, c.y, c.z);
+                    rlTexCoord2f(uu1, vv1); rlVertex3f(b.x, b.y, b.z);
+                    rlTexCoord2f(uu0, vv1); rlVertex3f(a.x, a.y, a.z);
+                }
+            }
+            rlEnd();
+            rlDrawRenderBatchActive();
+            rlSetTexture(0);
+        }
+    }
 
     /* v55: spider bodies are textured chitin (own textured batch first) */
     Texture2D atlasS = World_GetTerrainTexture();
@@ -1216,8 +1424,8 @@ void Mobs_Draw(void) {
         /* latitude rings */
         for (int k = 0; k < 4; k++) {
             float ph = 0.35f + k * 0.38f;
-            float rr2 = R * sinf(ph * 1.5708f / 1.6f);
-            float yy = cy2 + R * cosf(ph * 1.5708f / 1.6f) * 0.55f;
+            float rr2 = R * sinf(ph * 1.5708f / 1.6f) * 1.012f;
+            float yy = cy2 + R * cosf(ph * 1.5708f / 1.6f) * 0.55f + 0.03f;
             float px = shellCenter.x + rr2, py = yy, pz = shellCenter.z;
             for (int sIdx = 1; sIdx <= 18; sIdx++) {
                 float th = 6.2832f * sIdx / 18.0f;
@@ -1235,54 +1443,34 @@ void Mobs_Draw(void) {
             float px = shellCenter.x, py = cy2 + R * 0.55f, pz = shellCenter.z;
             for (int sIdx = 1; sIdx <= 8; sIdx++) {
                 float ph = 1.5708f * sIdx / 8.0f;
-                float nx = shellCenter.x + cosf(th) * R * sinf(ph);
-                float ny = cy2 + R * cosf(ph) * 0.55f;
-                float nz = shellCenter.z + sinf(th) * R * sinf(ph);
+                float nx = shellCenter.x + cosf(th) * R * sinf(ph) * 1.012f;
+                float ny = cy2 + R * cosf(ph) * 0.55f + 0.03f;
+                float nz = shellCenter.z + sinf(th) * R * sinf(ph) * 1.012f;
                 rlColor4ub(shellC.r, shellC.g, shellC.b, shellC.a);
                 rlVertex3f(px, py, pz);
                 rlVertex3f(nx, ny, nz);
                 px = nx; py = ny; pz = nz;
             }
         }
-        /* v56: twin spinning pentagrams at the dome heart */
+        /* v59: ONE plain pentagram on the dome TOP (straight chords, no
+         * ornaments) - it used to hang under the cloud as a twin spiral */
         {
-            float py = cy2 - R * 0.10f;
-            for (int layer = 0; layer < 2; layer++) {
-                float pr = R * (layer == 0 ? 0.40f : 0.24f);
-                float spin = t0 * (layer == 0 ? 0.55f : -0.85f) + layer * 0.6f;
-                unsigned char pb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 2.6f + layer));
-                Color pc = { 255, 70, pb, 255 };
-                Vector3 pts[5];
-                for (int k = 0; k < 5; k++) {
-                    float an = spin + 6.2832f * k / 5.0f;
-                    pts[k] = (Vector3){ shellCenter.x + cosf(an) * pr, py, shellCenter.z + sinf(an) * pr };
-                }
-                for (int k = 0; k < 5; k++) {   /* star: step two vertices */
-                    Vector3 a = pts[k], b = pts[(k + 2) % 5];
-                    for (int sIdx = 0; sIdx <= 4; sIdx++) {
-                        float tt = sIdx / 4.0f;
-                        Vector3 p0 = { a.x + (b.x - a.x) * tt, a.y, a.z + (b.z - a.z) * tt };
-                        Vector3 p1 = { a.x + (b.x - a.x) * ((sIdx + 1) / 4.0f), a.y, a.z + (b.z - a.z) * ((sIdx + 1) / 4.0f) };
-                        rlColor4ub(pc.r, pc.g, pc.b, 255);
-                        rlVertex3f(p0.x, p0.y, p0.z);
-                        rlVertex3f(p1.x, p1.y, p1.z);
-                    }
-                }
+            float py = cy2 + R * 0.58f;   /* the flattened dome's crest */
+            float pr = R * 0.38f;
+            float spin = t0 * 0.5f;
+            unsigned char pb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 2.6f));
+            Color pc = { 255, 70, pb, 255 };
+            Vector3 pts[5];
+            for (int k = 0; k < 5; k++) {
+                float an = spin + 6.2832f * k / 5.0f;
+                pts[k] = (Vector3){ shellCenter.x + cosf(an) * pr, py, shellCenter.z + sinf(an) * pr };
             }
-        }
-        /* rain: streaks of light sliding down under the dome */
-        for (int k = 0; k < 48; k++) {
-            float seed = k * 7.13f;
-            float ang = fmodf(seed * 1.7f, 6.2832f);
-            float rad = (0.25f + 0.75f * fmodf(seed * 0.317f, 1.0f)) * R;
-            float drop = fmodf(t0 * (2.0f + fmodf(seed, 2.0f)) + seed, 14.0f);
-            float x = shellCenter.x + cosf(ang) * rad;
-            float z = shellCenter.z + sinf(ang) * rad;
-            float yTop = cy2 + R * 0.35f - drop;
-            if (yTop < shellCenter.y - 12.0f) continue;
-            rlColor4ub(190, 235, 255, 255);
-            rlVertex3f(x, yTop, z);
-            rlVertex3f(x, yTop - 0.45f, z);
+            for (int k = 0; k < 5; k++) {   /* star: straight chords, k -> k+2 */
+                Vector3 a = pts[k], b = pts[(k + 2) % 5];
+                rlColor4ub(pc.r, pc.g, pc.b, 255);
+                rlVertex3f(a.x, a.y, a.z);
+                rlVertex3f(b.x, b.y, b.z);
+            }
         }
     }
 
@@ -1300,10 +1488,28 @@ void Mobs_Draw(void) {
             double left = m->expireAt - now;
             if (left < 30.0 && ((int)(now * 2.0)) % 2 == 0) continue;  /* expiry blink */
             unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
+            /* v59: a grass ring so the mushroom grows out of a lawn */
+            {
+                float tt = (float)now;
+                float gu = 0.6f + 0.4f * sinf(tt * 0.35f + m->pos.z * 0.08f);
+                const float offs[4][2] = { { 0.15f, 0.12f }, { -0.14f, 0.13f }, { 0.13f, -0.15f }, { -0.12f, -0.14f } };
+                for (int gI = 0; gI < 4; gI++) {
+                    Vector3 at = { m->pos.x + offs[gI][0], m->pos.y, m->pos.z + offs[gI][1] };
+                    float lean = 0.07f * gu * sinf(tt * 2.1f + m->pos.x * 3.1f + gI * 1.7f);
+                    float hh = 0.19f + 0.05f * ((gI * 29) % 4) / 4.0f;
+                    Mobs_DrawBillboard(at, 0.20f, hh, gI % 2 == 0 ? 39 : 41, br, lean);
+                }
+            }
             Mob_FloraBillboard(m->pos, m->scale, 27, br);
         }
+        Moth_Draw(now);   /* v59: the moths share the atlas batch */
         rlEnd();
+        rlDrawRenderBatchActive();
+        /* v59: RGB-shifting pollen, own untextured glow batch */
         rlSetTexture(0);
+        rlBegin(RL_QUADS);
+        Moth_PollenDraw(now);
+        rlEnd();
         rlDrawRenderBatchActive();
     }
 }

@@ -173,6 +173,13 @@ void Block_BuildDefinition(void) {
     blockDefinitions[39].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[39].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[39].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(41, "void_sedge", 41, 41, 41);
+    blockDefinitions[41].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[41].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[41].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[41].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[41].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

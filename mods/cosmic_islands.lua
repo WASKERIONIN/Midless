@@ -134,6 +134,13 @@ midless.define_block(39, {
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
 })
+midless.define_block(41, {
+    name = "Void Sedge",
+    textures = { all = 41 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
 
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
@@ -255,6 +262,7 @@ for _, band in ipairs({
     { -0.58, 12 }, -- rose
     { -0.36, 13 }, -- dandelion
     { -0.25, 39 }, -- v58: void tuft ground cover
+    { -0.20, 41 }, -- v59: sedge strands
     { -0.14, 28 }, -- bellflower
     { 0.08, 29 },  -- starbloom
     { 0.30, 30 },  -- spiral fern
@@ -309,7 +317,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 14,
+    id = "midless:cosmic", version = 15,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),

@@ -12,6 +12,8 @@ GameSettings gameSettings = {
     .drawDistance = 8,
     .volume = 70,
     .vsync = 1,
+    .language = 0,
+    .music = 1,
     .resver = 2,
 };
 
@@ -52,6 +54,8 @@ void Settings_Load(void) {
             gameSettings.volume = value;
         }
         else if (sscanf(line, "vsync=%d", &value) == 1) gameSettings.vsync = value != 0;
+        else if (sscanf(line, "language=%d", &value) == 1) gameSettings.language = value;
+        else if (sscanf(line, "music=%d", &value) == 1) gameSettings.music = value != 0;
         else if (sscanf(line, "resver=%d", &value) == 1) gameSettings.resver = value;
         line = end ? end + 1 : NULL;
     }
@@ -72,10 +76,11 @@ void Settings_Save(void) {
     char body[256];
     snprintf(body, sizeof(body),
              "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n"
-             "vsync=%d\nresver=%d\n",
+             "vsync=%d\nlanguage=%d\nmusic=%d\nresver=%d\n",
              gameSettings.width, gameSettings.height, gameSettings.fullscreen ? 1 : 0,
              gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume,
-             gameSettings.vsync ? 1 : 0, gameSettings.resver);
+             gameSettings.vsync ? 1 : 0, gameSettings.language,
+             gameSettings.music ? 1 : 0, gameSettings.resver);
     SaveFileText(settingsPath, body);
 }
 

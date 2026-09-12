@@ -1,5 +1,6 @@
 #include "mapview.h"
 #include "raylib.h"
+#include "i18n.h"
 #include "world.h"
 #include "player.h"
 #include "block.h"
@@ -14,6 +15,8 @@ static bool open;
 static RenderTexture2D target;
 static bool ready;
 static double lastBuild = -1;
+static bool zoomed = false;   /* v59: second M press enlarges the map */
+static float blink = 0.0f;
 
 static Color ColorForBlock(int id) {
     switch (id) {
@@ -47,7 +50,12 @@ void MapView_Shutdown(void) {
     open = false;
 }
 
-void MapView_Toggle(void) { open = !open; }
+void MapView_Toggle(void) {
+    /* v59: first press opens, second press zooms, third closes */
+    if (!open) { open = true; zoomed = false; }
+    else if (!zoomed) zoomed = true;
+    else open = false;
+}
 void MapView_Reset(void) { open = false; }
 bool MapView_IsOpen(void) { return open; }
 
@@ -80,20 +88,37 @@ void MapView_Update(void) {
             DrawPixel(sx, sz, found ? ColorForBlock(top) : (Color){10, 6, 24, 255});
         }
     }
-    DrawPixel(MAP_SIZE / 2, MAP_SIZE / 2, WHITE);
-    DrawPixel(MAP_SIZE / 2 + 1, MAP_SIZE / 2, RED);
     EndTextureMode();
 }
 
 void MapView_Draw(void) {
     if (!open || !ready) return;
-    int x = GetScreenWidth() - MAP_SIZE - 16;
-    int y = 96;
-    DrawRectangle(x - 4, y - 4, MAP_SIZE + 8, MAP_SIZE + 28, (Color){0, 0, 0, 160});
-    DrawTextureRec(target.texture, (Rectangle){0, 0, (float)MAP_SIZE, (float)-MAP_SIZE},
-                   (Vector2){(float)x, (float)y}, WHITE);
-    DrawText(TextFormat("CHUNK %d,%d  M: close",
+    float scale = zoomed ? 2.0f : 1.0f;
+    int size = (int)(MAP_SIZE * scale);
+    int x, y;
+    if (zoomed) {
+        x = GetScreenWidth() / 2 - size / 2;
+        y = GetScreenHeight() / 2 - size / 2;
+    } else {
+        x = GetScreenWidth() - size - 16;
+        y = 96;
+    }
+    DrawRectangle(x - 4, y - 4, size + 8, size + 28, (Color){0, 0, 0, 160});
+    DrawTexturePro(target.texture,
+                   (Rectangle){0, 0, (float)MAP_SIZE, (float)-MAP_SIZE},
+                   (Rectangle){(float)x, (float)y, (float)size, (float)size},
+                   (Vector2){0, 0}, 0.0f, WHITE);
+    /* v59: the player dot blinks, right at the map middle */
+    blink += GetFrameTime() * 2.6f;
+    float a = 0.45f + 0.55f * (0.5f + 0.5f * sinf(blink));
+    Vector2 pc = { x + size / 2.0f, y + size / 2.0f };
+    DrawCircleV(pc, zoomed ? 5.0f : 3.0f, (Color){255, 240, 240, (unsigned char)(255 * a)});
+    DrawCircleLines((int)pc.x, (int)pc.y, zoomed ? 7.0f : 4.5f,
+                    (Color){255, 80, 80, (unsigned char)(220 * a)});
+    const char *label = zoomed ? "CHUNK %d,%d  M: shrink"
+                               : "CHUNK %d,%d  M: zoom";
+    I18n_DrawText(TextFormat(label,
                         (int)floorf(player.position.x / CHUNK_SIZE_X),
                         (int)floorf(player.position.z / CHUNK_SIZE_Z)),
-             x, y + MAP_SIZE + 4, 10, WHITE);
+             x, y + size + 4, 10, WHITE);
 }

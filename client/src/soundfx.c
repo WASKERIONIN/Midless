@@ -1,8 +1,10 @@
 #include "soundfx.h"
 #include "raylib.h"
+#include "settings.h"
 #include "hunter.h"
 #include "raymath.h"
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 static Sound digSnd;
@@ -243,9 +245,181 @@ static void FillWind(short *data, int frames) {
     }
 }
 
+/* ---------------- v59: dungeon-synth radio ------------------------------
+ * A tiny procedural synth streamed through an audio callback. Two loops
+ * built on the classic dungeon-synth changes (Aeolian shuttle Am-G-F-G and
+ * the Dm-C drone), a chant-like stepwise melody that always returns to its
+ * anchor, and quotes of the medieval tune L'homme arme (public domain,
+ * 15th c.). Everything is computed in the callback - no asset files. */
+static AudioStream musicStream;
+static bool musicReady = false;
+static bool musicEnabled = true;
+static volatile float musicVol = 0.42f;
+
+#define MUS_SR 22050
+/* two bars of 4/4 at BPM 52 per buffer step; sequencer is sample-based */
+static const float NOTE_A2 = 110.0f, NOTE_C3 = 130.81f, NOTE_D3 = 146.83f,
+    NOTE_E3 = 164.81f, NOTE_F3 = 174.61f, NOTE_G3 = 196.0f, NOTE_A3 = 220.0f,
+    NOTE_B3 = 246.94f, NOTE_C4 = 261.63f, NOTE_D4 = 293.66f, NOTE_E4 = 329.63f,
+    NOTE_F4 = 349.23f, NOTE_G4 = 392.0f, NOTE_A4 = 440.0f, NOTE_C5 = 523.25f,
+    NOTE_D5 = 587.33f;
+
+typedef struct MusTrack {
+    const float *chords;      /* 4 chords x 3 notes (freqs), 0 = rest */
+    const float *motif;       /* melody quote, freqs */
+    int motifLen;
+    float rootBase;           /* bass anchor */
+    int dorian;               /* scale flavour */
+} MusTrack;
+
+/* L'homme arme (opening, simplified, D dorian) + a chant answer */
+static const float motifHomme[] = {
+    NOTE_D4, NOTE_D4, NOTE_D5, NOTE_A4, NOTE_G4, NOTE_A4, NOTE_C5, NOTE_A4,
+    NOTE_G4, NOTE_F4, NOTE_G4, NOTE_A4, NOTE_D4, 0, NOTE_D4, 0
+};
+static const float motifChant[] = {
+    NOTE_A4, NOTE_C5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, 0,
+    NOTE_E4, NOTE_G4, NOTE_A4, NOTE_G4, NOTE_E4, NOTE_D4, NOTE_E4, 0
+};
+
+/* Track 1: Am - G - F - G (Aeolian shuttle) */
+static const float chordsAm[] = {
+    NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
+    NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_G3, NOTE_B3, NOTE_D4,
+};
+/* Track 2: Dm - C drone shuttle */
+static const float chordsDm[] = {
+    NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_D4, NOTE_F4, NOTE_A4,
+    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_C4, NOTE_E4, NOTE_G4,
+};
+
+static const MusTrack tracks[2] = {
+    { chordsAm, motifHomme, 16, NOTE_A2, 0 },
+    { chordsDm, motifChant, 16, NOTE_D3, 1 },
+};
+
+static int musTrack = 0;
+static unsigned int musSample = 0;
+static float musLp = 0.0f;
+/* per-voice continuous phases survive across callback calls */
+static float padPhase[3] = { 0, 0, 0 };
+static float padDet[3] = { 0, 0, 0 };
+static float bassPhase = 0.0f;
+static float melPhase = 0.0f;
+
+static float Mus_NextSample(void) {
+    const MusTrack *T = &tracks[musTrack];
+    const float BAR = (float)MUS_SR * 4.6f;              /* one chord, ~4.6 s */
+    unsigned int total = (unsigned int)(musSample / BAR);
+    int chordIdx = (int)(total % 4);
+    int barIn2 = (int)(total % 8);
+    float tInBar = (float)((double)musSample - (double)((unsigned long long)total * (unsigned long long)BAR)) / BAR; /* 0..1 */
+
+    const float *ch = &T->chords[chordIdx * 3];
+
+    /* pad: three detuned voices, slow attack/release envelope */
+    float env = tInBar < 0.12f ? (tInBar / 0.12f) : (tInBar > 0.88f ? (1.0f - tInBar) / 0.12f : 1.0f);
+    float pad = 0.0f;
+    for (int v = 0; v < 3; v++) {
+        if (ch[v] <= 0.0f) continue;
+        padPhase[v] += 6.28318f * (ch[v] * (1.0f + padDet[v])) / MUS_SR;
+        if (padPhase[v] > 6.28318f) padPhase[v] -= 6.28318f;
+        float s = sinf(padPhase[v]);
+        s += 0.45f * sinf(padPhase[v] * 2.0f);
+        s += 0.22f * sinf(padPhase[v] * 3.002f);
+        pad += s * (v == 0 ? 0.34f : 0.26f);
+    }
+    pad *= env * 0.30f;
+
+    /* bass: root an octave down, soft pulse each half bar */
+    bassPhase += 6.28318f * (T->rootBase * 0.5f) / MUS_SR;
+    if (bassPhase > 6.28318f) bassPhase -= 6.28318f;
+    float beat = fmodf(tInBar * 2.0f, 1.0f);
+    float bEnv = expf(-beat * 5.5f) * 0.5f + 0.10f;
+    float bass = sinf(bassPhase) * bEnv * 0.42f;
+
+    /* melody: chant-like walk; quotes the motif every second 8-bar cycle */
+    float mel = 0.0f;
+    static float curNote = 0.0f;
+    static int xfadePos = 0;
+    int step = (int)(tInBar * 8.0f);                 /* 8 steps per bar */
+    float stepT = tInBar * 8.0f - (float)step;
+    float want;
+    if (barIn2 >= 4) {
+        want = T->motif[(step + chordIdx * 4) % T->motifLen];
+    } else {
+        /* anchored stepwise walk around the chord tones */
+        static const float dorian[8] = { 293.66f, 329.63f, 349.23f, 392.0f, 440.0f, 523.25f, 587.33f, 659.26f };
+        static const float aeolian[8] = { 220.0f, 246.94f, 261.63f, 329.63f, 349.23f, 392.0f, 440.0f, 523.25f };
+        const float *sc = T->dorian ? dorian : aeolian;
+        unsigned int h = (total * 31u + (unsigned)step * 17u);
+        int deg = (int)(h % 8u);
+        want = sc[deg];
+        if (step % 4 == 0) want = ch[2] > 0 ? ch[2] : want;   /* return to anchor */
+    }
+    if (want != curNote) {
+        /* tiny legato slide - a breath, not a portamento */
+        curNote = want;
+        xfadePos = 0;
+    }
+    xfadePos++;
+    melPhase += 6.28318f * curNote / MUS_SR;
+    if (melPhase > 6.28318f) melPhase -= 6.28318f;
+    float mEnv = (1.0f - stepT * 0.35f) * (step % 2 == 0 ? 0.20f : 0.16f);
+    mel = (sinf(melPhase) + 0.3f * sinf(melPhase * 2.0f)) * mEnv;
+
+    /* soft bell shimmer on the first step of every 4th bar */
+    if (step == 0 && chordIdx == 0 && tInBar < 0.25f) {
+        float bt = tInBar / 0.25f;
+        mel += sinf(6.28318f * NOTE_A4 * 2.0f * (float)((double)musSample / MUS_SR)) * expf(-bt * 6.0f) * 0.05f;
+    }
+
+    float mix = pad + bass + mel;
+    /* one-pole lowpass: deep dungeon haze */
+    musLp += (mix - musLp) * 0.16f;
+    float outv = musLp * 1.25f + mix * 0.4f;
+
+    musSample++;
+    return outv * musicVol;
+}
+
+static void MusicCallback(void *bufferData, unsigned int frames) {
+    short *d = (short *)bufferData;
+    if (!musicEnabled) {
+        memset(d, 0, (size_t)frames * 2 * sizeof(short));
+        return;
+    }
+    for (unsigned int i = 0; i < frames; i++) {
+        float v = Mus_NextSample();
+        if (v > 0.95f) v = 0.95f;
+        if (v < -0.95f) v = -0.95f;
+        d[i * 2] = (short)(v * 9000.0f);
+        d[i * 2 + 1] = (short)(v * 8200.0f);
+    }
+}
+
+void SoundFx_SetMusicEnabled(bool on) {
+    musicEnabled = on;
+    if (musicReady) {
+        if (on) PlayAudioStream(musicStream);
+        else StopAudioStream(musicStream);
+    }
+}
+
 void SoundFx_Init(void) {
     InitAudioDevice();
     SetMasterVolume(volume);
+    SetAudioStreamBufferSizeDefault(2048);
+    musicStream = LoadAudioStream(MUS_SR, 16, 2);
+    if (musicStream.buffer != NULL) {
+        SetAudioStreamCallback(musicStream, MusicCallback);
+        PlayAudioStream(musicStream);   /* callback gate by musicEnabled */
+        musicReady = true;
+        musicEnabled = gameSettings.music != 0;
+        if (!musicEnabled) StopAudioStream(musicStream);
+        /* start deep and slow: track chosen by world seed feel */
+        musTrack = 0;
+    }
     digSnd = MakeSound(3200, FillDig);
     placeSnd = MakeSound(3600, FillPlace);
     jumpSnd = MakeSound(1400, FillJump);

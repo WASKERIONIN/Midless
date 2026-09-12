@@ -1,6 +1,8 @@
 #ifndef MIDLESS_CLIENT_SOUNDFX_H
 #define MIDLESS_CLIENT_SOUNDFX_H
 
+#include <stdbool.h>
+
 void SoundFx_Init(void);
 void SoundFx_Shutdown(void);
 void SoundFx_Update(void);
@@ -17,5 +19,6 @@ void SoundFx_PlayWebAttach(void);
 void SoundFx_PlayExplosion(void);
 void SoundFx_SetVolume(float volume01);
 float SoundFx_GetVolume(void);
+void SoundFx_SetMusicEnabled(bool on);   /* v59: dungeon-synth radio */
 
 #endif
