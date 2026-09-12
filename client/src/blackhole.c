@@ -270,22 +270,8 @@ void BlackHole_Draw(Camera camera) {
     /* 3. photon ring */
     DrawBillboard(camera, ringTex, center, BH_HORIZON * BH_RING_OUTER * 2.55f, WHITE);
 
-    /* 3b. Y2K anamorphic lens flare: long horizontal streak with a slow
-     * shimmer, plus a shorter vertical cross flare */
-    float shimmer = 0.72f + 0.28f * sinf(diskTime * 0.9f) * sinf(diskTime * 0.23f + 1.7f);
-    DrawBillboardPro(camera, streakTex,
-                     (Rectangle){ 0, 0, (float)streakTex.width, (float)streakTex.height },
-                     center, (Vector3){ 0, 0, 1 },
-                     (Vector2){ BH_HORIZON * 30.0f, BH_HORIZON * 2.6f },
-                     (Vector2){ 0, 0 }, 0.0f,
-                     (Color){ 200, 225, 255, (unsigned char)(150 * shimmer) });
-    DrawBillboardPro(camera, streakTex,
-                     (Rectangle){ 0, 0, (float)streakTex.width, (float)streakTex.height },
-                     center, (Vector3){ 0, 0, 1 },
-                     (Vector2){ BH_HORIZON * 7.0f, BH_HORIZON * 11.0f },
-                     (Vector2){ 0, 0 }, 90.0f,
-                     (Color){ 235, 200, 255, (unsigned char)(80 * shimmer) });
-
+    /* 3b. v59.3: the anamorphic lens flares are gone - the horizontal
+     * streak read as a white line crossing the whole screen */
     rlDrawRenderBatchActive();
     rlSetBlendMode(BLEND_ALPHA);
 

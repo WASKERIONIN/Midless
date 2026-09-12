@@ -5,6 +5,7 @@
 #include "raymath.h"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <math.h>
 
 static Sound digSnd;
@@ -360,16 +361,23 @@ static const MusTrack tracks[4] = {
     { chordsChapel, motifChapel, 16, NOTE_E2, 0 },
 };
 
-/* v59.2: the radio changes tracks - a fresh pick at every start and a
- * random hand-off at each 8-bar cycle boundary (about every 37 s) */
+/* v59.3: the radio changes tracks - a fresh pick at every start (seeded
+ * from the clock, NOT raylib's unseeded rand) and a hand-off to a
+ * DIFFERENT track at every 8-bar boundary (~37 s) while playing */
 static unsigned int musLastCycle = 0xFFFFFFFFu;
-static unsigned int musSeed = 20260912u;
+static unsigned int musSeed = 0u;
 static unsigned int Mus_NextRand(void) {
     musSeed = musSeed * 1664525u + 1013904223u;
     return musSeed >> 8;
 }
-
 static int musTrack = 0;
+
+static int Mus_PickDifferent(void) {
+    int pick = (int)(Mus_NextRand() % 3u);
+    if (pick >= musTrack) pick++;     /* 0..3 minus current */
+    return pick;
+}
+
 static unsigned int musSample = 0;
 static float musLp = 0.0f;
 /* per-voice continuous phases survive across callback calls */
@@ -384,12 +392,12 @@ static float Mus_NextSample(void) {
     unsigned int total = (unsigned int)(musSample / BAR);
     int chordIdx = (int)(total % 4);
     int barIn2 = (int)(total % 8);
-    /* v59.2: 8-bar cycle boundary -> sometimes hand off to another track */
+    /* v59.3: 8-bar boundary -> 70% chance to hand off, always elsewhere */
     unsigned int cycle = (unsigned int)(musSample / (BAR * 8.0f));
     if (cycle != musLastCycle) {
         musLastCycle = cycle;
-        if (cycle > 0 && (Mus_NextRand() % 100u) < 45u)
-            musTrack = (int)(Mus_NextRand() % 4u);
+        if (cycle > 0 && (Mus_NextRand() % 100u) < 70u)
+            musTrack = Mus_PickDifferent();
     }
     float tInBar = (float)((double)musSample - (double)((unsigned long long)total * (unsigned long long)BAR)) / BAR; /* 0..1 */
 
@@ -495,8 +503,12 @@ void SoundFx_Init(void) {
         musicReady = true;
         musicEnabled = gameSettings.music != 0;
         if (!musicEnabled) StopAudioStream(musicStream);
-        /* v59.2: every launch starts the radio on a random side */
-        musTrack = (int)(GetRandomValue(0, 3));
+        /* v59.3: every launch starts on a random side, seeded by the
+         * clock - raylib's rand may be unseeded this early, which is why
+         * the same track played at every start */
+        musSeed = (unsigned int)time(NULL) ^ (unsigned int)clock();
+        Mus_NextRand(); Mus_NextRand();
+        musTrack = (int)(Mus_NextRand() % 4u);
     }
     digSnd = MakeSound(3200, FillDig);
     placeSnd = MakeSound(3600, FillPlace);

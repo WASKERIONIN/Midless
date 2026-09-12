@@ -360,7 +360,9 @@ void Hunter_Update(float deltaTime) {
         } else if (h->aggroTimer > 0.0f) {
             h->aggroTimer -= deltaTime;
         }
-        bool aggro = surge || h->aggroTimer > 0.0f;
+        /* v59.3: the tide only sharpens hunters that are actually near;
+         * far ones keep drifting instead of crossing half the world */
+        bool aggro = (surge && dist < 26.0f) || h->aggroTimer > 0.0f;
         bool chasing = aggro && !player.flying && now >= h->retreatUntil;
         Vector3 desired;
         if (chasing) {

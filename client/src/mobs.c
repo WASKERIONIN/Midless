@@ -208,14 +208,18 @@ static void Crawler_Update(float deltaTime, bool surge, double now) {
         float dist3 = Vector3Distance(center, c->pos);
         if (c->age > 120.0f || dist3 > 40.0f) { c->active = false; continue; }
 
-        /* sight-based aggro like the hunters */
+        /* sight-based aggro like the hunters.
+         * v59.3: a surge no longer wakes the whole island - the tide
+         * raises temper only for crawlers actually NEAR the player
+         * (12 m); far ones keep roaming instead of piling under you. */
         if (!player.flying && hdist < CRAWLER_SIGHT &&
             Mob_HasLOS(c->pos, center)) {
             c->aggroTimer = CRAWLER_SIGHT_MEM;
         } else if (c->aggroTimer > 0.0f) {
             c->aggroTimer -= deltaTime;
         }
-        bool aggro = (surge || c->aggroTimer > 0.0f) && now >= c->retreatUntil;
+        bool aggro = ((surge && hdist < 12.0f) || c->aggroTimer > 0.0f) &&
+                     now >= c->retreatUntil;
 
         Vector3 desired;
         if (aggro && hdist > 0.05f) {
@@ -232,6 +236,15 @@ static void Crawler_Update(float deltaTime, bool surge, double now) {
         if (now < c->retreatUntil) {
             Vector3 away = Vector3Scale(toPlayer, -1.0f / (hdist > 0.05f ? hdist : 1.0f));
             desired = Vector3Scale(away, CRAWLER_SPEED * 0.8f);
+        }
+        /* v59.3: separation - step aside from the nearest fellow crawler
+         * so packs spread out instead of stacking into one column */
+        for (int o = 0; o < CRAWLER_MAX; o++) {
+            if (o == i || !crawlers[o].active) continue;
+            Vector3 away = Vector3Subtract(c->pos, crawlers[o].pos);
+            float d = Vector3Length(away);
+            if (d > 0.01f && d < 1.3f)
+                desired = Vector3Add(desired, Vector3Scale(away, (1.3f - d) * 2.4f / d));
         }
 
         c->vel.x = c->vel.x + (desired.x - c->vel.x) * (1.0f - powf(0.05f, deltaTime));
@@ -410,9 +423,12 @@ static void Spider_Update(float deltaTime, double now) {
         /* v55: hatchlings roam for 90 s at most, so cocoons never feel dead */
         if (s->age > 90.0f || dist3 > 32.0f) { s->active = false; continue; }
 
-        if (hdist < SPIDER_SIGHT && Mob_HasLOS(s->pos, center)) s->aggroTimer = 3.0f;
+        /* v59.3: spiders ignore a player hovering high above the ground */
+        if (!player.flying && hdist < SPIDER_SIGHT && Mob_HasLOS(s->pos, center)) s->aggroTimer = 3.0f;
         else if (s->aggroTimer > 0.0f) s->aggroTimer -= deltaTime;
-        bool aggro = s->aggroTimer > 0.0f;
+        bool aggro = s->aggroTimer > 0.0f ||
+                     (Hunter_GetSurgeLevel() > 0.5f &&
+                      Vector3Distance(center, s->pos) < 12.0f);
 
         Vector3 desired = (Vector3){ 0 };
         if (aggro && (double)s->bounceBackUntil > now) {
@@ -423,6 +439,14 @@ static void Spider_Update(float deltaTime, double now) {
         } else if (hdist > 0.05f) {
             float t = (float)now * 0.35f + s->phase;
             desired = (Vector3){ cosf(t) * 0.5f, 0, sinf(t * 0.8f) * 0.5f };
+        }
+        /* v59.3: separation from fellow spiders - no more clumping */
+        for (int o = 0; o < SPIDER_MAX; o++) {
+            if (o == i || !spiders[o].active) continue;
+            Vector3 away = Vector3Subtract(s->pos, spiders[o].pos);
+            float d = Vector3Length(away);
+            if (d > 0.01f && d < 1.6f)
+                desired = Vector3Add(desired, Vector3Scale(away, (1.6f - d) * 2.6f / d));
         }
 
         /* leap attack: from up to three blocks away it jumps at the player */
@@ -602,6 +626,141 @@ typedef struct Mushroom {
 static Mushroom mushrooms[MUSH_MAX];
 static int mushroomsStored = 0;   /* inventory count */
 static bool mushHintShown;
+
+/* ------------------- v59.3: shell textures (runtime) --------------------
+ * Atlas tiles are 16 px - stretched over a 9 m dome they read as colored
+ * patches. The shell gets real 256x128 textures generated once at start:
+ * a puffy cumulus for the top and an ALIEN starfield for the underside -
+ * looking up under the umbrella shows a window to another world. */
+#define SHELL_TW 256
+#define SHELL_TH 128
+static Texture2D shellTopTex;
+static Texture2D shellUndTex;
+static bool shellTexReady;
+
+static float Shell_WrappedNoise(float gx[9][9], float fx, float fy) {
+    float x = fx * 8.0f, y = fy * 8.0f;
+    int x0 = (int)x % 8, y0 = (int)y % 8;
+    int x1 = (x0 + 1) % 8, y1 = (y0 + 1) % 8;
+    float tx = x - (int)x, ty = y - (int)y;
+    tx = tx * tx * (3 - 2 * tx);
+    ty = ty * ty * (3 - 2 * ty);
+    float a = gx[y0][x0] * (1 - tx) + gx[y0][x1] * tx;
+    float b = gx[y1][x0] * (1 - tx) + gx[y1][x1] * tx;
+    return a * (1 - ty) + b * ty;
+}
+
+static Texture2D Shell_MakeTopTexture(void) {
+    Color *px = (Color *)MemAlloc(SHELL_TW * SHELL_TH * sizeof(Color));
+    unsigned int seed = 987654321u;
+    float g8[9][9], g16[17][17];
+    for (int j = 0; j < 9; j++)
+        for (int i = 0; i < 9; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            g8[j][i] = (float)(seed >> 16) / 65535.0f;
+        }
+    for (int j = 0; j < 9; j++) { g8[j][8] = g8[j][0]; g8[8][j] = g8[0][j]; }
+    g8[8][8] = g8[0][0];
+    for (int j = 0; j < 17; j++)
+        for (int i = 0; i < 17; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            g16[j][i] = (float)(seed >> 16) / 65535.0f;
+        }
+    for (int j = 0; j < 17; j++) { g16[j][16] = g16[j][0]; g16[16][j] = g16[0][j]; }
+    g16[16][16] = g16[0][0];
+
+    for (int y = 0; y < SHELL_TH; y++) {
+        for (int x = 0; x < SHELL_TW; x++) {
+            float fx = (float)x / SHELL_TW, fy = (float)y / SHELL_TH;
+            float n = Shell_WrappedNoise(g8, fx, fy) * 0.68f +
+                      Shell_WrappedNoise(g16, fx, fy) * 0.32f;
+            /* light rises toward the pole (texture v=0 is the pole) */
+            n += (1.0f - fy) * 0.30f;
+            int band = (int)(n * 3.6f);
+            if (band < 0) band = 0;
+            if (band > 3) band = 3;
+            static const unsigned char SH[4][3] = {
+                { 44, 32, 78 }, { 82, 62, 128 }, { 122, 100, 170 }, { 166, 146, 210 }
+            };
+            unsigned char r = SH[band][0], g = SH[band][1], b = SH[band][2];
+            if (fy < 0.10f && n > 0.35f) { r = 214; g = 200; b = 242; }  /* crest */
+            else if (fy < 0.22f && n > 0.55f) { r = 172; g = 152; b = 218; }
+            px[y * SHELL_TW + x] = (Color){ r, g, b, 255 };
+        }
+    }
+    /* sparse teal glints */
+    for (int k = 0; k < 40; k++) {
+        seed = seed * 1664525u + 1013904223u;
+        int gx = (int)((seed >> 10) % SHELL_TW);
+        seed = seed * 1664525u + 1013904223u;
+        int gy = (int)((seed >> 10) % (SHELL_TH / 2)) + SHELL_TH / 2;
+        px[gy * SHELL_TW + gx] = (Color){ 110, 225, 210, 255 };
+    }
+    Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
+                  .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+    Texture2D t = LoadTextureFromImage(img);
+    MemFree(px);
+    return t;
+}
+
+static Texture2D Shell_MakeUnderTexture(void) {
+    Color *px = (Color *)MemAlloc(SHELL_TW * SHELL_TH * sizeof(Color));
+    unsigned int seed = 192837465u;
+    /* a deep alien green-black, nothing like our purple void */
+    for (int y = 0; y < SHELL_TH; y++)
+        for (int x = 0; x < SHELL_TW; x++) {
+            int shade = 10 + ((x / 24 + y / 24) % 3) * 3;
+            px[y * SHELL_TW + x] = (Color){ (unsigned char)(4 + shade / 2),
+                                            (unsigned char)(8 + shade),
+                                            (unsigned char)(7 + shade / 2), 255 };
+        }
+    /* emerald nebula band snaking across */
+    for (int x = 0; x < SHELL_TW; x++) {
+        int cyN = SHELL_TH / 2 + (int)(sinf(6.2832f * x / SHELL_TW) * SHELL_TH * 0.16f);
+        for (int dy = -6; dy <= 6; dy++) {
+            int yy = cyN + dy;
+            if (yy < 0 || yy >= SHELL_TH) continue;
+            if (dy == 0) px[yy * SHELL_TW + x] = (Color){ 16, 92, 60, 255 };
+            else if (dy == -1 || dy == 1) px[yy * SHELL_TW + x] = (Color){ 12, 62, 44, 255 };
+            else if ((x + yy) % 7 == 0) px[yy * SHELL_TW + x] = (Color){ 9, 40, 30, 255 };
+        }
+    }
+    /* alien stars: gold / ice / magenta-white, plus two bright crosses */
+    for (int k = 0; k < 220; k++) {
+        seed = seed * 1664525u + 1013904223u;
+        int sx = (int)((seed >> 10) % SHELL_TW);
+        seed = seed * 1664525u + 1013904223u;
+        int sy = (int)((seed >> 10) % SHELL_TH);
+        seed = seed * 1664525u + 1013904223u;
+        unsigned int kind = (seed >> 12) % 100u;
+        Color c = kind < 40 ? (Color){ 255, 214, 120, 255 }
+                : kind < 78 ? (Color){ 215, 245, 255, 255 }
+                            : (Color){ 255, 170, 235, 255 };
+        px[sy * SHELL_TW + sx] = c;
+    }
+    for (int cross = 0; cross < 2; cross++) {
+        int cx0 = cross == 0 ? 60 : 190, cy0 = cross == 0 ? 30 : 88;
+        px[cy0 * SHELL_TW + cx0] = (Color){ 255, 255, 255, 255 };
+        int dxs[4] = { 1, -1, 0, 0 }, dys[4] = { 0, 0, 1, -1 };
+        for (int d = 0; d < 4; d++) {
+            int xx = cx0 + dxs[d], yy = cy0 + dys[d];
+            if (xx >= 0 && xx < SHELL_TW && yy >= 0 && yy < SHELL_TH)
+                px[yy * SHELL_TW + xx] = (Color){ 180, 230, 210, 255 };
+        }
+    }
+    Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
+                  .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+    Texture2D t = LoadTextureFromImage(img);
+    MemFree(px);
+    return t;
+}
+
+static void Shell_EnsureTextures(void) {
+    if (shellTexReady) return;
+    shellTexReady = true;
+    shellTopTex = Shell_MakeTopTexture();
+    shellUndTex = Shell_MakeUnderTexture();
+}
 
 /* ---------------------------- v59: glowmoths ---------------------------- */
 #define MOTH_MAX 10
@@ -803,7 +962,7 @@ static void Moth_PollenDraw(double now) {
         if (p->life <= 0.0f) continue;
         float k = Clamp(p->life, 0.0f, 1.0f);
         float s = p->size * (0.6f + 0.4f * k);
-        unsigned char alpha = (unsigned char)(120.0f * k);
+        unsigned char alpha = (unsigned char)(85.0f * k);   /* twinkle, not a stripe */
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
@@ -1278,66 +1437,57 @@ static void Mob_TexturedBlob(Vector3 c, float rx, float ry, float rz, float face
 void Mobs_Draw(void) {
     double now = (double)GetTime();
 
-    /* v59.2: the violet shell is an UMBRELLA again (shallow cap, R wide)
-     * - the top wears the puffy cloud texture (tile 43), and looking up
-     * under it shows the window to another world: an alien starfield
-     * (tile 44) on the inner surface. Both sides, bottom included. */
+    /* v59.3: the umbrella wears RUNTIME textures now (256x128): puffy
+     * cumulus on top, an alien starfield beneath - a window to another
+     * world when you look up under it. Rain + one plain pentagram stay. */
     if (shellActive) {
+        Shell_EnsureTextures();
         float R = 9.0f, cy2 = shellCenter.y;
-        Texture2D shellTex = World_GetTerrainTexture();
-        if (shellTex.id != 0) {
-            rlSetTexture(shellTex.id);
+        float H = R * 0.55f;                    /* cap height */
+        const float PH_RIM = 1.6619f;           /* rim sits just under the equator */
+        if (shellTopTex.id != 0 && shellUndTex.id != 0) {
+            rlSetTexture(shellTopTex.id);
             rlBegin(RL_QUADS);
             const int SEG = 16;
-            const float BANDS[7] = { 0.25f, 0.52f, 0.79f, 1.06f, 1.30f, 1.47f, 1.5708f };
-            float pulse = 0.88f + 0.12f * sinf((float)now * 0.8f);
+            const float BANDS[7] = { PH_RIM, 1.45f, 1.20f, 0.90f, 0.60f, 0.30f, 0.0f };
+            float pulse = 0.90f + 0.10f * sinf((float)now * 0.8f);
             unsigned char topB = (unsigned char)(255.0f * pulse);
-            unsigned char undB = (unsigned char)(205.0f * pulse);
+            unsigned char undB = (unsigned char)(215.0f * pulse);
             for (int b = 0; b < 6; b++) {
                 float ph0 = BANDS[b], ph1 = BANDS[b + 1];
-                float r0 = R * sinf(ph0), y0 = cy2 + R * cosf(ph0) * 0.55f;
-                float r1 = R * sinf(ph1), y1 = cy2 + R * cosf(ph1) * 0.55f;
-                float vv0 = (43 % 16) / 16.0f + (1.0f / 16.0f) * (b / 6.0f);
-                float vv1 = (43 % 16) / 16.0f + (1.0f / 16.0f) * ((b + 1) / 6.0f);
-                float wu = (43 % 16) / 16.0f, wv = (43 / 16) / 16.0f;
-                vv0 = wv + (1.0f / 16.0f) * (b / 6.0f);
-                vv1 = wv + (1.0f / 16.0f) * ((b + 1) / 6.0f);
-                float su = (44 % 16) / 16.0f, sv = (44 / 16) / 16.0f;
-                float wv2 = (44 / 16) / 16.0f;
-                float ivv0 = wv2 + (1.0f / 16.0f) * (b / 6.0f);
-                float ivv1 = wv2 + (1.0f / 16.0f) * ((b + 1) / 6.0f);
+                float r0 = R * sinf(ph0), y0 = cy2 + H * cosf(ph0);
+                float r1 = R * sinf(ph1), y1 = cy2 + H * cosf(ph1);
+                float v0 = ph0 / PH_RIM, v1 = ph1 / PH_RIM;   /* rim 0 .. pole 1 */
                 for (int s = 0; s < SEG; s++) {
                     float th0 = 6.2832f * s / SEG, th1 = 6.2832f * (s + 1) / SEG;
-                    float uu0 = wu + (1.0f / 16.0f) * (float)s / SEG;
-                    float uu1 = wu + (1.0f / 16.0f) * (float)(s + 1) / SEG;
-                    float iu0 = su + (1.0f / 16.0f) * (float)s / SEG;
-                    float iu1 = su + (1.0f / 16.0f) * (float)(s + 1) / SEG;
+                    float u0 = (float)s / SEG, u1 = (float)(s + 1) / SEG;
                     Vector3 a = { shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0 };
                     Vector3 b = { shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0 };
                     Vector3 c = { shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1 };
                     Vector3 d = { shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1 };
-                    /* outside: cloud texture */
+                    /* outside: cumulus */
                     rlColor4ub(topB, topB, topB, 255);
-                    rlTexCoord2f(uu0, vv1); rlVertex3f(a.x, a.y, a.z);
-                    rlTexCoord2f(uu1, vv1); rlVertex3f(b.x, b.y, b.z);
-                    rlTexCoord2f(uu1, vv0); rlVertex3f(c.x, c.y, c.z);
-                    rlTexCoord2f(uu0, vv0); rlVertex3f(d.x, d.y, d.z);
-                    /* inside: the other world's sky, slightly inset */
-                    float k0 = 0.995f, k1 = 0.995f;
-                    Vector3 a2 = { shellCenter.x + cosf(th0) * r0 * k0, y0 - 0.01f, shellCenter.z + sinf(th0) * r0 * k0 };
-                    Vector3 b2 = { shellCenter.x + cosf(th1) * r0 * k0, y0 - 0.01f, shellCenter.z + sinf(th1) * r0 * k0 };
-                    Vector3 c2 = { shellCenter.x + cosf(th1) * r1 * k1, y1 - 0.01f, shellCenter.z + sinf(th1) * r1 * k1 };
-                    Vector3 d2 = { shellCenter.x + cosf(th0) * r1 * k1, y1 - 0.01f, shellCenter.z + sinf(th0) * r1 * k1 };
+                    rlTexCoord2f(u0, v0); rlVertex3f(a.x, a.y, a.z);
+                    rlTexCoord2f(u1, v0); rlVertex3f(b.x, b.y, b.z);
+                    rlTexCoord2f(u1, v1); rlVertex3f(c.x, c.y, c.z);
+                    rlTexCoord2f(u0, v1); rlVertex3f(d.x, d.y, d.z);
+                    /* inside: the other world's sky (slightly inset) */
+                    Vector3 a2 = { shellCenter.x + cosf(th0) * r0 * 0.995f, y0 - 0.02f, shellCenter.z + sinf(th0) * r0 * 0.995f };
+                    Vector3 b2 = { shellCenter.x + cosf(th1) * r0 * 0.995f, y0 - 0.02f, shellCenter.z + sinf(th1) * r0 * 0.995f };
+                    Vector3 c2 = { shellCenter.x + cosf(th1) * r1 * 0.995f, y1 - 0.02f, shellCenter.z + sinf(th1) * r1 * 0.995f };
+                    Vector3 d2 = { shellCenter.x + cosf(th0) * r1 * 0.995f, y1 - 0.02f, shellCenter.z + sinf(th0) * r1 * 0.995f };
+                    rlSetTexture(shellUndTex.id);
                     rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
-                    rlTexCoord2f(iu0, ivv1); rlVertex3f(a2.x, a2.y, a2.z);
-                    rlTexCoord2f(iu1, ivv1); rlVertex3f(b2.x, b2.y, b2.z);
-                    rlTexCoord2f(iu1, ivv0); rlVertex3f(c2.x, c2.y, c2.z);
-                    rlTexCoord2f(iu0, ivv0); rlVertex3f(d2.x, d2.y, d2.z);
+                    rlTexCoord2f(u0, v0); rlVertex3f(a2.x, a2.y, a2.z);
+                    rlTexCoord2f(u1, v0); rlVertex3f(b2.x, b2.y, b2.z);
+                    rlTexCoord2f(u1, v1); rlVertex3f(c2.x, c2.y, c2.z);
+                    rlTexCoord2f(u0, v1); rlVertex3f(d2.x, d2.y, d2.z);
                     rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
-                    rlTexCoord2f(iu0, ivv0); rlVertex3f(d2.x, d2.y, d2.z);
-                    rlTexCoord2f(iu1, ivv0); rlVertex3f(c2.x, c2.y, c2.z);
-                    rlTexCoord2f(iu1, ivv1); rlVertex3f(b2.x, b2.y, b2.z);
-                    rlTexCoord2f(iu0, ivv1); rlVertex3f(a2.x, a2.y, a2.z);
+                    rlTexCoord2f(u0, v1); rlVertex3f(d2.x, d2.y, d2.z);
+                    rlTexCoord2f(u1, v1); rlVertex3f(c2.x, c2.y, c2.z);
+                    rlTexCoord2f(u1, v0); rlVertex3f(b2.x, b2.y, b2.z);
+                    rlTexCoord2f(u0, v0); rlVertex3f(a2.x, a2.y, a2.z);
+                    rlSetTexture(shellTopTex.id);
                 }
             }
             rlEnd();
