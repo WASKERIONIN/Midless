@@ -142,6 +142,37 @@ midless.define_block(41, {
     collider = block.collider.NONE,
 })
 
+-- v59.5: four new tall flora species for variety - bioluminescent teals,
+-- a warm ember accent, near-black foliage with magenta, and ice blue
+midless.define_block(45, {
+    name = "Glassbell",
+    textures = { all = 45 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(46, {
+    name = "Embercup",
+    textures = { all = 46 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(47, {
+    name = "Void Orchid",
+    textures = { all = 47 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(48, {
+    name = "Frostfern",
+    textures = { all = 48 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -264,9 +295,13 @@ for _, band in ipairs({
     { -0.25, 39 }, -- v58: void tuft ground cover
     { -0.20, 41 }, -- v59: sedge strands
     { -0.14, 28 }, -- bellflower
+    { -0.06, 45 }, -- v59.5: glassbell
     { 0.08, 29 },  -- starbloom
+    { 0.19, 46 },  -- v59.5: embercup
     { 0.30, 30 },  -- spiral fern
+    { 0.41, 47 },  -- v59.5: void orchid
     { 0.52, 31 },  -- twin tulip
+    { 0.63, 48 },  -- v59.5: frostfern
     { 0.74, 32 },  -- glow grass
 }) do
     flower_id = f.select(f.lt(band[1], which_n), band[2], flower_id)

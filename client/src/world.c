@@ -685,6 +685,11 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 38: halfW = 0.70f; h = 1.70f; swayAmp = 0.09f; break;   /* moon bell */
         case 39: halfW = 0.36f; h = 0.21f; swayAmp = 0.085f; break;  /* void tuft */
         case 41: halfW = 0.34f; h = 0.30f; swayAmp = 0.09f; break;   /* sedge */
+        /* v59.5: four new tall species (v57 rule: new flora > 1 block) */
+        case 45: halfW = 0.42f; h = 1.55f; swayAmp = 0.10f; break;  /* glassbell */
+        case 46: halfW = 0.40f; h = 1.35f; swayAmp = 0.085f; break; /* embercup */
+        case 47: halfW = 0.46f; h = 1.70f; swayAmp = 0.075f; break; /* void orchid */
+        case 48: halfW = 0.44f; h = 1.80f; swayAmp = 0.11f; break;  /* frostfern */
         default: return;
     }
     float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });

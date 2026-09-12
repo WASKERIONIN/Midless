@@ -669,32 +669,35 @@ static Texture2D Shell_MakeTopTexture(void) {
     for (int j = 0; j < 17; j++) { g16[j][16] = g16[j][0]; g16[16][j] = g16[0][j]; }
     g16[16][16] = g16[0][0];
 
+    /* v59.4: a REAL cloud - smooth lavender-white gradients, lit toward
+     * the pole. The old version quantized the noise into 4 hard shades
+     * (those flat square-ish patches) and painted a misplaced bright
+     * crest ring (the "ridiculous circle"). */
     for (int y = 0; y < SHELL_TH; y++) {
+        float fy = (float)y / SHELL_TH;          /* 0 = pole row, 1 = rim */
         for (int x = 0; x < SHELL_TW; x++) {
-            float fx = (float)x / SHELL_TW, fy = (float)y / SHELL_TH;
-            float n = Shell_WrappedNoiseN(&g8[0][0], 8, fx, fy) * 0.68f +
-                      Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.32f;
-            /* light rises toward the pole (texture v=0 is the pole) */
-            n += (1.0f - fy) * 0.30f;
-            int band = (int)(n * 3.6f);
-            if (band < 0) band = 0;
-            if (band > 3) band = 3;
-            static const unsigned char SH[4][3] = {
-                { 44, 32, 78 }, { 82, 62, 128 }, { 122, 100, 170 }, { 166, 146, 210 }
-            };
-            unsigned char r = SH[band][0], g = SH[band][1], b = SH[band][2];
-            if (fy < 0.10f && n > 0.35f) { r = 214; g = 200; b = 242; }  /* crest */
-            else if (fy < 0.22f && n > 0.55f) { r = 172; g = 152; b = 218; }
-            px[y * SHELL_TW + x] = (Color){ r, g, b, 255 };
+            float fx = (float)x / SHELL_TW;
+            float n = Shell_WrappedNoiseN(&g8[0][0], 8, fx, fy) * 0.62f +
+                      Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.38f;
+            float puff = 0.5f + 0.5f * sinf((n * 2.0f - 0.35f) * 3.1416f);  /* soft lobes */
+            float shade = 0.30f + 0.42f * puff + (1.0f - fy) * 0.30f;       /* lit top */
+            if (shade > 1.0f) shade = 1.0f;
+            int r = (int)(104.0f + 134.0f * shade);
+            int g = (int)(92.0f + 148.0f * shade);
+            int b = (int)(148.0f + 106.0f * shade);
+            px[y * SHELL_TW + x] = (Color){ (unsigned char)r, (unsigned char)g,
+                                            (unsigned char)b, 255 };
         }
     }
-    /* sparse teal glints */
-    for (int k = 0; k < 40; k++) {
+    /* a few soft teal glints tucked into the shaded underside */
+    for (int k = 0; k < 26; k++) {
         seed = seed * 1664525u + 1013904223u;
         int gx = (int)((seed >> 10) % SHELL_TW);
         seed = seed * 1664525u + 1013904223u;
-        int gy = (int)((seed >> 10) % (SHELL_TH / 2)) + SHELL_TH / 2;
-        px[gy * SHELL_TW + gx] = (Color){ 110, 225, 210, 255 };
+        int gy = (int)((seed >> 10) % (SHELL_TH / 3)) + (SHELL_TH * 2) / 3;
+        int i0 = gy * SHELL_TW + gx;
+        px[i0] = (Color){ 128, 216, 204, 255 };
+        if (gx + 1 < SHELL_TW) px[i0 + 1] = (Color){ 96, 168, 162, 255 };
     }
     Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
                   .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
@@ -859,15 +862,19 @@ static void Moth_Update(float deltaTime, double now) {
 
         /* glowing pollen trails behind the flight */
         if (now >= m->pollenAt) {
-            m->pollenAt = now + 0.10;
+            /* v59.5: sparse dust, not a continuous trail - a dense trail
+             * of long-lived slow particles READS AS A RIBBON from afar */
+            m->pollenAt = now + 0.22 + GetRandomValue(0, 14) / 100.0;
             Pollen *p = &pollen[pollenNext];
             pollenNext = (pollenNext + 1) % POLLEN_MAX;
             p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
                                 m->pos.y + GetRandomValue(-6, 6) / 100.0f,
                                 m->pos.z + GetRandomValue(-8, 8) / 100.0f };
-            p->vel = (Vector3){ GetRandomValue(-15, 15) / 100.0f, -0.22f, GetRandomValue(-15, 15) / 100.0f };
-            p->life = 1.7f + GetRandomValue(0, 60) / 100.0f;
-            p->size = 0.045f + GetRandomValue(0, 40) / 1000.0f;
+            p->vel = (Vector3){ GetRandomValue(-25, 25) / 100.0f,
+                                -(55 + GetRandomValue(0, 35)) / 100.0f,
+                                GetRandomValue(-25, 25) / 100.0f };
+            p->life = 0.75f + GetRandomValue(0, 45) / 100.0f;
+            p->size = 0.035f + GetRandomValue(0, 25) / 1000.0f;
             p->shift = GetRandomValue(0, 628) / 100.0f;
         }
     }
@@ -875,7 +882,7 @@ static void Moth_Update(float deltaTime, double now) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
         p->life -= deltaTime;
-        p->vel.y -= 0.05f * deltaTime;
+        p->vel.y -= 0.30f * deltaTime;   /* v59.5: dust falls away, no hanging */
         p->pos.x += p->vel.x * deltaTime * 0.4f + sinf(now * 1.7f + p->shift) * deltaTime * 0.12f;
         p->pos.y += p->vel.y * deltaTime;
         p->pos.z += p->vel.z * deltaTime * 0.4f;
@@ -909,15 +916,20 @@ static void Moth_Draw(double now) {
         }
         for (int k = 0; k < 4; k++) {
             Vector3 a = base[k], b = base[(k + 1) % 4];
+            /* v59.5: each cone side is two 4-vertex quads (tri + repeated
+             * corner degenerate). The old 3+3 triangles left half-quads
+             * that sheared into the next emitter's vertices. */
             rlColor4ub(br, bg, bb, 255);
             rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
             rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(b.x, b.y, b.z);
             rlTexCoord2f(u24 + 0.5f / 16.0f, v24); rlVertex3f(apex.x, apex.y, apex.z);
-            /* both windings: the batch is drawn with culling possible */
+            rlTexCoord2f(u24 + 0.5f / 16.0f, v24); rlVertex3f(apex.x, apex.y, apex.z);
+            /* inside, darker */
             rlColor4ub((unsigned char)(br * 3 / 4), (unsigned char)(bg * 3 / 4),
                        (unsigned char)(bb * 3 / 4), 255);
             rlTexCoord2f(u24 + 0.5f / 16.0f, v24); rlVertex3f(apex.x, apex.y, apex.z);
             rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(b.x, b.y, b.z);
+            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
             rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
         }
 
@@ -975,13 +987,14 @@ static void Moth_PollenDraw(double now) {
             Vector3 b = Vector3Add(Vector3Subtract(c, rx), uy);
             Vector3 d = Vector3Add(Vector3Add(c, rx), uy);
             Vector3 e = Vector3Subtract(Vector3Add(c, rx), uy);
+            /* v59.5: exactly 4 vertices - the old 6-vertex emission left
+             * a stray half-quad that glued onto the NEXT particle's first
+             * two corners, stretching rainbow streaks across the screen */
             rlColor4ub(r, g, bc, alpha);
             rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
             rlTexCoord2f(u24, v24); rlVertex3f(b.x, b.y, b.z);
             rlTexCoord2f(u24 + 1.0f / 16.0f, v24); rlVertex3f(d.x, d.y, d.z);
             rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(e.x, e.y, e.z);
-            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
-            rlTexCoord2f(u24 + 1.0f / 16.0f, v24); rlVertex3f(d.x, d.y, d.z);
         }
     }
 }
@@ -1437,66 +1450,75 @@ static void Mob_TexturedBlob(Vector3 c, float rx, float ry, float rz, float face
 void Mobs_Draw(void) {
     double now = (double)GetTime();
 
-    /* v59.3: the umbrella wears RUNTIME textures now (256x128): puffy
-     * cumulus on top, an alien starfield beneath - a window to another
-     * world when you look up under it. Rain + one plain pentagram stay. */
+    /* v59.4: the umbrella wears RUNTIME textures (256x128): a bright
+     * puffy cumulus on top and an alien starfield beneath - the window
+     * to another world. rlBegin is called BEFORE rlSetTexture: rlBegin
+     * stamps the fresh draw record with the DEFAULT texture whenever it
+     * has to switch modes, which used to eat the intended binding.
+     * Backface culling stays off for the shell (the icon renderer turns
+     * it on session-wide and the cap's outside vanished from view). */
     if (shellActive) {
         Shell_EnsureTextures();
         float R = 9.0f, cy2 = shellCenter.y;
         float H = R * 0.55f;                    /* cap height */
         const float PH_RIM = 1.6619f;           /* rim sits just under the equator */
         if (shellTopTex.id != 0 && shellUndTex.id != 0) {
-            rlSetTexture(shellTopTex.id);
             rlBegin(RL_QUADS);
+            rlSetTexture(shellTopTex.id);
+            rlDisableBackfaceCulling();
             const int SEG = 16;
             const float BANDS[7] = { PH_RIM, 1.45f, 1.20f, 0.90f, 0.60f, 0.30f, 0.0f };
-            float pulse = 0.90f + 0.10f * sinf((float)now * 0.8f);
-            unsigned char topB = (unsigned char)(255.0f * pulse);
+            float pulse = 0.92f + 0.08f * sinf((float)now * 0.8f);
+            unsigned char topB = (unsigned char)(238.0f * pulse);
             unsigned char undB = (unsigned char)(215.0f * pulse);
+            /* pass 1: the outside wears the puffy cumulus */
             for (int b = 0; b < 6; b++) {
                 float ph0 = BANDS[b], ph1 = BANDS[b + 1];
                 float r0 = R * sinf(ph0), y0 = cy2 + H * cosf(ph0);
                 float r1 = R * sinf(ph1), y1 = cy2 + H * cosf(ph1);
-                float v0 = ph0 / PH_RIM, v1 = ph1 / PH_RIM;   /* rim 0 .. pole 1 */
+                float v0 = ph0 / PH_RIM, v1 = ph1 / PH_RIM;   /* rim 1 .. pole 0 */
                 for (int s = 0; s < SEG; s++) {
                     float th0 = 6.2832f * s / SEG, th1 = 6.2832f * (s + 1) / SEG;
                     float u0 = (float)s / SEG, u1 = (float)(s + 1) / SEG;
-                    Vector3 a = { shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0 };
-                    Vector3 b = { shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0 };
-                    Vector3 c = { shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1 };
-                    Vector3 d = { shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1 };
-                    /* outside: cumulus */
                     rlColor4ub(topB, topB, topB, 255);
-                    rlTexCoord2f(u0, v0); rlVertex3f(a.x, a.y, a.z);
-                    rlTexCoord2f(u1, v0); rlVertex3f(b.x, b.y, b.z);
-                    rlTexCoord2f(u1, v1); rlVertex3f(c.x, c.y, c.z);
-                    rlTexCoord2f(u0, v1); rlVertex3f(d.x, d.y, d.z);
-                    /* inside: the other world's sky (slightly inset) */
-                    Vector3 a2 = { shellCenter.x + cosf(th0) * r0 * 0.995f, y0 - 0.02f, shellCenter.z + sinf(th0) * r0 * 0.995f };
-                    Vector3 b2 = { shellCenter.x + cosf(th1) * r0 * 0.995f, y0 - 0.02f, shellCenter.z + sinf(th1) * r0 * 0.995f };
-                    Vector3 c2 = { shellCenter.x + cosf(th1) * r1 * 0.995f, y1 - 0.02f, shellCenter.z + sinf(th1) * r1 * 0.995f };
-                    Vector3 d2 = { shellCenter.x + cosf(th0) * r1 * 0.995f, y1 - 0.02f, shellCenter.z + sinf(th0) * r1 * 0.995f };
-                    rlSetTexture(shellUndTex.id);
-                    rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
-                    rlTexCoord2f(u0, v0); rlVertex3f(a2.x, a2.y, a2.z);
-                    rlTexCoord2f(u1, v0); rlVertex3f(b2.x, b2.y, b2.z);
-                    rlTexCoord2f(u1, v1); rlVertex3f(c2.x, c2.y, c2.z);
-                    rlTexCoord2f(u0, v1); rlVertex3f(d2.x, d2.y, d2.z);
-                    rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
-                    rlTexCoord2f(u0, v1); rlVertex3f(d2.x, d2.y, d2.z);
-                    rlTexCoord2f(u1, v1); rlVertex3f(c2.x, c2.y, c2.z);
-                    rlTexCoord2f(u1, v0); rlVertex3f(b2.x, b2.y, b2.z);
-                    rlTexCoord2f(u0, v0); rlVertex3f(a2.x, a2.y, a2.z);
-                    rlSetTexture(shellTopTex.id);
+                    rlTexCoord2f(u0, v0);
+                    rlVertex3f(shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0);
+                    rlTexCoord2f(u1, v0);
+                    rlVertex3f(shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0);
+                    rlTexCoord2f(u1, v1);
+                    rlVertex3f(shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1);
+                    rlTexCoord2f(u0, v1);
+                    rlVertex3f(shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1);
+                }
+            }
+            /* pass 2: the inside, slightly inset - the other world's sky */
+            rlSetTexture(shellUndTex.id);
+            rlColor4ub(undB, (unsigned char)(undB * 105 / 100), undB, 255);
+            for (int b = 0; b < 6; b++) {
+                float ph0 = BANDS[b], ph1 = BANDS[b + 1];
+                float r0 = R * sinf(ph0) * 0.995f, y0 = cy2 + H * cosf(ph0) - 0.02f;
+                float r1 = R * sinf(ph1) * 0.995f, y1 = cy2 + H * cosf(ph1) - 0.02f;
+                float v0 = ph0 / PH_RIM, v1 = ph1 / PH_RIM;
+                for (int s = 0; s < SEG; s++) {
+                    float th0 = 6.2832f * s / SEG, th1 = 6.2832f * (s + 1) / SEG;
+                    float u0 = (float)s / SEG, u1 = (float)(s + 1) / SEG;
+                    rlTexCoord2f(u0, v0);
+                    rlVertex3f(shellCenter.x + cosf(th0) * r0, y0, shellCenter.z + sinf(th0) * r0);
+                    rlTexCoord2f(u1, v0);
+                    rlVertex3f(shellCenter.x + cosf(th1) * r0, y0, shellCenter.z + sinf(th1) * r0);
+                    rlTexCoord2f(u1, v1);
+                    rlVertex3f(shellCenter.x + cosf(th1) * r1, y1, shellCenter.z + sinf(th1) * r1);
+                    rlTexCoord2f(u0, v1);
+                    rlVertex3f(shellCenter.x + cosf(th0) * r1, y1, shellCenter.z + sinf(th0) * r1);
                 }
             }
             rlEnd();
             rlDrawRenderBatchActive();
+            rlEnableBackfaceCulling();
             rlSetTexture(0);
         }
     }
 
-    /* v55: spider bodies are textured chitin (own textured batch first) */
     Texture2D atlasS = World_GetTerrainTexture();
     if (atlasS.id != 0) {
         rlSetTexture(atlasS.id);
@@ -1656,42 +1678,6 @@ void Mobs_Draw(void) {
     if (shellActive) {
         float t0 = (float)now;
         float R = 9.0f, cy2 = shellCenter.y;
-        float blend = 0.5f + 0.5f * sinf(t0 * 0.6f);
-        unsigned char cr = (unsigned char)(150.0f + 90.0f * sinf(t0 * 0.9f));
-        unsigned char cg = (unsigned char)(60.0f + 70.0f * blend);
-        unsigned char cb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 0.7f + 2.0f));
-        Color shellC = { cr, cg, cb, 255 };
-        /* latitude rings */
-        for (int k = 0; k < 4; k++) {
-            float ph = 0.35f + k * 0.38f;
-            float rr2 = R * sinf(ph * 1.5708f / 1.6f) * 1.012f;
-            float yy = cy2 + R * cosf(ph * 1.5708f / 1.6f) * 0.55f + 0.03f;
-            float px = shellCenter.x + rr2, py = yy, pz = shellCenter.z;
-            for (int sIdx = 1; sIdx <= 18; sIdx++) {
-                float th = 6.2832f * sIdx / 18.0f;
-                float nx = shellCenter.x + cosf(th) * rr2;
-                float nz = shellCenter.z + sinf(th) * rr2;
-                rlColor4ub(shellC.r, shellC.g, shellC.b, shellC.a);
-                rlVertex3f(px, py, pz);
-                rlVertex3f(nx, py, nz);
-                px = nx; pz = nz;
-            }
-        }
-        /* meridian arcs */
-        for (int k = 0; k < 8; k++) {
-            float th = 6.2832f * k / 8.0f + t0 * 0.05f;
-            float px = shellCenter.x, py = cy2 + R * 0.55f, pz = shellCenter.z;
-            for (int sIdx = 1; sIdx <= 8; sIdx++) {
-                float ph = 1.5708f * sIdx / 8.0f;
-                float nx = shellCenter.x + cosf(th) * R * sinf(ph) * 1.012f;
-                float ny = cy2 + R * cosf(ph) * 0.55f + 0.03f;
-                float nz = shellCenter.z + sinf(th) * R * sinf(ph) * 1.012f;
-                rlColor4ub(shellC.r, shellC.g, shellC.b, shellC.a);
-                rlVertex3f(px, py, pz);
-                rlVertex3f(nx, ny, nz);
-                px = nx; py = ny; pz = nz;
-            }
-        }
         /* v59.2: the light rain is back - streaks sliding down under the
          * umbrella; it is the event's signature */
         for (int k = 0; k < 48; k++) {

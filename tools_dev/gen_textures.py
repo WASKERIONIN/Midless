@@ -1085,6 +1085,153 @@ def t_white(index):
     return img
 
 
+def t_glassbell(index):
+    """v59.5: glassbell - a translucent teal bell on a thin stalk (1.55
+    blocks tall). Bioluminescent aqua glass with a pale rim (the alien-
+    flora palette: electric blues/teals glowing on dark)."""
+    img = blank_tile()
+    px = img.load()
+    D = (16, 62, 74)      # deep teal stalk
+    T = (44, 150, 158)    # teal glass
+    A = (110, 232, 226)   # aqua glow
+    P = (214, 252, 248)   # pale rim
+    G = (255, 214, 110)   # gold clapper
+    # stalk
+    for y in range(9, 16):
+        px[7, y] = D
+        px[8, y] = T if y < 12 else D
+    px[6, 11] = D
+    px[9, 13] = D
+    # glass bell: dome rows 1-7, open mouth at row 7
+    dome = {
+        1: (7, 8), 2: (6, 9), 3: (5, 10), 4: (5, 10),
+        5: (4, 11), 6: (4, 11), 7: (4, 11),
+    }
+    for y, (x0, x1) in dome.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1) or y in (1, 7)
+            px[x, y] = P if edge else (A if (x + y) % 3 else T)
+    # highlight + clapper
+    px[5, 2] = P
+    px[6, 2] = P
+    px[7, 8] = G
+    px[8, 8] = (200, 160, 70)
+    return img
+
+
+def t_embercup(index):
+    """v59.5: embercup - a warm ember-gold cup on a dark stem (1.35
+    blocks). The one warm accent in the meadow, like a coal that took
+    root; rim glows as if smouldering."""
+    img = blank_tile()
+    px = img.load()
+    D = (52, 30, 22)      # charred stem
+    S = (94, 52, 30)      # stem light
+    E = (232, 96, 40)     # ember
+    E2 = (255, 160, 60)   # ember light
+    G = (255, 232, 150)   # gold rim
+    for y in range(9, 16):
+        px[7, y] = D
+        px[8, y] = S if y < 12 else D
+    px[6, 12] = D
+    px[9, 14] = D
+    # cup: two leaf-curves meeting upward, rows 2-8
+    cup = {
+        2: (7, 8), 3: (6, 9), 4: (5, 10), 5: (5, 10),
+        6: (4, 11), 7: (5, 10), 8: (6, 9),
+    }
+    for y, (x0, x1) in cup.items():
+        for x in range(x0, x1 + 1):
+            if y in (6, 7, 8):
+                px[x, y] = E
+            else:
+                px[x, y] = E2 if x in (x0, x1) else E
+    # glowing rim
+    for x in range(4, 12):
+        px[x, 6] = G
+    px[5, 5] = G
+    px[10, 5] = G
+    px[7, 3] = G
+    px[8, 3] = (255, 248, 200)
+    # a spark above the cup
+    px[8, 0] = (255, 200, 90)
+    return img
+
+
+def t_voidorchid(index):
+    """v59.5: void orchid - deep magenta orchid over near-black foliage
+    (1.7 blocks). Real 'black plant' botany (dark foliage catches light)
+    plus the palette's magenta: petals edged pale violet, heart almost
+    black."""
+    img = blank_tile()
+    px = img.load()
+    K = (18, 12, 24)      # black foliage
+    K2 = (30, 20, 40)     # foliage light
+    M = (196, 44, 150)    # magenta petal
+    M2 = (238, 110, 200)  # petal light
+    V = (240, 214, 246)   # pale violet edge
+    # dark leaves around the stem base
+    for (x, y) in [(4, 14), (5, 13), (3, 15), (11, 14), (10, 13), (12, 15),
+                   (5, 11), (10, 11), (6, 15), (9, 15)]:
+        px[x, y] = K
+    px[5, 12] = K2
+    px[10, 12] = K2
+    # stem
+    for y in range(7, 16):
+        px[7, y] = K2
+        px[8, y] = K
+    # orchid bloom rows 1-6: five petals
+    petals = [(5, 3), (10, 3), (4, 5), (11, 5), (7, 1), (8, 1)]
+    for (x, y) in petals:
+        px[x, y] = V
+    body = [(6, 2), (9, 2), (6, 3), (7, 3), (8, 3), (9, 3),
+            (5, 4), (6, 4), (7, 4), (8, 4), (9, 4), (10, 4),
+            (6, 5), (7, 5), (8, 5), (9, 5), (7, 6), (8, 6)]
+    for (x, y) in body:
+        px[x, y] = M
+    highlights = [(6, 3), (9, 4), (7, 5)]
+    for (x, y) in highlights:
+        px[x, y] = M2
+    # near-black heart
+    px[7, 4] = K
+    px[8, 4] = K
+    px[7, 5] = (40, 16, 44)
+    return img
+
+
+def t_frostfern(index):
+    """v59.5: frostfern - an icy pale-blue fern frond unrolling (1.8
+    blocks). Paired pinnae climb the stalk and shrink toward the tip;
+    white frost on the upper edges."""
+    img = blank_tile()
+    px = img.load()
+    D = (58, 106, 150)    # frond base
+    I = (140, 200, 240)   # ice blue
+    W = (226, 246, 255)   # frost white
+    S = (86, 140, 180)    # stem
+    for y in range(1, 16):
+        px[7, y] = S
+        px[8, y] = D if y > 3 else S
+    # pinnae pairs shrink toward the tip
+    span = {2: 1, 3: 1, 4: 2, 5: 2, 6: 3, 7: 3, 8: 3, 9: 2, 10: 2, 11: 1, 12: 1}
+    for y, half in span.items():
+        for d in range(1, half + 1):
+            px[7 - d, y] = I
+            px[8 + d, y] = I
+            if half >= 2 and d == 1:
+                px[7 - d, y - 1] = W if y <= 6 else I
+                px[8 + d, y - 1] = W if y <= 6 else I
+    # curled tip
+    px[8, 0] = W
+    px[9, 1] = I
+    # frost speckles
+    px[5, 8] = W
+    px[10, 6] = W
+    px[4, 10] = I
+    px[11, 9] = I
+    return img
+
+
 def build_atlas():
     atlas = Image.new("RGBA", (ATLAS, ATLAS), (0, 0, 0, 0))
     tiles = {
@@ -1118,6 +1265,10 @@ def build_atlas():
         42: t_moth(42),
         43: t_cloud(43),
         44: t_undersky(44),
+        45: t_glassbell(45),
+        46: t_embercup(46),
+        47: t_voidorchid(47),
+        48: t_frostfern(48),
         14: t_water(14),
         15: t_lava(15),
         16: t_fire(16),

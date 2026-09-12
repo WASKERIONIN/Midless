@@ -310,7 +310,25 @@ typedef struct MusTrack {
     int motifLen;
     float rootBase;           /* bass anchor */
     int dorian;               /* scale flavour */
+    /* v59.4: per-track character. All four loops used to share one tempo,
+     * one timbre and one filter - a listener could not tell the radio
+     * ever changed. Every knob below is per track now. */
+    float barSec;             /* seconds per chord bar */
+    float bassDiv;            /* bass pulses per bar (0 = slow swell) */
+    float bassGain, bassDecay;
+    float padGain, padHarm;   /* pad level, 2nd-harmonic amount */
+    float leadGain, leadOct;  /* melody level, octave shift */
+    float lpCoef;             /* lowpass brightness */
+    int   bellBars;           /* toll every N bars (0 = none) */
+    float bellFreq;
+    int   drone;              /* hold the first chord only */
 } MusTrack;
+
+/* v59.4: a held root+fifth - the abyss does not chord, it breathes */
+static const float chordsAbyss[] = {
+    NOTE_D3, NOTE_A3, 0,  NOTE_D3, NOTE_A3, 0,
+    NOTE_D3, NOTE_A3, 0,  NOTE_D3, NOTE_A3, 0,
+};
 
 /* L'homme arme (opening, simplified, D dorian) + a chant answer */
 static const float motifHomme[] = {
@@ -338,11 +356,6 @@ static const float chordsAm[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
     NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_G3, NOTE_B3, NOTE_D4,
 };
-/* Track 2: Dm - C drone shuttle */
-static const float chordsDm[] = {
-    NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_D4, NOTE_F4, NOTE_A4,
-    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_C4, NOTE_E4, NOTE_G4,
-};
 /* Track 3: Dm - Bb - C - Dm wraith march */
 static const float chordsWraith[] = {
     NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_BB3, NOTE_D4, NOTE_F4,
@@ -355,10 +368,14 @@ static const float chordsChapel[] = {
 };
 
 static const MusTrack tracks[4] = {
-    { chordsAm,     motifHomme,  16, NOTE_A2, 0 },
-    { chordsDm,     motifChant,  16, NOTE_D2, 1 },
-    { chordsWraith, motifWraith, 16, NOTE_D2, 0 },
-    { chordsChapel, motifChapel, 16, NOTE_E2, 0 },
+    /* 0 "Wanderer's march": firm dorian stride, plucked half-bar bass */
+    { chordsAm,     motifHomme,  16, NOTE_A2, 0, 3.8f, 2.0f, 0.50f, 5.5f, 0.24f, 0.30f, 0.20f, 1.0f, 0.20f, 4, 880.0f, 0 },
+    /* 1 "Abyss": one held fifth, sub swell, dark whispered chant */
+    { chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.36f, 0.0f, 0.30f, 0.10f, 0.09f, 0.5f, 0.10f, 2, 220.0f, 1 },
+    /* 2 "Wraith procession": quarter-note march bass, choir pad */
+    { chordsWraith, motifWraith, 16, NOTE_D2, 0, 4.6f, 4.0f, 0.40f, 7.5f, 0.22f, 0.45f, 0.18f, 1.0f, 0.15f, 3, 660.0f, 0 },
+    /* 3 "Frozen chapel": long lament, bright airy pad, icy high bells */
+    { chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.30f, 0.0f, 0.28f, 0.50f, 0.16f, 2.0f, 0.17f, 1, 1760.0f, 0 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -388,9 +405,9 @@ static float melPhase = 0.0f;
 
 static float Mus_NextSample(void) {
     const MusTrack *T = &tracks[musTrack];
-    const float BAR = (float)MUS_SR * 4.6f;              /* one chord, ~4.6 s */
+    const float BAR = (float)MUS_SR * T->barSec;         /* per-track tempo */
     unsigned int total = (unsigned int)(musSample / BAR);
-    int chordIdx = (int)(total % 4);
+    int chordIdx = T->drone ? 0 : (int)(total % 4);
     int barIn2 = (int)(total % 8);
     /* v59.3: 8-bar boundary -> 70% chance to hand off, always elsewhere */
     unsigned int cycle = (unsigned int)(musSample / (BAR * 8.0f));
@@ -411,18 +428,23 @@ static float Mus_NextSample(void) {
         padPhase[v] += 6.28318f * (ch[v] * (1.0f + padDet[v])) / MUS_SR;
         if (padPhase[v] > 6.28318f) padPhase[v] -= 6.28318f;
         float s = sinf(padPhase[v]);
-        s += 0.45f * sinf(padPhase[v] * 2.0f);
-        s += 0.22f * sinf(padPhase[v] * 3.002f);
+        s += T->padHarm * sinf(padPhase[v] * 2.0f);
+        s += 0.18f * sinf(padPhase[v] * 3.002f);
         pad += s * (v == 0 ? 0.34f : 0.26f);
     }
-    pad *= env * 0.30f;
+    pad *= env * T->padGain;
 
-    /* bass: root an octave down, soft pulse each half bar */
+    /* bass: a plucked pulse (marches) or a slow swell (drones) */
     bassPhase += 6.28318f * (T->rootBase * 0.5f) / MUS_SR;
     if (bassPhase > 6.28318f) bassPhase -= 6.28318f;
-    float beat = fmodf(tInBar * 2.0f, 1.0f);
-    float bEnv = expf(-beat * 5.5f) * 0.5f + 0.10f;
-    float bass = sinf(bassPhase) * bEnv * 0.42f;
+    float bEnv;
+    if (T->bassDiv > 0.0f) {
+        float beat = fmodf(tInBar * T->bassDiv, 1.0f);
+        bEnv = expf(-beat * T->bassDecay) * 0.5f + 0.10f;
+    } else {
+        bEnv = 0.30f + 0.30f * sinf(3.1416f * tInBar);
+    }
+    float bass = sinf(bassPhase) * bEnv * T->bassGain;
 
     /* melody: chant-like walk; quotes the motif every second 8-bar cycle */
     float mel = 0.0f;
@@ -449,20 +471,20 @@ static float Mus_NextSample(void) {
         xfadePos = 0;
     }
     xfadePos++;
-    melPhase += 6.28318f * curNote / MUS_SR;
+    melPhase += 6.28318f * (curNote * T->leadOct) / MUS_SR;
     if (melPhase > 6.28318f) melPhase -= 6.28318f;
-    float mEnv = (1.0f - stepT * 0.35f) * (step % 2 == 0 ? 0.20f : 0.16f);
+    float mEnv = (1.0f - stepT * 0.35f) * T->leadGain;
     mel = (sinf(melPhase) + 0.3f * sinf(melPhase * 2.0f)) * mEnv;
 
-    /* soft bell shimmer on the first step of every 4th bar */
-    if (step == 0 && chordIdx == 0 && tInBar < 0.25f) {
-        float bt = tInBar / 0.25f;
-        mel += sinf(6.28318f * NOTE_A4 * 2.0f * (float)((double)musSample / MUS_SR)) * expf(-bt * 6.0f) * 0.05f;
+    /* v59.4: a per-track bell toll - chapel ice, abyss tocsin */
+    if (T->bellBars > 0 && total % (unsigned int)T->bellBars == 0 && tInBar < 0.30f) {
+        float bt = tInBar / 0.30f;
+        mel += sinf(6.28318f * T->bellFreq * (float)((double)musSample / MUS_SR)) * expf(-bt * 5.0f) * 0.06f;
     }
 
     float mix = pad + bass + mel;
-    /* one-pole lowpass: deep dungeon haze */
-    musLp += (mix - musLp) * 0.16f;
+    /* one-pole lowpass, per-track brightness */
+    musLp += (mix - musLp) * T->lpCoef;
     float outv = musLp * 1.25f + mix * 0.4f;
 
     musSample++;

@@ -180,6 +180,36 @@ void Block_BuildDefinition(void) {
     blockDefinitions[41].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[41].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[41].maxBB = (Vector3) {12, 10, 12};
+
+    /* v59.5: four new tall alien flora (the mod defines these too for
+     * the server sync; defaults keep single-player menus working) */
+    Block_Define(45, "glassbell", 45, 45, 45);
+    blockDefinitions[45].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[45].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[45].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[45].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[45].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(46, "embercup", 46, 46, 46);
+    blockDefinitions[46].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[46].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[46].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[46].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[46].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(47, "void_orchid", 47, 47, 47);
+    blockDefinitions[47].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[47].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[47].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[47].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[47].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(48, "frostfern", 48, 48, 48);
+    blockDefinitions[48].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[48].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[48].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[48].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[48].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;
