@@ -13,4 +13,6 @@ static Matrix rlGetMatrixProjection(void) {
     Matrix m = { 1, 0, 0, 0,  0, 1, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1 };
     return m;
 }
+/* v61: pollen draws on rlgl's default white texture */
+static unsigned int rlGetTextureIdDefault(void) { return RLM_defaultTextureId; }
 #endif

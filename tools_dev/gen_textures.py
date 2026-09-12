@@ -1403,8 +1403,31 @@ def build_humanoid(path):
     img.save(path)
 
 
+# v61: tiles that belong to CUBE blocks must be fully opaque. Decoration
+# passes (crack_lines with alpha=140, dim speckle) used to leave alpha
+# 110-230 pixels inside stone/ore/log tiles; the chunk shader discards
+# texels below a=0.5 and the GL blender always blends, so those pixels
+# punched visible holes and see-through specks into the cubes.
+CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26}
+# (intentionally translucent/cutout tiles stay untouched: 10 leaves,
+# 14 water, 17 glass, 22 crystal, every SPRITE/flora tile)
+
+
+def enforce_opaque_cube_tiles(atlas):
+    px = atlas.load()
+    for tile in CUBE_TILES:
+        x0 = (tile % 16) * 16
+        y0 = (tile // 16) * 16
+        for y in range(y0, y0 + 16):
+            for x in range(x0, x0 + 16):
+                r, g, b, a = px[x, y]
+                if a != 255:
+                    px[x, y] = (r, g, b, 255)
+
+
 def main():
     atlas = build_atlas()
+    enforce_opaque_cube_tiles(atlas)
     atlas.save("client/textures/terrain.png")
     build_humanoid("client/textures/humanoid.png")
     print("terrain.png + humanoid.png written")

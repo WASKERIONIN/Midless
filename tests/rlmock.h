@@ -47,6 +47,8 @@ typedef struct RLMockStats {
     int overflowFlushes;   /* mid-primitive buffer-limit flushes */
     int drawsExecuted;     /* total draw records processed */
     int batchesFlushed;
+    int defaultTexRecords; /* records drawn on the DEFAULT white texture
+                            (v61: the pollen's plain-path signature) */
 } RLMockStats;
 
 static RLMockDraw RLM_draws[RLMOCK_MAX_DRAWS];
@@ -82,6 +84,8 @@ static void RLM_DrawRenderBatch(void) {
         for (int i = 0; i < RLM_drawCounter; i++) {
             if (RLM_draws[i].vertexCount > 0) {
                 RLM_stats.drawsExecuted++;
+                if (RLM_draws[i].textureId == RLM_defaultTextureId)
+                    RLM_stats.defaultTexRecords++;
                 if (RLM_draws[i].mode == RL_LINES || RLM_draws[i].mode == RL_TRIANGLES) {
                     /* glDrawArrays - any vertex count is legal */
                 } else {

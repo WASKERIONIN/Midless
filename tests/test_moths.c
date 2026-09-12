@@ -279,13 +279,21 @@ static void TestRender(void) {
     ResetWorld(1);
 
     /* normal-size batch model */
+    int framesWithDefaultTexPollen = 0;
     for (int f = 0; f < 60 * 25; f++) {
         simTime += simStep;
         Mobs_Update((float)simStep);
         RLM_lastError[0] = 0;
+        RLM_stats.defaultTexRecords = 0;
         Mobs_Draw();
         REQUIRE(RLM_stats.shearEvents == 0, "air frame %d: %s", f, RLM_lastError);
+        /* v61: the pollen must ride the PLAIN path on the default white
+         * texture - that is the whole point of the rewrite */
+        if (RLM_stats.defaultTexRecords > 0) framesWithDefaultTexPollen++;
     }
+    REQUIRE(framesWithDefaultTexPollen >= 60 * 24,
+            "pollen drawn on the default texture in %d of 1500 frames",
+            framesWithDefaultTexPollen);
 
     /* shrunken buffers: force mid-primitive flushes + tiny draw-record lists */
     RLM_Reset();
@@ -315,7 +323,7 @@ static double PollenAlphaOf(const Pollen *p) {
     float k = Clamp(p->life, 0.0f, 1.0f);
     float ease = k * k * (3.0f - 2.0f * k);
     float twinkle = 0.92f + 0.08f * sinf((float)simTime * 3.4f + p->shift * 3.0f);
-    return 240.0 * (0.55 + 0.45 * ease) * twinkle;
+    return 235.0 * (0.60 + 0.40 * ease) * twinkle;
 }
 
 static void TestPollenVisibility(void) {
@@ -359,8 +367,42 @@ static void TestRenderShellEvent(void) {
     REQUIRE(shellTexReady, "shell runtime textures were created");
 }
 
+static void TestSpiderRotation(void) {
+    printf("[7] cocoon hatchery rotation (the \"empty cocoons\" bug)\n");
+    ResetWorld(1);
+    shardDrops = 0;
+
+    /* six hatches in a row, at the game's real cadence (Cocoon_Scan
+     * opens at most one cocoon per 0.5 s): every one must release a
+     * spider, and ages must diverge so rotation always takes the oldest */
+    for (int i = 0; i < 6; i++) {
+        Vector3 pos = { 5.0f + i, 71.0f, 5.0f };
+        bool ok = Mobs_SpawnSpider(pos);
+        REQUIRE(ok, "hatch %d released a spider", i);
+        for (int f = 0; f < 30; f++) { simTime += simStep; Mobs_Update((float)simStep); }
+    }
+    REQUIRE(Mobs_SpiderCount() == SPIDER_MAX,
+            "population capped at SPIDER_MAX (got %d)", Mobs_SpiderCount());
+    /* two oldest were rotated out: 2 collapses * 2 shard piles each */
+    REQUIRE(shardDrops >= 4, "rotated-out spiders left shard loot (%d)", shardDrops);
+
+    /* the NEWEST spiders must be the ones alive: last two spawn spots present */
+    int found = 0;
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        if (!spiders[i].active) continue;
+        if ((int)spiders[i].pos.x == 9 || (int)spiders[i].pos.x == 10) found++;
+    }
+    REQUIRE(found == 2, "newest hatchlings alive at their cocoons (got %d)", found);
+
+    /* and every live spider is younger than the rotated-out ones were */
+    for (int i = 0; i < SPIDER_MAX; i++) {
+        if (spiders[i].active)
+            REQUIRE(spiders[i].age < 2.0f, "live spider %d is young (<2 s)", i);
+    }
+}
+
 static void TestReset(void) {
-    printf("[7] world reset hygiene\n");
+    printf("[8] world reset hygiene\n");
     ResetWorld(1);
     for (int f = 0; f < 60 * 20; f++) { simTime += simStep; Mobs_Update((float)simStep); }
     REQUIRE(CountLivePollen() > 0, "trail alive before reset");
@@ -383,6 +425,7 @@ int main(void) {
     TestRender();
     TestPollenVisibility();
     TestRenderShellEvent();
+    TestSpiderRotation();
     TestReset();
 
     printf("\n%s: %d checks, %d failures\n", failures ? "TESTS FAILED" : "TESTS OK", checks, failures);

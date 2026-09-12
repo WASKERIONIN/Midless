@@ -333,8 +333,13 @@ static void Wisp_Update(float deltaTime, double now) {
 
 /* ---------------------------------------------------------------- spiders */
 /* v51: hatch from void cocoons. Two legs and a segmented tail it whips
- * around; attacks by leaping at the player, then bounces back. */
-#define SPIDER_MAX 2
+ * around; attacks by leaping at the player, then bounces back.
+ * v61: the hatchery rotates. The old cap of 2 made every cocoon past the
+ * first two hatch "empty" until a spider died or despawned (the player
+ * read that as cocoons releasing nothing). Now four hunt at once, and a
+ * fifth hatch collapses the OLDEST spider into collectible shards so a
+ * fresh one always climbs out of the shell. */
+#define SPIDER_MAX 4
 #define SPIDER_HP 3
 #define SPIDER_SPEED 2.1f
 #define SPIDER_SIGHT 10.0f
@@ -359,34 +364,52 @@ typedef struct Spider {
 static Spider spiders[SPIDER_MAX];
 static bool spiderAnnounced;
 
-/* v55: returns false when both hatches are busy - the caller must then
- * leave the cocoon intact so somebody can actually hatch later */
+/* v55: returns false only if the spawn is truly impossible.
+ * v61: with all four slots busy the OLDEST hatchling collapses into
+ * shards and the newborn takes its place - a hatched cocoon always
+ * releases a spider. */
+static bool Spider_SpawnInto(Spider *s, Vector3 pos);   /* v61: shared body */
+
 bool Mobs_SpawnSpider(Vector3 pos) {
     for (int i = 0; i < SPIDER_MAX; i++) {
         Spider *s = &spiders[i];
         if (s->active) continue;
-        s->active = true;
-        s->pos = pos;
-        s->vel = (Vector3){ 0, 1.2f, 0 };   /* bursts out of the cocoon */
-        s->hp = SPIDER_HP;
-        s->phase = (float)GetRandomValue(0, 628) / 100.0f;
-        s->faceAng = (float)GetRandomValue(0, 3599) * 0.001745f;
-        s->aggroTimer = 8.0f;               /* freshly hatched: furious */
-        s->jumpCd = 0.8f;
-        s->stingCd = 0.0f;
-        s->bounceBackUntil = 0.0f;
-        s->airborne = false;
-        s->grounded = false;
-        s->age = 0.0f;
-        SoundFx_PlayExplosion();
-        Particle_SpawnImpact(pos);
-        if (!spiderAnnounced) {
-            spiderAnnounced = true;
-            Chat_AddLine(Tr("The cocoon splits open. Something many-legged rises."));
-        }
-        return true;
+        return Spider_SpawnInto(s, pos);
     }
-    return false;
+    /* hatchery full: rotate the oldest one out */
+    Spider *oldest = &spiders[0];
+    for (int i = 1; i < SPIDER_MAX; i++) {
+        if (spiders[i].age > oldest->age) oldest = &spiders[i];
+    }
+    /* v61: the rotated-out body bursts into shard loot on the ground */
+    Hunter_WireBurst(oldest->pos);
+    Particle_SpawnImpact(oldest->pos);
+    Hunter_DropShards(oldest->pos, 2);
+    return Spider_SpawnInto(oldest, pos);
+}
+
+static bool Spider_SpawnInto(Spider *s, Vector3 pos) {
+    s->active = true;
+    s->pos = pos;
+    s->vel = (Vector3){ 0, 1.2f, 0 };   /* bursts out of the cocoon */
+    s->hp = SPIDER_HP;
+    s->phase = (float)GetRandomValue(0, 628) / 100.0f;
+    s->faceAng = (float)GetRandomValue(0, 3599) * 0.001745f;
+    s->aggroTimer = 8.0f;               /* freshly hatched: furious */
+    s->jumpCd = 0.8f;
+    s->stingCd = 0.0f;
+    s->bounceBackUntil = 0.0f;
+    s->airborne = false;
+    s->grounded = false;
+    s->age = 0.0f;
+    s->stuck = 0.0f;
+    SoundFx_PlayExplosion();
+    Particle_SpawnImpact(pos);
+    if (!spiderAnnounced) {
+        spiderAnnounced = true;
+        Chat_AddLine(Tr("The cocoon splits open. Something many-legged rises."));
+    }
+    return true;
 }
 
 static void Spider_Damage(Spider *s, Vector3 rd) {
@@ -1014,54 +1037,65 @@ static void Moth_Draw(double now) {
     }
 }
 
-/* v59.2: pollen - small camera-aligned quads in the SAME atlas batch
- * (tile 24 white x vertex color). Exactly 6 vertices per ghost quad;
- * the old version emitted 7, shearing every later triangle into those
- * full-screen color bands. */
+/* v61: pollen - REWRITTEN to be impossible to lose again.
+ *
+ * History: v59.2 drew each mote as ONE camera-facing quad with a single
+ * winding. World_Draw leaves backface culling enabled session-wide
+ * (v43.5 water fix; see the v56 note), and that winding faced AWAY from
+ * the camera - so the GPU silently culled every mote and the trail
+ * read as "gone" even though the geometry, alpha and atlas were fine.
+ * (The v59.0 "rainbow lines" were the same quads mis-indexed by the
+ * 7-vertex emission bug - a different failure at the same spot.)
+ *
+ * The new draw closes every door that could hide it:
+ *   - it runs on rlgl's DEFAULT white texture through the PLAIN
+ *     pipeline (outside the cutout sprite batch) - immune to atlas
+ *     content, server texture packs and the alpha<0.5 discard;
+ *   - every quad is emitted in BOTH windings - face culling can never
+ *     eat it, whichever side the driver considers front;
+ *   - the mote color IS the RGB shift: three stacked translucent quads
+ *     with phase-shifted cycle colors, offset around a small slowly
+ *     spinning ring in the view plane (radial chromatic aberration). */
 static void Moth_PollenDraw(double now) {
     Matrix view = rlGetMatrixModelview();
     Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
     Vector3 up = Vector3Normalize((Vector3){ view.m1, view.m5, view.m9 });
-    float u24 = (24 % 16) / 16.0f, v24 = (24 / 16) / 16.0f;
     for (int i = 0; i < POLLEN_MAX; i++) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
-        /* v60: a mote stays ITSELF until it dies. v59.8 faded alpha
-         * linearly from the first second, so over half of every mote's
-         * life was below 50% brightness and the trail read as gone.
-         * Now: hold a bright core, ease out only at the very end, and
-         * keep most of the size while dying. */
+        /* a mote stays ITSELF until it dies: hold a bright core, ease
+         * out only at the very end, keep most of the size while dying */
         float k = Clamp(p->life, 0.0f, 1.0f);
         float ease = k * k * (3.0f - 2.0f * k);
         float twinkle = 0.92f + 0.08f * sinf(now * 3.4f + p->shift * 3.0f);
-        unsigned char alpha = (unsigned char)(240.0f * (0.55f + 0.45f * ease) * twinkle);
-        float s = p->size * (0.80f + 0.30f * ease);
+        unsigned char alpha = (unsigned char)(235.0f * (0.60f + 0.40f * ease) * twinkle);
+        float s = p->size * (0.85f + 0.25f * ease);
+        Vector3 rx = Vector3Scale(right, s), uy = Vector3Scale(up, s);
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
             unsigned char g = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 2.094f));
             unsigned char bc = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph + 4.188f));
-            /* v60: the RGB layers separate around a small slowly-spinning
-             * ring in the view plane (radial chromatic aberration) - the
-             * old straight horizontal split made every mote fringe to the
-             * same side like a misaligned CRT. */
+            /* radial chromatic aberration: the three color layers ride a
+             * slowly spinning ring instead of one flat horizontal split */
             float an = now * 0.7f + 6.2832f * ch / 3.0f + p->shift * 0.15f;
-            Vector3 off = Vector3Add(Vector3Scale(right, cosf(an) * p->size * 0.7f),
-                                     Vector3Scale(up, sinf(an) * p->size * 0.7f));
-            Vector3 c = Vector3Add(p->pos, off);
-            Vector3 rx = Vector3Scale(right, s), uy = Vector3Scale(up, s);
+            Vector3 c = Vector3Add(p->pos,
+                Vector3Add(Vector3Scale(right, cosf(an) * s * 0.55f),
+                           Vector3Scale(up, sinf(an) * s * 0.55f)));
             Vector3 a = Vector3Subtract(Vector3Subtract(c, rx), uy);
-            Vector3 b = Vector3Add(Vector3Subtract(c, rx), uy);
-            Vector3 d = Vector3Add(Vector3Add(c, rx), uy);
+            Vector3 b2 = Vector3Add(Vector3Subtract(c, rx), uy);
+            Vector3 d2 = Vector3Add(Vector3Add(c, rx), uy);
             Vector3 e = Vector3Subtract(Vector3Add(c, rx), uy);
-            /* v59.5: exactly 4 vertices - the old 6-vertex emission left
-             * a stray half-quad that glued onto the NEXT particle's first
-             * two corners, stretching rainbow streaks across the screen */
             rlColor4ub(r, g, bc, alpha);
-            rlTexCoord2f(u24, v24 + 1.0f / 16.0f); rlVertex3f(a.x, a.y, a.z);
-            rlTexCoord2f(u24, v24); rlVertex3f(b.x, b.y, b.z);
-            rlTexCoord2f(u24 + 1.0f / 16.0f, v24); rlVertex3f(d.x, d.y, d.z);
-            rlTexCoord2f(u24 + 1.0f / 16.0f, v24 + 1.0f / 16.0f); rlVertex3f(e.x, e.y, e.z);
+            rlTexCoord2f(0.0f, 1.0f); rlVertex3f(a.x, a.y, a.z);
+            rlTexCoord2f(0.0f, 0.0f); rlVertex3f(b2.x, b2.y, b2.z);
+            rlTexCoord2f(1.0f, 0.0f); rlVertex3f(d2.x, d2.y, d2.z);
+            rlTexCoord2f(1.0f, 1.0f); rlVertex3f(e.x, e.y, e.z);
+            /* reverse winding: never a back face, whatever the state */
+            rlTexCoord2f(1.0f, 1.0f); rlVertex3f(e.x, e.y, e.z);
+            rlTexCoord2f(1.0f, 0.0f); rlVertex3f(d2.x, d2.y, d2.z);
+            rlTexCoord2f(0.0f, 0.0f); rlVertex3f(b2.x, b2.y, b2.z);
+            rlTexCoord2f(0.0f, 1.0f); rlVertex3f(a.x, a.y, a.z);
         }
     }
 }
@@ -1107,6 +1141,12 @@ void Mobs_SpriteBatchBegin(Texture2D atlas) {
     }
     BeginShaderMode(spriteCutShader);   /* flushes whatever batch was open */
     rlDisableDepthMask();
+    /* v61: billboards are double-sided by nature - with the session's
+     * backface culling left ON after World_Draw, a quad whose winding
+     * faces away from the camera simply vanished (this is what silently
+     * ate the single-winded pollen quads). Culling stays off for the
+     * whole sprite batch; Mobs_SpriteBatchEnd restores the session norm. */
+    rlDisableBackfaceCulling();
     rlBegin(RL_QUADS);                  /* begin first: rlBegin stamps the
                                          * fresh record with the DEFAULT
                                          * texture when it switches modes */
@@ -1117,6 +1157,7 @@ void Mobs_SpriteBatchEnd(void) {
     rlEnd();
     rlDrawRenderBatchActive();
     rlSetTexture(0);
+    rlEnableBackfaceCulling();   /* v61: session norm is culling ON */
     rlEnableDepthMask();
     EndShaderMode();
 }
@@ -1877,8 +1918,23 @@ void Mobs_Draw(void) {
             }
             Mob_FloraBillboard(m->pos, m->scale, 27, br);
         }
-        Moth_Draw(now);        /* cone bodies + flapping wings */
-        Moth_PollenDraw(now);  /* RGB-shift pollen, same atlas batch */
+        Moth_Draw(now);        /* cone bodies + flapping wings (atlas batch) */
         Mobs_SpriteBatchEnd();
+
+        /* v61: pollen on the PLAIN rlgl path - default white texture,
+         * default shader, culling off, depth writes off. Nothing upstream
+         * (atlas swaps, texture packs, the cutout discard, face culling)
+         * can make it vanish again. See Moth_PollenDraw for the history. */
+        rlDrawRenderBatchActive();
+        rlDisableDepthMask();
+        rlDisableBackfaceCulling();
+        rlSetTexture(rlGetTextureIdDefault());
+        rlBegin(RL_QUADS);
+        Moth_PollenDraw(now);
+        rlEnd();
+        rlDrawRenderBatchActive();
+        rlSetTexture(0);
+        rlEnableBackfaceCulling();
+        rlEnableDepthMask();
     }
 }
