@@ -1,6 +1,13 @@
-# Midless: Cosmic Edition v63
+# Midless: Cosmic Edition v63.1
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.1 - world-loading hotfix, clean flora, calmer palette, world guide
+
+- **Fixed the world-loading regression**: the "show a chunk only with neighbors" rule is now applied only near the player (a 5-chunk horizon around you), so the world never waits for the whole 33-chunk disk to generate. The old full-radius wait could stall the start island and pile up a giant memory queue on new worlds - both are gone. Draw distance is back to the proven 26 chunks (~416 m).
+- **No more plants stacked on plants**: island-edge cells could pass the flora check twice in a row (two flowers in a column). The offset fields used by the flora gates are now terraced exactly like the terrain itself, and the near-open-sky gate was tightened - verified on a scanned map: stacked pairs went from 52 to 0.
+- **Calmer biome palette**: frost turf lost its harsh white patches (softer base, dim glints), ember cracks and smolder veins glow dimmer, trees repainted in muted jade/slate and warm green/gold tones with branches only beneath the crown (no texture crossings).
+- **World guide**: `docs/world_guide.png` + `docs/WORLD_GUIDE.md` - every ground block, ore, flower, tree and creature skin rendered from the real atlas with ids, plus a biome summary.
 
 ## v63 - smarter grazers, biome lawns, Doom-style trees, faster world loading
 

@@ -154,9 +154,11 @@ static void *ChunkLoaderRun(void *unused) {
     }
 }
 
-/* v63: a chunk is shown to players only when its four horizontal
- * neighbors exist (or nobody would ever generate them) - islands no
- * longer pop in as quarter-slices */
+/* v63b: a chunk is shown to players only when its four horizontal
+ * neighbors exist - but ONLY near the player (horizon). Waiting on the
+ * whole load radius would stall the world behind a full-disk barrier;
+ * the far frontier instead streams in hidden by the distance fog. */
+#define CHUNK_DELIVER_HORIZON 5
 static bool ChunkNeighborsReady(Vector3 position) {
     static const Vector3 dirs[4] = { {1,0,0}, {-1,0,0}, {0,0,1}, {0,0,-1} };
     for (int d = 0; d < 4; d++) {
@@ -166,6 +168,13 @@ static bool ChunkNeighborsReady(Vector3 position) {
         for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
             Player *player = serverWorld.players[i];
             if (player == NULL || player->disconnected) continue;
+            Entity entity = serverWorld.entities[player->entityId];
+            Vector3 pc = { floorf(entity.position.x / CHUNK_SIZE_X),
+                           floorf(entity.position.y / CHUNK_SIZE_Y),
+                           floorf(entity.position.z / CHUNK_SIZE_Z) };
+            Vector3 off = Vector3Subtract(n, pc);
+            float horizon = (float)CHUNK_DELIVER_HORIZON + 1.0f;
+            if (Vector3LengthSqr(off) >= horizon * horizon) continue;  /* too far to matter */
             if (PositionInLoadRadius(player, n)) { wanted = true; break; }
         }
         if (wanted) return false;

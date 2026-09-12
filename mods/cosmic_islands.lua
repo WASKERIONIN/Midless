@@ -290,6 +290,18 @@ local function layer_at(seed, freq, thresh, base_y, amp, thick, yy)
         type = "opensimplex2s", fractal = "fbm", frequency = freq * 2.3,
         octaves = 2, seed_offset = seed + 9,
     })
+    -- v63b: keep the ember terraces in sync with layer() - the flora
+    -- gates sample these offset fields, so a mismatch made plants
+    -- stack or float around terrace edges
+    if seed == 1 then
+        local biome_n_t = f.noise2d({
+            type = "opensimplex2s", fractal = "fbm", frequency = 0.006,
+            octaves = 2, seed_offset = 4242,
+        })
+        local ember_b = f.lt(0.22, biome_n_t)
+        local terr = f.floor(h * 3.0) / 3.0 + 0.15
+        h = f.select(ember_b, terr, h)
+    end
     local surface = base_y + h * amp
     local thickness = 4 + f.max(mask, 0) * thick
     local warp = f.noise3d({
@@ -372,8 +384,13 @@ local fine_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.4,
     octaves = 1, seed_offset = 777,
 })
+-- v63b: the near-open-sky gate kills stacked plants: on a soft island
+-- edge two cells in a row could both pass the product threshold and
+-- grow a flower on top of a flower. Real ground always has clear sky.
 local flora_cell = f.lt(3.0, f.max(f.abs(x - 8), f.abs(z - 8))) *
                    f.lt(0.4, solid_below * (1 - inside) * open_above) *
+                   f.lt(0.92, open_above) *
+                   (1 - f.lt(0.2, inside)) *
                    f.lt(0.05, patch_n) * f.lt(0.1, fine_n)
 local which_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.09,

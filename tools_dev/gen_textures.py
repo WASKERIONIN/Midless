@@ -1799,8 +1799,8 @@ def t_ember_rock(index):
     B = (34, 30, 40)        # basalt
     B_D = (24, 21, 30)
     B_L = (52, 47, 62)
-    E = (196, 92, 40)       # ember glow
-    E_D = (120, 52, 30)
+    E = (168, 84, 44)       # v63b: calmer ember glow
+    E_D = (104, 50, 32)
     for y in range(16):
         for x in range(16):
             n = rnd.randint(-10, 10)
@@ -1830,8 +1830,8 @@ def t_ember_turf(index):
     T = (46, 36, 42)        # dark warm turf
     T_L = (64, 50, 54)
     T_D = (30, 24, 30)
-    E = (232, 126, 52)      # smolder
-    E_L = (255, 190, 110)
+    E = (196, 110, 52)      # v63b: calmer smolder
+    E_L = (228, 158, 92)
     A = (110, 220, 200)     # rare teal lichen
     for y in range(16):
         for x in range(16):
@@ -1860,11 +1860,11 @@ def t_frost_turf(index):
     px = img.load()
     import random as _r
     rnd = _r.Random(4177)
-    F = (150, 176, 196)     # frost base
-    F_L = (198, 220, 236)   # frost light
-    F_D = (108, 130, 152)   # shadow
-    I = (240, 250, 255)     # ice sparkle
-    T = (88, 172, 160)      # frozen teal grass blades
+    F = (142, 162, 182)     # v63b: calmer frost base (was 150,176,196)
+    F_L = (172, 192, 212)   # softened light (was 198,220,236)
+    F_D = (114, 134, 156)   # shadow
+    I = (206, 226, 240)     # dim ice glint (was 240,250,255)
+    T = (96, 160, 148)      # muted frozen grass blades
     for y in range(16):
         for x in range(16):
             n = rnd.randint(-10, 10)
@@ -1879,8 +1879,8 @@ def t_frost_turf(index):
         px[x, y] = T
         if rnd.random() < 0.5 and y > 0:
             px[x, y - 1] = (118, 196, 182)
-    # sparkles
-    for _ in range(5):
+    # sparkles: only three, dim, never adjacent to a blade
+    for _ in range(3):
         px[rnd.randint(0, 15), rnd.randint(0, 15)] = I
     return img
 

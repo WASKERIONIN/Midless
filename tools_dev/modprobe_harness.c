@@ -73,6 +73,50 @@ int main(void) {
     printf("PROBE: top-of-column block histogram (island count proxy, 129x129 grid):\n");
     for (int i = 1; i < 256; i++)
         if (surfaceCounts[i]) printf("  %3d %-16s %ld\n", i, BlockName(i), surfaceCounts[i]);
+    /* v63b: stacked flora scan - any y where both y and y+1 are flora */
+    {
+        long stacks = 0;
+        for (int x = -256; x <= 256; x += 4) {
+            for (int z = -256; z <= 256; z += 4) {
+                WGEval ctx;
+                Worldgen_EvalInit(&ctx, (Vector3){x, 0, z}, (Vector3){x, 0, z});
+                unsigned short prev = 0;
+                for (int y = 0; y <= 140; y++) {
+                    Worldgen_EvalY(&ctx, y);
+                    float id = worldgen.bounded && (y < worldgen.minY || y > worldgen.maxY)
+                                   ? 0 : Worldgen_Eval(&ctx, worldgen.material);
+                    unsigned short b = id >= 1 && id <= 255 ? (int)id : 0;
+                    int floraPrev = prev >= 12 && prev <= 60 && prev != 19 && prev != 20 &&
+                                    prev != 21 && prev != 23 && prev != 26 && prev != 56 && prev != 57 && prev != 58;
+                    int floraCur = b >= 12 && b <= 60 && b != 19 && b != 20 &&
+                                   b != 21 && b != 23 && b != 26 && b != 56 && b != 57 && b != 58;
+                    if (floraPrev && floraCur) {
+                        if (stacks < 8)
+                            printf("PROBE: STACK at (%d,%d,%d): %d over %d\n", x, y, z, b, prev);
+                        stacks++;
+                    }
+                    prev = b;
+                }
+            }
+        }
+        printf("PROBE: stacked-flora pairs: %ld\n", stacks);
+    }
+    /* debug column dump */
+    {
+        int xs[2] = {-236, -232};
+        int zs[2] = {80, 96};
+        for (int c = 0; c < 2; c++) {
+            WGEval ctx;
+            Worldgen_EvalInit(&ctx, (Vector3){xs[c], 0, zs[c]}, (Vector3){xs[c], 0, zs[c]});
+            printf("PROBE: column (%d, z=%d):\n", xs[c], zs[c]);
+            for (int y = 66; y <= 84; y++) {
+                Worldgen_EvalY(&ctx, y);
+                float id = worldgen.bounded && (y < worldgen.minY || y > worldgen.maxY)
+                               ? 0 : Worldgen_Eval(&ctx, worldgen.material);
+                printf("  y=%d material=%.1f\n", y, id);
+            }
+        }
+    }
     /* spatial map: dominant top-class per 16x16 cell over +-512 */
     printf("PROBE: spatial map (G=classic E=ember F=frost .=void):\n");
     for (int gz = -512; gz < 512; gz += 16) {
