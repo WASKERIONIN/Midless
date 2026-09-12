@@ -121,6 +121,50 @@ static int FindSurfaceHeight(int x, int z, TerrainColumn *column) {
     return worldgen.minY - 1;
 }
 
+/* v61.3: sprite flora ids (flowers, grass, trees) - the cocoon must
+ * never share its cell or its neighborhood with them. Mirrors the mod's
+ * SPRITE definitions. */
+static bool IsFloraBlock(int id) {
+    return id == 12 || id == 13 || (id >= 28 && id <= 33) ||
+           (id >= 37 && id <= 42) || (id >= 45 && id <= 54);
+}
+
+/* v61.3: what would the material field place at this cell? This is how
+ * flowers/grass/trees appear, so probing it directly makes the cocoon
+ * placement flora-aware regardless of chunk load order. */
+static int MaterialIdAt(int x, int y, int z) {
+    if (worldgen.material < 0) return 0;
+    WGEval context;
+    Worldgen_EvalInit(&context, (Vector3){ x, y, z }, (Vector3){ x, y, z });
+    Worldgen_EvalY(&context, y);
+    float id = worldgen.bounded && (y < worldgen.minY || y > worldgen.maxY)
+                   ? 0
+                   : Worldgen_Eval(&context, worldgen.material);
+    return id >= 0 && id <= 255 ? (int)id : 0;
+}
+
+/* v61.3: the cell itself and every cell the egg visually overlaps must
+ * be flora-free: the egg is 1.3 blocks tall and 0.8 wide, so neighbors
+ * count too. */
+static bool FloraNearCell(int x, int y, int z) {
+    if (IsFloraBlock(MaterialIdAt(x, y, z))) return true;
+    if (IsFloraBlock(MaterialIdAt(x, y + 1, z))) return true;
+    for (int dz = -1; dz <= 1; dz++)
+        for (int dx = -1; dx <= 1; dx++) {
+            if (!dx && !dz) continue;
+            if (IsFloraBlock(MaterialIdAt(x + dx, y, z + dz))) return true;
+        }
+    return false;
+}
+
+/* v61.3: the starter island is a SANCTUARY - no hostile structures
+ * (void cocoons) spawn within this radius of the cosmic spawn pad. */
+static bool InSpawnSanctuary(int x, int z) {
+    float dx = (float)x - 8.0f;
+    float dz = (float)z - 8.0f;
+    return dx * dx + dz * dz < 34.0f * 34.0f;
+}
+
 static bool IsInsideChunk(Chunk *chunk, int x, int y, int z) {
     return x >= chunk->blockPosition.x && x < chunk->blockPosition.x + CHUNK_SIZE_X &&
            y >= chunk->blockPosition.y && y < chunk->blockPosition.y + CHUNK_SIZE_Y &&
@@ -293,6 +337,11 @@ static void GenerateStructures(Chunk *chunk) {
                         }
                     }
                 if (!valid)
+                    continue;
+                /* v61.3: cocoons never spawn on/next to flora and never
+                 * spawn on the starter island */
+                if (strcmp(structure->name, "midless:void_cocoon") == 0 &&
+                    (InSpawnSanctuary(x, z) || FloraNearCell(x, y, z)))
                     continue;
                 int rotation = structure->rotate ? MixSeed(randomValue + 3) % 4 : 0;
                 for (int i = 0; i < structure->count; i++) {

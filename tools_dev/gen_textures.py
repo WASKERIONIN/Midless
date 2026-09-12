@@ -1266,8 +1266,6 @@ def build_atlas():
         43: t_cloud(43),
         44: t_undersky(44),
         45: t_glassbell(45),
-        49: t_void_tree(49),
-        50: t_lantern_tree(50),
         51: t_crystal_stalk(51),
         52: t_void_puff(52),
         46: t_embercup(46),
@@ -1429,77 +1427,178 @@ def enforce_opaque_cube_tiles(atlas):
                     px[x, y] = (r, g, b, 255)
 
 
-def t_void_tree(index):
-    """v61.2: void tree - a slender indigo trunk holding a heavy teal
-    canopy that drips glow. 3.4 blocks tall on the billboard; drawn to
-    fill the top half of the tile so the sprite reads from far."""
-    img = blank_tile()
+def _px_ell(px, cx, cy, rx, ry, col):
+    """filled ellipse helper (float centers, crisp pixel edges)"""
+    for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
+        for x in range(int(cx - rx) - 1, int(cx + rx) + 2):
+            dx = (x + 0.5 - cx) / rx
+            dy = (y + 0.5 - cy) / ry
+            if dx * dx + dy * dy <= 1.0:
+                if 0 <= x < 32 and 0 <= y < 32:
+                    px[x, y] = col
+
+
+def _px_disc(px, cx, cy, r, col):
+    _px_ell(px, cx, cy, r, r, col)
+
+
+def t_void_tree_big():
+    """v61.3: void tree, 32x32 - a real silhouette: lobed teal canopy
+    with dithered depth bands, carved gaps, aerial glow-roots, an
+    indigo trunk with a fork and flaring roots. 5+ blocks tall live."""
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
-    TR_D = (30, 20, 48)     # trunk shadow
-    TR = (52, 36, 78)       # trunk
-    CN = (16, 92, 84)       # canopy deep teal
-    CN2 = (28, 138, 122)    # canopy teal
-    A = (110, 240, 224)     # aqua glow drip
-    P = (206, 255, 246)     # pale tip
-    # trunk with a bend and two root flares
-    for y in range(6, 16):
-        px[7, y] = TR
-        px[8, y] = TR if y < 11 else TR_D
-    px[7, 10] = TR_D
-    px[8, 14] = TR_D
-    px[6, 15] = TR_D
-    px[9, 15] = TR_D
-    px[5, 9] = TR       # stub branch left
-    px[10, 8] = TR      # stub branch right
-    # canopy: layered blob rows 0-5
-    rows = {0: (7, 8), 1: (5, 10), 2: (4, 11), 3: (3, 12), 4: (4, 11), 5: (6, 9)}
-    for y, (x0, x1) in rows.items():
-        for x in range(x0, x1 + 1):
-            edge = x in (x0, x1) or y in (0, 5)
-            if edge:
-                px[x, y] = CN
+    TD = (26, 17, 42)
+    T  = (52, 36, 78)
+    TL = (88, 66, 122)
+    CD = (11, 70, 64)
+    C  = (24, 126, 110)
+    CL = (72, 200, 184)
+    CP = (196, 255, 246)
+    A  = (110, 240, 224)
+
+    # ---- canopy: lobe mass ----
+    lobes = [(15.5, 8.0, 11.0, 6.2), (7.0, 10.5, 5.5, 4.2), (24.0, 9.5, 6.0, 4.6),
+             (11.5, 4.5, 6.0, 3.4), (20.5, 4.0, 5.0, 3.0), (15.5, 2.0, 4.0, 2.2),
+             (27.0, 13.0, 3.4, 2.6), (4.5, 14.0, 3.0, 2.2)]
+    for cx, cy, rx, ry in lobes:
+        _px_ell(px, cx, cy, rx, ry, C)
+    # carve two notch gaps into the silhouette (breaks the outline)
+    _px_disc(px, 3.0, 7.0, 2.6, (0, 0, 0, 0))
+    _px_disc(px, 29.0, 6.5, 2.2, (0, 0, 0, 0))
+    _px_disc(px, 19.5, 14.2, 1.7, (0, 0, 0, 0))
+
+    # ---- canopy shading: light from up-left, dithered bands ----
+    for y in range(32):
+        for x in range(32):
+            r, g, b, a = px[x, y]
+            if a == 0 or y > 16:
+                continue
+            dx = (x - 15.5) / 12.0
+            dy = (y - 7.5) / 7.0
+            d = (dx * 0.72 + dy * 0.70)          # -1 light side .. +1 shade
+            if d < -0.28:
+                c = CL
+            elif d < 0.16:
+                c = C
             else:
-                px[x, y] = CN2 if (x * 3 + y * 5) % 4 else CN
-    # glow drips + pale tips
-    px[5, 6] = A
-    px[10, 6] = A
-    px[7, 6] = A
-    px[6, 1] = P
-    px[9, 2] = P
-    px[4, 3] = A
-    px[11, 4] = A
+                c = CD
+            # dither the band borders (classic 2x2 checker)
+            if -0.34 < d < -0.22 or (0.10 < d < 0.22) and (x + y) % 2 == 0:
+                c = CL if c == C else (C if c == CD else C)
+            if d > 0.30 and (x + y) % 2 == 0:
+                c = CD
+            px[x, y] = c
+    # pale moonlit tips on the top lobes + glow drips on the underside
+    for x, y in ((10, 2), (15, 1), (21, 2), (6, 6), (24, 5)):
+        px[x, y] = CP
+        if (x + y) % 2 == 0:
+            px[x + 1, y] = CL
+    for x, y in ((7, 14), (12, 15), (17, 14), (22, 14), (26, 12), (4, 12)):
+        px[x, y] = A
+
+    # ---- trunk: bent, forked, flaring ----
+    for y in range(14, 30):
+        w = 2 if y < 20 else (3 if y < 27 else 4)
+        x0 = 14 if y < 25 else 13
+        for x in range(x0, x0 + w):
+            px[x, y] = T
+        px[x0, y] = TL if y < 22 else T
+        px[x0 + w - 1, y] = TD
+    # fork branch up-left into the canopy
+    for i, (x, y) in enumerate(((13, 16), (12, 15), (11, 14), (10, 13))):
+        px[x, y] = T if i < 2 else TD
+    # root flare
+    roots = ((10, 30, 11, 31), (12, 29, 12, 31), (17, 30, 18, 31), (16, 29, 16, 31))
+    for x0, y0, x1, y1 in roots:
+        for y in range(y0, y1 + 1):
+            px[10 + (y - 30), 30] = TD
+            px[18 - (y - 30), 31] = TD
+    px[12, 30] = T; px[13, 31] = T
+    px[16, 30] = TD; px[15, 31] = TD
+    px[14, 29] = TD   # knot
+    # aerial glow-root strands
+    for x, y0, y1 in ((9, 15, 21), (22, 15, 19)):
+        for y in range(y0, y1):
+            px[x, y] = (60, 170, 158, 255) if (y - y0) % 2 else A
+        px[x, y1] = CP
     return img
 
 
-def t_lantern_tree(index):
-    """v61.2: lantern tree - dark copper trunk, round canopy of gold
-    lanterns. The warm twin of the void tree (2.9 blocks tall)."""
-    img = blank_tile()
+def t_lantern_tree_big():
+    """v61.2: lantern tree, 32x32 - copper fork-trunk, two-and-a-half
+    leafy clusters full of gold lanterns, three lanterns hanging below
+    the canopy on stems."""
+    img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
-    TR_D = (40, 26, 20)
-    TR = (74, 48, 30)
-    L = (255, 200, 90)      # lantern gold
-    L2 = (200, 140, 60)     # dim lantern
-    G = (255, 240, 170)     # bright wick
-    LF = (36, 70, 58)       # dark leaf mass
-    for y in range(7, 16):
-        px[7, y] = TR
-        px[8, y] = TR if y < 12 else TR_D
-    px[6, 15] = TR_D
-    px[9, 15] = TR_D
-    rows = {1: (6, 9), 2: (5, 10), 3: (4, 11), 4: (4, 11), 5: (5, 10), 6: (6, 9)}
-    for y, (x0, x1) in rows.items():
-        for x in range(x0, x1 + 1):
-            if x in (x0, x1) or y in (1, 6):
+    TD = (32, 21, 15)
+    T  = (72, 46, 27)
+    TL = (110, 74, 40)
+    LF = (28, 58, 46)
+    LM = (46, 90, 62)
+    G  = (255, 198, 84)
+    G2 = (216, 146, 58)
+    W  = (255, 242, 170)
+
+    # ---- leaf clusters ----
+    clusters = [(11.0, 7.5, 8.5, 5.8), (22.0, 9.0, 6.8, 5.2), (6.0, 12.0, 4.6, 3.4),
+                (16.5, 3.5, 5.5, 2.8), (25.0, 13.5, 3.6, 2.4)]
+    for cx, cy, rx, ry in clusters:
+        _px_ell(px, cx, cy, rx, ry, LM)
+    _px_disc(px, 2.0, 8.0, 2.2, (0, 0, 0, 0))
+    _px_disc(px, 29.5, 10.0, 1.8, (0, 0, 0, 0))
+    for y in range(32):
+        for x in range(32):
+            r, g, b, a = px[x, y]
+            if a == 0 or y > 16:
+                continue
+            if (x * 5 + y * 3) % 7 < 2:
                 px[x, y] = LF
-            else:
-                px[x, y] = LF if (x + y) % 3 else (60, 96, 74)
-    # hanging lanterns inside the leaf mass
-    for lx, ly in ((6, 2), (9, 3), (5, 4), (8, 5), (10, 4), (7, 3)):
-        px[lx, ly] = L
-    px[9, 3] = L2
-    px[10, 4] = L2
-    px[7, 4] = G
+    # lanterns embedded in the leaf (bright core + dim ring)
+    for lx, ly, big in ((9, 5, 1), (14, 8, 0), (19, 4, 1), (23, 8, 0), (6, 10, 0),
+                        (12, 11, 0), (21, 11, 1), (26, 12, 0), (16, 3, 0)):
+        px[lx, ly] = G
+        if big:
+            px[lx, ly - 1] = G2
+            px[lx - 1, ly] = G2
+            px[lx + 1, ly] = G2
+        px[lx, ly - (1 if big else 0)] = W if big else px[lx, ly - (1 if big else 0)]
+    # wicks on the big ones
+    px[9, 5] = W
+    px[19, 4] = W
+    px[21, 11] = W
+
+    # ---- trunk: fork into two branches ----
+    for y in range(15, 30):
+        w = 2 if y < 21 else (3 if y < 27 else 4)
+        x0 = 15 if y < 25 else 14
+        for x in range(x0, x0 + w):
+            px[x, y] = T
+        px[x0, y] = TL if y < 23 else T
+        px[x0 + w - 1, y] = TD
+    # left branch to the big cluster
+    for x, y in ((14, 16), (13, 15), (12, 14), (11, 13), (11, 12)):
+        px[x, y] = T if y > 14 else TD
+    # right branch
+    for x, y in ((17, 16), (18, 15), (19, 14), (20, 13), (21, 12)):
+        px[x, y] = T if y > 14 else TD
+    px[15, 28] = TD  # knot
+    # root flare
+    px[13, 30] = TD; px[14, 31] = TD; px[12, 31] = TD
+    px[17, 30] = TD; px[18, 31] = TD; px[19, 31] = TD
+    px[15, 31] = T; px[16, 31] = T
+
+    # ---- three hanging lanterns below the canopy ----
+    hangs = [(8, 17, 4), (17, 18, 3), (24, 16, 5)]
+    for hx, hy, ln in hangs:
+        for y in range(hy, hy + ln):
+            px[hx, y] = TD
+        px[hx, hy + ln] = G2
+        px[hx, hy + ln + 1] = G
+        px[hx, hy + ln + 2] = W if ln == 4 else G
+        if ln == 4:
+            px[hx - 1, hy + ln + 1] = G2
+            px[hx + 1, hy + ln + 1] = G2
     return img
 
 

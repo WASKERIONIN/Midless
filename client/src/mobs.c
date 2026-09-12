@@ -625,11 +625,19 @@ static void Cocoon_Hatch(Vector3 cell) {
      * around every nearby cocoon was a dead prop forever. The egg is
      * consumed either way; a spider climbs out when there is room, and
      * when there is not - the hatchling collapses into drifting shards
-     * so the shell is never wasted. */
+     * so the shell is never wasted.
+     * v61.3: on the starter island the shell still opens (no frozen
+     * props), but nothing hostile climbs out - the sanctuary never
+     * spawns enemies, and shards are the consolation. */
     World_SetBlock(cell, 0, true);
     SoundFx_PlayCocoonOpen();
     Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
     Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
+    if (Mobs_InStarterSanctuary(cell)) {
+        Hunter_DropShards((Vector3){ cell.x + 0.5f, cell.y + 0.6f, cell.z + 0.5f }, 2);
+        Chat_AddLine(Tr("The cocoon cracks open - the hatchling never wakes. Shards drift out."));
+        return;
+    }
     if (!Mobs_SpawnSpider(spawn)) {
         Hunter_DropShards((Vector3){ cell.x + 0.5f, cell.y + 0.6f, cell.z + 0.5f }, 2);
         Chat_AddLine(Tr("The cocoon cracks open - empty. Shards drift out."));
@@ -648,7 +656,7 @@ static void Cocoon_Scan(float deltaTime) {
         for (int dz = -3; dz <= 3; dz++)
             for (int dx = -3; dx <= 3; dx++) {
                 Vector3 cell = { px + dx, py + dy, pz + dz };
-                if (World_GetBlock(cell) == 25 && !Mobs_InStarterSanctuary(cell)) {
+                if (World_GetBlock(cell) == 25) {
                     Cocoon_Hatch(cell);
                     return;   /* one hatch per scan keeps the moment readable */
                 }
@@ -1693,8 +1701,13 @@ static void Mob_Band(Vector3 a, Vector3 b, Color c) {
  * height above `base` (a block's bottom center). Used by the void mushrooms
  * and, since v57, by every island flora block from the chunk flora lists. */
 void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned char bright, float lean) {
+    Mobs_DrawBillboardUV(base, halfW, h, tile, bright, lean, 1.0f / 16.0f, 1.0f / 16.0f);
+}
+
+void Mobs_DrawBillboardUV(Vector3 base, float halfW, float h, int tile,
+                          unsigned char bright, float lean, float uSpan, float vSpan) {
     float u0 = (tile % 16) / 16.0f, v0 = (tile / 16) / 16.0f;
-    float u1 = u0 + 1.0f / 16.0f, v1 = v0 + 1.0f / 16.0f;
+    float u1 = u0 + uSpan, v1 = v0 + vSpan;
     float w = halfW;
     Matrix view = rlGetMatrixModelview();
     Vector3 right = Vector3Normalize((Vector3){ view.m0, view.m4, view.m8 });
@@ -1722,9 +1735,20 @@ void Mobs_DrawBillboard(Vector3 base, float halfW, float h, int tile, unsigned c
     rlTexCoord2f(u0, v1); rlVertex3f(bl.x, bl.y, bl.z);
 }
 
-/* v55 void mushrooms keep their square, scale-driven billboard */
+/* v55 void mushrooms keep their square, scale-driven billboard.
+ * v61.3: the mushroom paints first and its grass ring paints AFTER it -
+ * the stem base hides in the lawn like every other plant's. */
 static void Mob_FloraBillboard(Vector3 base, float scale, int tile, unsigned char bright) {
     Mobs_DrawBillboard(base, 0.30f * scale, 0.60f * scale, tile, bright, 0.0f);
+    double nowG = GetTime();
+    const float offs[4][2] = { { 0.15f, 0.12f }, { -0.14f, 0.13f },
+                               { 0.13f, -0.15f }, { -0.12f, -0.14f } };
+    for (int gI = 0; gI < 4; gI++) {
+        Vector3 at = { base.x + offs[gI][0], base.y, base.z + offs[gI][1] };
+        float lean2 = 0.07f * sinf((float)nowG * 2.1f + base.x * 3.1f + gI * 1.7f);
+        Mobs_DrawBillboard(at, 0.20f, 0.19f + 0.05f * ((gI * 29) % 4) / 4.0f,
+                           gI % 2 == 0 ? 39 : 41, bright, lean2);
+    }
 }
 
 /* v55: textured lat-long blob - the spider's carapace (atlas tile based);
@@ -2023,18 +2047,8 @@ void Mobs_Draw(void) {
             double left = m->expireAt - now;
             if (left < 30.0 && ((int)(now * 2.0)) % 2 == 0) continue;  /* expiry blink */
             unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
-            /* v59: a grass ring so the mushroom grows out of a lawn */
-            {
-                float tt = (float)now;
-                float gu = 0.6f + 0.4f * sinf(tt * 0.35f + m->pos.z * 0.08f);
-                const float offs[4][2] = { { 0.15f, 0.12f }, { -0.14f, 0.13f }, { 0.13f, -0.15f }, { -0.12f, -0.14f } };
-                for (int gI = 0; gI < 4; gI++) {
-                    Vector3 at = { m->pos.x + offs[gI][0], m->pos.y, m->pos.z + offs[gI][1] };
-                    float lean = 0.07f * gu * sinf(tt * 2.1f + m->pos.x * 3.1f + gI * 1.7f);
-                    float hh = 0.19f + 0.05f * ((gI * 29) % 4) / 4.0f;
-                    Mobs_DrawBillboard(at, 0.20f, hh, gI % 2 == 0 ? 39 : 41, br, lean);
-                }
-            }
+            /* v61.3: Mob_FloraBillboard paints the mushroom, THEN its
+             * grass ring - the stem base hides in the lawn */
             Mob_FloraBillboard(m->pos, m->scale, 27, br);
         }
         Moth_Draw(now);        /* cone bodies + flapping wings (atlas batch) */

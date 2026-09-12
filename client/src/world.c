@@ -710,18 +710,23 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 46: halfW = 0.40f; h = 1.35f; swayAmp = 0.085f; break; /* embercup */
         case 47: halfW = 0.46f; h = 1.70f; swayAmp = 0.075f; break; /* void orchid */
         case 48: halfW = 0.44f; h = 1.80f; swayAmp = 0.11f; break;  /* frostfern */
-        /* v61.2: trees & meadow accents */
-        case 49: halfW = 0.95f; h = 3.40f; swayAmp = 0.035f; break; /* void tree */
-        case 50: halfW = 0.85f; h = 2.90f; swayAmp = 0.045f; break; /* lantern tree */
+        /* v61.2: trees & meadow accents.
+         * v61.3: trees are REAL trees now - 5+ blocks tall, drawn from a
+         * 32x32 atlas region (2x2 tiles, span passed to the billboard). */
+        case 49: halfW = 1.40f; h = 5.20f; swayAmp = 0.028f; break; /* void tree */
+        case 50: halfW = 1.25f; h = 4.40f; swayAmp = 0.036f; break; /* lantern tree */
         case 51: halfW = 0.42f; h = 1.90f; swayAmp = 0.020f; break; /* crystal stalk */
         case 52: halfW = 0.45f; h = 0.85f; swayAmp = 0.095f; break; /* void puff */
         default: return;
     }
     /* v61.2: stable per-instance variation - plants of one species are
-     * NOT all the same size anymore (+-30% height, +-20% width) */
+     * NOT all the same size anymore (+-30% height, +-20% width).
+     * v61.3: trees swing even wider (0.75x..1.35x). */
     {
         float hv = World_PosHash(base.x + 31.7f, base.z - 17.3f);
-        h *= 0.72f + 0.58f * hv;
+        float kmin = (id == 49 || id == 50) ? 0.75f : 0.72f;
+        float kspan = (id == 49 || id == 50) ? 0.60f : 0.58f;
+        h *= kmin + kspan * hv;
         halfW *= 0.82f + 0.36f * World_PosHash(base.z - 5.1f, base.x + 9.9f);
     }
     float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });
@@ -731,19 +736,32 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     float phase = base.x * 3.17f + base.z * 2.29f;
     float gust = 0.55f + 0.45f * sinf(t * 0.35f + base.z * 0.08f);   /* slow gust front */
     float lean = swayAmp * gust * sinf(t * 1.9f + phase);
-    /* v59: grass under everything that blooms (tuft/sedge are grass already) */
-    /* v61.2: trees root into a big underbrush clump */
-    if (id != 39 && id != 41 && id != 32) {
-        float skirt = (id == 49 || id == 50) ? 2.3f : (id >= 37 ? 1.6f : 1.0f);
-        World_GrassSkirt(base, skirt, bright, t, gust, phase);
+    /* v61.3: the plant paints FIRST and the grass skirt paints OVER it -
+     * the stem base must disappear INTO the lawn, never float on top of
+     * it (the old order left every stem root visible). Trees root into a
+     * big underbrush clump (v61.2) and wear 32x32 sprite regions
+     * (tile 49 void tree / tile 53 lantern tree). */
+    int isTree = (id == 49 || id == 50);
+    int tile = isTree ? (id == 49 ? 49 : 53) : id;
+    float skirt = isTree ? 2.3f : (id >= 37 ? 1.6f : 1.0f);
+    if (isTree) {
+        Mobs_DrawBillboardUV(base, halfW, h, tile, bright, lean,
+                             2.0f / 16.0f, 2.0f / 16.0f);
+    } else {
+        Mobs_DrawBillboard(base, halfW, h, tile, bright, lean);
     }
-    Mobs_DrawBillboard(base, halfW, h, id, bright, lean);
+    if (id != 39 && id != 41 && id != 32) {
+        World_GrassSkirt(base, skirt, bright, t, gust, phase);
+    } else {
+        World_GrassSkirt(base, 0.8f, bright, t, gust, phase + 2.1f);
+    }
     if (id == 39) {
         /* v59: a taller sedge strand beside every tuft, its own phase */
         Vector3 at = { base.x + 0.14f, base.y, base.z - 0.11f };
         Mobs_DrawBillboard(at, 0.20f, 0.32f, 41, bright,
                            0.085f * gust * sinf(t * 2.3f + phase + 1.3f));
     }
+
 }
 
 void World_DrawWireAuras(void) {

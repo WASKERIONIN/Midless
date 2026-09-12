@@ -1,4 +1,18 @@
-# Midless: Cosmic Edition v61.2
+# Midless: Cosmic Edition v61.3
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v61.3 - grounded stems, real trees, clean cocoons
+
+- **Stems disappear into the lawn**: every plant now paints first and its grass skirt paints AFTER it - the base of every stem is hidden behind grass blades, never floating on the dirt. Mushrooms got the same treatment.
+- **Real trees**: 5.2 / 4.4 blocks tall (from 3.4/2.9), drawn as detailed 32x32 sprites - lobed canopies with dithered depth bands, carved silhouette gaps, forked trunks with flaring roots, aerial glow-root strands on the void tree, embedded + hanging lanterns on the lantern tree.
+- **No cocoons on the starter island** (server-side, 34 m around the pad) and **no cocoons on or next to flowers**: placement probes the material field and skips any flora-adjacent cell. On the starter island any leftover egg opens into shard loot with nothing hostile waking.
+- Instance size variation widened for trees (0.75x..1.35x).
+
+## v61.2 - a cloud worth looking at, and a living meadow
+
+- Plateau-cumulus shell top (lavender lobes, moonlit crests, indigo valleys), smooth under-sky.
+- Void trees, lantern trees, crystal stalks, void puffs; varied grass.
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

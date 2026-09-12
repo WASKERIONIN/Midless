@@ -430,14 +430,16 @@ static void TestStarterSanctuary(void) {
     REQUIRE(Mobs_CrawlerCount() == 0, "no crawlers at the starter isle (got %d)", Mobs_CrawlerCount());
     REQUIRE(Mobs_WispCount() == 0, "no wisps at the starter isle (got %d)", Mobs_WispCount());
 
-    /* a cocoon inside the sanctuary stays a decorative prop */
+    /* a cocoon inside the sanctuary opens but releases nothing hostile */
     cocoonPlaced = 1;
     cocoonCell = (Vector3){ 10, 77, 10 };
     for (int f = 0; f < 60 * 3; f++) { simTime += simStep; Mobs_Update((float)simStep); }
-    REQUIRE(cocoonPlaced == 1, "sanctuary cocoon left intact");
+    REQUIRE(cocoonPlaced == 0, "sanctuary cocoon still opened (no frozen props)");
+    REQUIRE(Mobs_SpiderCount() == 0, "no spider emerges inside the sanctuary");
 
     /* walk far out: enemies live again, and a wild cocoon hatches */
     player.position = (Vector3){ 100.5f, 77.5f, 100.5f };
+    cocoonPlaced = 1;
     cocoonCell = (Vector3){ 100, 77, 100 };
     for (int f = 0; f < 60 * 20; f++) { simTime += simStep; Mobs_Update((float)simStep); }
     REQUIRE(cocoonPlaced == 0, "wild cocoon hatched when approached");
