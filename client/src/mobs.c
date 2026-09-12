@@ -163,7 +163,7 @@ static void Crawler_SpawnTry(bool surge) {
         c->grounded = false;
         if (!crawlerAnnounced) {
             crawlerAnnounced = true;
-            Chat_AddLine("Something skitters across the island...");
+            Chat_AddLine(Tr("Something skitters across the island..."));
         }
         return;
     }
@@ -382,7 +382,7 @@ bool Mobs_SpawnSpider(Vector3 pos) {
         Particle_SpawnImpact(pos);
         if (!spiderAnnounced) {
             spiderAnnounced = true;
-            Chat_AddLine("The cocoon splits open. Something many-legged rises.");
+            Chat_AddLine(Tr("The cocoon splits open. Something many-legged rises."));
         }
         return true;
     }
@@ -401,7 +401,7 @@ static void Spider_Damage(Spider *s, Vector3 rd) {
         Hunter_DropShards(s->pos, 2);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
-        Chat_AddLine("The hatchling collapses into shards.");
+        Chat_AddLine(Tr("The hatchling collapses into shards."));
     } else {
         SoundFx_PlayHunterHit();
     }
@@ -530,13 +530,20 @@ static void Spider_Update(float deltaTime, double now) {
 /* ---------------------------------------------------------------- cocoons */
 static void Cocoon_Hatch(Vector3 cell) {
     Vector3 spawn = { cell.x + 0.5f, cell.y + 0.35f, cell.z + 0.5f };
-    /* v55 fix: only consume the cocoon when a spider actually spawns -
-     * with both hatch slots busy the old code destroyed the egg for nobody */
-    if (!Mobs_SpawnSpider(spawn)) return;
+    /* v59.8: the cocoon ALWAYS cracks open now. The old rule kept it
+     * sealed while both hatch slots were busy, so with two spiders
+     * around every nearby cocoon was a dead prop forever. The egg is
+     * consumed either way; a spider climbs out when there is room, and
+     * when there is not - the hatchling collapses into drifting shards
+     * so the shell is never wasted. */
     World_SetBlock(cell, 0, true);
-    SoundFx_PlayCocoonOpen();   /* v59.2: the bloom instead of a harsh hit */
+    SoundFx_PlayCocoonOpen();
     Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
     Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
+    if (!Mobs_SpawnSpider(spawn)) {
+        Hunter_DropShards((Vector3){ cell.x + 0.5f, cell.y + 0.6f, cell.z + 0.5f }, 2);
+        Chat_AddLine(Tr("The cocoon cracks open - empty. Shards drift out."));
+    }
 }
 
 static void Cocoon_Scan(float deltaTime) {
@@ -586,7 +593,7 @@ bool Mobs_CocoonLaser(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPo
             Hunter_WireBurst((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
             Particle_SpawnImpact((Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f });
             SoundFx_PlayHunterHit();
-            Chat_AddLine("The cocoon bursts under the beam. Silence... for now.");
+            Chat_AddLine(Tr("The cocoon bursts under the beam. Silence... for now."));
             if (hitPoint) *hitPoint = (Vector3){ cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f };
             return true;
         }
@@ -795,14 +802,30 @@ int Mobs_MothCount(void) {
     return n;
 }
 
+/* v59.8: is the straight path from a to b clear of blocks? Step-wise,
+ * cheap - it runs a handful of times per second at most. */
+static bool Moth_PathClear(Vector3 a, Vector3 b) {
+    float d = Vector3Distance(a, b);
+    int steps = (int)(d / 0.6f) + 1;
+    for (int i = 1; i <= steps; i++) {
+        float k = (float)i / steps;
+        Vector3 p = { a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k,
+                      a.z + (b.z - a.z) * k };
+        if (World_GetBlock(p) != 0) return false;
+    }
+    return true;
+}
+
 static void Moth_PickTarget(Moth *m) {
-    for (int attempt = 0; attempt < 6; attempt++) {
+    for (int attempt = 0; attempt < 8; attempt++) {
         float ang = GetRandomValue(0, 3599) * 0.001745f;
         float dist = 6.0f + GetRandomValue(0, 900) / 100.0f;
         Vector3 want = { m->pos.x + cosf(ang) * dist,
                          m->pos.y + (GetRandomValue(-400, 500) / 100.0f),
                          m->pos.z + sinf(ang) * dist };
         if (World_GetBlock(want) != 0) continue;   /* drift through open space only */
+        /* v59.8: the whole straight path must be open, not just the end */
+        if (!Moth_PathClear(m->pos, want)) continue;
         m->target = want;
         m->targetAt = GetTime() + 7.0 + GetRandomValue(0, 500) / 100.0;
         return;
@@ -858,25 +881,34 @@ static void Moth_Update(float deltaTime, double now) {
             want.z += cosf(now * 1.9f + m->phase) * 0.55f;
             m->vel = Vector3Lerp(m->vel, want, 1.0f - powf(0.35f, deltaTime));
         }
-        m->pos = Vector3Add(m->pos, Vector3Scale(m->vel, deltaTime));
+        /* v59.8: solid air - if the next step lands inside a block, bounce
+         * off and pick a fresh open-air target instead of ghosting through
+         * islands */
+        Vector3 step = Vector3Scale(m->vel, deltaTime);
+        Vector3 np = Vector3Add(m->pos, step);
+        if (World_GetBlock(np) != 0) {
+            m->vel = Vector3Scale(m->vel, -0.3f);
+            Moth_PickTarget(m);
+        } else {
+            m->pos = np;
+        }
 
         /* glowing pollen trails behind the flight */
         if (now >= m->pollenAt) {
-            /* v59.6: the v59.5 anti-ribbon tuning starved the dust to
-             * invisibility; the REAL ribbon bug was the 6-vertex stream,
-             * and that is dead - so the shimmer is back: dense enough to
-             * see, falling gently, a second and a half of life */
-            m->pollenAt = now + 0.13 + GetRandomValue(0, 8) / 100.0;
+            /* v59.8: the dust must READ - fat unhurried sparks that hang
+             * and twinkle behind the flight (the stream bug is long dead,
+             * density is safe) */
+            m->pollenAt = now + 0.10 + GetRandomValue(0, 6) / 100.0;
             Pollen *p = &pollen[pollenNext];
             pollenNext = (pollenNext + 1) % POLLEN_MAX;
             p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
                                 m->pos.y + GetRandomValue(-6, 6) / 100.0f,
                                 m->pos.z + GetRandomValue(-8, 8) / 100.0f };
-            p->vel = (Vector3){ GetRandomValue(-20, 20) / 100.0f,
-                                -(28 + GetRandomValue(0, 17)) / 100.0f,
-                                GetRandomValue(-20, 20) / 100.0f };
-            p->life = 1.4f + GetRandomValue(0, 60) / 100.0f;
-            p->size = 0.05f + GetRandomValue(0, 30) / 1000.0f;
+            p->vel = (Vector3){ GetRandomValue(-16, 16) / 100.0f,
+                                -(14 + GetRandomValue(0, 12)) / 100.0f,
+                                GetRandomValue(-16, 16) / 100.0f };
+            p->life = 1.6f + GetRandomValue(0, 70) / 100.0f;
+            p->size = 0.062f + GetRandomValue(0, 35) / 1000.0f;
             p->shift = GetRandomValue(0, 628) / 100.0f;
         }
     }
@@ -884,7 +916,7 @@ static void Moth_Update(float deltaTime, double now) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
         p->life -= deltaTime;
-        p->vel.y -= 0.10f * deltaTime;   /* v59.6: gentle settle, no sinker drop */
+        p->vel.y -= 0.06f * deltaTime;   /* v59.8: dust hangs, it does not sink */
         p->pos.x += p->vel.x * deltaTime * 0.4f + sinf(now * 1.7f + p->shift) * deltaTime * 0.12f;
         p->pos.y += p->vel.y * deltaTime;
         p->pos.z += p->vel.z * deltaTime * 0.4f;
@@ -976,7 +1008,7 @@ static void Moth_PollenDraw(double now) {
         if (p->life <= 0.0f) continue;
         float k = Clamp(p->life, 0.0f, 1.0f);
         float s = p->size * (0.6f + 0.4f * k);
-        unsigned char alpha = (unsigned char)(150.0f * k);   /* v59.6: visible again */
+        unsigned char alpha = (unsigned char)(205.0f * k);   /* v59.8: unmistakable */
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
@@ -1099,7 +1131,7 @@ bool Mobs_TryCollectMushroom(void) {
             SoundFx_PlayPlace();
             if (!mushHintShown) {
                 mushHintShown = true;
-                Chat_AddLine("Void mushroom stored. Press G to eat it (+3 HP).");
+                Chat_AddLine(Tr("Void mushroom stored. Press G to eat it (+3 HP)."));
             } else {
                 Chat_AddLine(TextFormat("Void mushroom stored (%d).", mushroomsStored));
             }
@@ -1166,9 +1198,9 @@ static void Shell_Update(float deltaTime, double now) {
                 for (int q = 0; q < 3; q++) Mushroom_SpawnTry(shellCenter);
                 if (!shellAnnounced) {
                     shellAnnounced = true;
-                    Chat_AddLine("A violet shell shimmers over the islands... it is raining light.");
+                    Chat_AddLine(Tr("A violet shell shimmers over the islands... it is raining light."));
                 } else {
-                    Chat_AddLine("The violet shell returns.");
+                    Chat_AddLine(Tr("The violet shell returns."));
                 }
                 SoundFx_PlayTeleport();
             } else {
@@ -1181,7 +1213,7 @@ static void Shell_Update(float deltaTime, double now) {
     if (now >= shellUntil) {
         shellActive = false;
         shellEventAt = now + 210.0 + (double)GetRandomValue(0, 180);
-        Chat_AddLine("The shell folds away into the nebula.");
+        Chat_AddLine(Tr("The shell folds away into the nebula."));
         return;
     }
 
@@ -1372,7 +1404,7 @@ bool Mobs_MeleeHit(Vector3 origin, Vector3 dir, float maxDist) {
         Hunter_DropShards(w->pos, 2);
         Player_Heal(1);
         SoundFx_PlayHunterDie();
-        Chat_AddLine("The wisp releases its shards.");
+        Chat_AddLine(Tr("The wisp releases its shards."));
         return true;
     }
     if (hit.kind == 3) {

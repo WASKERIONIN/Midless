@@ -251,36 +251,32 @@ static void FillWind(short *data, int frames) {
  * partials and the dry rustle of the shell splitting. Replaces the harsh
  * hit sound that used to carry the moment. */
 static void FillCocoonOpen(short *data, int frames) {
-    float subPhase = 0.0f;
-    float part[4];
-    float det[4] = { 1.0f, 2.718f, 5.131f, 8.312f };
-    float partPhase[4] = { 0, 0, 0, 0 };
-    for (int i = 0; i < 4; i++) part[i] = 0.0f;
-    unsigned int seed = 20260912u;
+    /* v59.8: a gentle hatch - fibrous husk tearing (filtered noise with
+     * a slow falling brightness) over a warm bloom that rises then
+     * settles. No metallic partials, no sub thump. */
+    float huskLp = 0.0f;
+    float tonePhase = 0.0f, fifthPhase = 0.0f;
+    unsigned int seed = 4451u;
     for (int i = 0; i < frames; i++) {
         float t = (float)i / frames;
-        /* sub: 170 -> 46 Hz, blooms then fades */
-        float f = 46.0f + (170.0f - 46.0f) * expf(-t * 5.0f);
-        subPhase += 6.28318f * f / 22050.0f;
-        if (subPhase > 6.28318f) subPhase -= 6.28318f;
-        float sub = sinf(subPhase) * expf(-t * 3.2f) * 0.55f * (t < 0.04f ? t / 0.04f : 1.0f);
-        /* shimmer: partials fade in over 0.15 s, ring out */
-        float shimmer = 0.0f;
-        for (int p = 0; p < 4; p++) {
-            float amp = (0.30f / (p + 1)) * expf(-t * (2.1f + 0.7f * p)) *
-                        (t > 0.12f + 0.05f * p ? 1.0f : t / (0.12f + 0.05f * p));
-            partPhase[p] += 6.28318f * (520.0f * det[p] * (1.0f + 0.004f * sinf(t * 9.0f + p))) / 22050.0f;
-            if (partPhase[p] > 6.28318f) partPhase[p] -= 6.28318f;
-            shimmer += sinf(partPhase[p]) * amp;
-        }
-        /* shell rustle: decaying noise pops in the first 0.35 s */
         seed = seed * 1664525u + 1013904223u;
         float n = ((int)seed % 20000) / 10000.0f - 1.0f;
-        float rustle = n * expf(-t * 9.0f) * 0.30f * (0.6f + 0.4f * sinf(t * 60.0f));
-        float v = sub + shimmer * 0.16f + rustle;
-        if (v > 0.95f) v = 0.95f;
-        if (v < -0.95f) v = -0.95f;
-        data[i] = (short)(v * 9000.0f);
+        float bright = 0.35f * expf(-t * 3.2f) + 0.06f;
+        huskLp += (n - huskLp) * (bright * 0.9f + 0.02f);
+        if (huskLp < 1e-15f && huskLp > -1e-15f) huskLp = 0.0f;
+        float huskEnv = expf(-t * 4.0f) * (t < 0.02f ? t / 0.02f : 1.0f);
+        float husk = huskLp * 1.6f * huskEnv;
+        float f = 196.0f + 58.0f * sinf(3.1416f * (t < 0.7f ? t / 0.7f : 1.0f));
+        tonePhase += 6.28318f * f / 22050.0f;
+        if (tonePhase > 6.28318f) tonePhase -= 6.28318f;
+        fifthPhase += 6.28318f * f * 1.4983f / 22050.0f;
+        if (fifthPhase > 6.28318f) fifthPhase -= 6.28318f;
+        float bloomEnv = (t < 0.10f ? t / 0.10f : 1.0f) * expf(-t * 2.6f);
+        float bloom = (sinf(tonePhase) + 0.35f * sinf(fifthPhase)) * bloomEnv * 0.24f;
+        float v = husk * 0.42f + bloom;
+        if (v > 0.92f) v = 0.92f;
+        if (v < -0.92f) v = -0.92f;
+        data[i] = (short)(v * 11000.0f);
     }
 }
 
@@ -406,12 +402,14 @@ static const MusTrack tracks[MUS_NTRACKS] = {
     { "The Abyss",        chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.40f, 0.0f, 0.32f, 0.10f, 0.11f, 0.5f, 0.10f, 2, 220.0f, 1, 2, 2 },
     /* 2: STRING pad, CHOIR lead, Dies irae plainchant (13th c.). */
     { "Wraith Procession", chordsWraith, motifDies,  16, NOTE_D2, 0, 4.6f, 4.0f, 0.42f, 7.5f, 0.24f, 0.45f, 0.19f, 1.0f, 0.15f, 3, 660.0f, 0, 3, 3 },
-    /* 3: ORGAN pad, GLASS-BELL lead, icy tolling. Andalusian lament. */
-    { "Frozen Chapel",    chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.34f, 0.0f, 0.30f, 0.50f, 0.18f, 2.0f, 0.17f, 1, 1760.0f, 0, 4, 1 },
+    /* 3: v59.8 re-voiced dark like the Vigil: warm low pad, the glass
+     * bell an octave down and far softer, darker filter */
+    { "Frozen Chapel",    chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.32f, 0.0f, 0.30f, 0.20f, 0.13f, 1.0f, 0.14f, 1, 880.0f, 0, 4, 0 },
     /* 4: Veni Emmanuel plainchant (12th c.), organ breath + flute. */
     { "Catacomb Vigil",   chordsVigil,  motifVeni,   16, NOTE_E2, 1, 6.6f, 0.0f, 0.36f, 0.0f, 0.30f, 0.60f, 0.12f, 1.0f, 0.13f, 2, 440.0f, 0, 2, 1 },
-    /* 5: Greensleeves (16th c.) as a music box over soft strings. */
-    { "Ghost of the Green", chordsGhost, motifGreen, 16, NOTE_A2, 1, 4.4f, 2.0f, 0.40f, 5.0f, 0.24f, 0.20f, 0.17f, 1.0f, 0.22f, 0, 880.0f, 0, 5, 3 },
+    /* 5: v59.8 re-voiced: a slow choir carries Greensleeves over soft
+     * strings (the bare music-box sine read as cheap synthesis) */
+    { "Ghost of the Green", chordsGhost, motifGreen, 16, NOTE_A2, 1, 4.4f, 0.0f, 0.38f, 0.0f, 0.26f, 0.20f, 0.15f, 1.0f, 0.15f, 0, 880.0f, 0, 3, 3 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -484,10 +482,10 @@ static float Mus_LeadVoice(int voice, float freq, float ph, float env) {
             float swell = 0.75f + 0.25f * sinf(tremPh);
             return (sinf(ph) + sinf(melPhaseB) + 0.45f * sinf(ph * 2.0f)) * env * swell / 1.45f;
         }
-        case 4: {   /* glass bell: inharmonic partials, icy strike */
+        case 4: {   /* glass bell: v59.8 - rounded partials, no ear-stab */
             melPhaseB += 6.28318f * freq * 1.76f / MUS_SR;
             if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
-            return (sinf(ph) + 0.55f * sinf(melPhaseB) + 0.30f * sinf(ph * 4.4f)) * env;
+            return (sinf(ph) + 0.26f * sinf(melPhaseB) + 0.08f * sinf(ph * 4.4f)) * env;
         }
         case 5: {   /* v59.7 music box: pure partials, quick shimmer */
             melPhaseB += 6.28318f * freq * 3.01f / MUS_SR;
@@ -512,7 +510,9 @@ static float Mus_NextSample(void) {
      * the click on every hand-off), the sample counter stays small so
      * the bar math never drifts, and the pick is always a DIFFERENT
      * station */
-    unsigned int cycle = (unsigned int)(musSample / (BAR * 4.0f));
+    /* v59.8: background music - four full 8-bar cycles (2-4 minutes)
+     * before the station sweep, new track always from its top */
+    unsigned int cycle = (unsigned int)(musSample / (BAR * 32.0f));
     if (cycle > 0 && cycle != musLastCycle) {
         musTrack = Mus_PickDifferent();
         T = &tracks[musTrack];

@@ -311,7 +311,7 @@ void Screen_DrawGame(void) {
     }
 
     if (player.flying) {
-        const char *flyText = "FLY MODE  Tab to walk  Space/Shift up/down";
+        const char *flyText = Tr("FLY MODE  Tab to walk  Space/Shift up/down");
         int flyX = screenWidth / 2 - I18n_MeasureText(flyText, 19) / 2;
         I18n_DrawText(flyText, flyX + 1, 10, 19, BLACK);
         I18n_DrawText(flyText, flyX, 9, 19, (Color){94, 231, 255, 255});
@@ -323,17 +323,17 @@ void Screen_DrawGame(void) {
         const char *weaponTag = player.weaponMode ? "[R: LASER]" : "[R: BLADE]";
         const char *moveText;
         if (player.webActive)
-            moveText = TextFormat("%s WEB: hold SHIFT to reel   SPACE release   F detach", weaponTag);
+            moveText = TextFormat(Tr("%s WEB: hold SHIFT to reel   SPACE release   F detach"), weaponTag);
         else if (Player_NearWarpCore())
-            moveText = TextFormat("%s E - WARP   B - UPGRADE LASER (5 shards)", weaponTag);
+            moveText = TextFormat(Tr("%s E - WARP   B - UPGRADE LASER (5 shards)"), weaponTag);
         else if (Mobs_GetMushrooms() > 0)
-            moveText = TextFormat("%s G - EAT MUSHROOM x%d   I - SATCHEL", weaponTag, Mobs_GetMushrooms());
+            moveText = TextFormat(Tr("%s G - EAT MUSHROOM x%d   I - SATCHEL"), weaponTag, Mobs_GetMushrooms());
         else if (World_GetBlock(padCheck) == 21)
-            moveText = TextFormat("%s SPACE - LAUNCH from the pad", weaponTag);
+            moveText = TextFormat(Tr("%s SPACE - LAUNCH from the pad"), weaponTag);
         else if (dashCharges > 0)
-            moveText = TextFormat("%s F web   SPACE x2 jump   glide   SHIFT dash x%d   I - SATCHEL", weaponTag, dashCharges);
+            moveText = TextFormat(Tr("%s F web   SPACE x2 jump   glide   SHIFT dash x%d   I - SATCHEL"), weaponTag, dashCharges);
         else
-            moveText = TextFormat("%s dash recharges %.1f   I - SATCHEL", weaponTag, dashLeft);
+            moveText = TextFormat(Tr("%s dash recharges %.1f   I - SATCHEL"), weaponTag, dashLeft);
         int mvX = screenWidth / 2 - I18n_MeasureText(moveText, 19) / 2;
         Color mvCol = (player.webActive || dashCharges > 0) ? (Color){94, 255, 214, 255} : (Color){120, 150, 190, 255};
         I18n_DrawText(moveText, mvX + 1, 10, 19, BLACK);
@@ -360,14 +360,14 @@ void Screen_DrawGame(void) {
                 DrawPixelV((Vector2){ x + 7, y + 6 }, edge);
             }
         }
-        const char *bountyText = TextFormat("VOID HUNTERS FELLED: %d", Hunter_GetBounty());
-        I18n_DrawText(bountyText, bx + 1, by + 19, 18, BLACK);
-        I18n_DrawText(bountyText, bx, by + 18, 18, (Color){200, 160, 255, 220});
+        const char *bountyText = TextFormat(Tr("VOID HUNTERS FELLED: %d"), Hunter_GetBounty());
+        I18n_DrawText(bountyText, bx + 1, by + 22, 21, BLACK);
+        I18n_DrawText(bountyText, bx, by + 21, 21, (Color){200, 160, 255, 220});
 
         /* v48: shard counter with a tiny wireframe diamond */
         int shards = Player_GetShards();
-        const char *shardText = TextFormat("VOID SHARDS: %d", shards);
-        int sy = by + 42;
+        const char *shardText = TextFormat(Tr("VOID SHARDS: %d"), shards);
+        int sy = by + 48;
         Color shardCol = shards > 0 ? (Color){96, 255, 214, 255} : (Color){120, 120, 140, 220};
         I18n_DrawText(shardText, bx + 1, sy + 1, 18, BLACK);
         I18n_DrawText(shardText, bx, sy, 18, shardCol);
@@ -377,13 +377,15 @@ void Screen_DrawGame(void) {
         DrawLine(bx + 128, sy + 11, bx + 124, sy + 7, dEdge);
         DrawLine(bx + 124, sy + 7, bx + 128, sy + 3, dEdge);
 
-        /* v59.7: the radio station name, top right corner */
+        /* v59.8: the radio station name, BOTTOM right corner - the top
+         * right corner belongs to the block preview */
         {
-            const char *stText = TextFormat("\xe2\x99\xaa %s", SoundFx_TrackName());
-            int stw = I18n_MeasureText(stText, 16);
+            const char *stText = TextFormat("\xe2\x99\xaa %s", Tr(SoundFx_TrackName()));
+            int stw = I18n_MeasureText(stText, 19);
             int stx = screenWidth - stw - 16;
-            I18n_DrawText(stText, stx + 1, 21, 16, BLACK);
-            I18n_DrawText(stText, stx, 20, 16, (Color){255, 214, 130, 235});
+            int sty = screenHeight - 32;
+            I18n_DrawText(stText, stx + 1, sty + 1, 19, BLACK);
+            I18n_DrawText(stText, stx, sty, 19, (Color){255, 214, 130, 235});
         }
 
         /* v49.1: the edge vignette is gone - the tide speaks through the
@@ -391,15 +393,15 @@ void Screen_DrawGame(void) {
         float tideIncoming = Hunter_GetCalmTimeLeft();
         if (Hunter_GetSurgeTimeLeft() > 0.0f) {
             float pulse = 0.75f + 0.25f * sinf(GetTime() * 6.0f);
-            const char *tideText = TextFormat("VOID TIDE  %.0f", Hunter_GetSurgeTimeLeft());
-            int tx = screenWidth / 2 - I18n_MeasureText(tideText, 28) / 2;
-            I18n_DrawText(tideText, tx + 2, 44, 28, BLACK);
-            I18n_DrawText(tideText, tx, 42, 28, (Color){255, 90, 120, (unsigned char)(255.0f * pulse)});
+            const char *tideText = TextFormat(Tr("VOID TIDE  %.0f"), Hunter_GetSurgeTimeLeft());
+            int tx = screenWidth / 2 - I18n_MeasureText(tideText, 30) / 2;
+            I18n_DrawText(tideText, tx + 2, 44, 30, BLACK);
+            I18n_DrawText(tideText, tx, 42, 30, (Color){255, 90, 120, (unsigned char)(255.0f * pulse)});
         } else if (tideIncoming > 0.0) {
-            const char *warnText = TextFormat("THE VOID STIRS - TIDE IN %.0f", tideIncoming);
-            int wx = screenWidth / 2 - I18n_MeasureText(warnText, 20) / 2;
-            I18n_DrawText(warnText, wx + 1, 45, 20, BLACK);
-            I18n_DrawText(warnText, wx, 44, 20, (Color){255, 190, 110, 230});
+            const char *warnText = TextFormat(Tr("THE VOID STIRS - TIDE IN %.0f"), tideIncoming);
+            int wx = screenWidth / 2 - I18n_MeasureText(warnText, 22) / 2;
+            I18n_DrawText(warnText, wx + 1, 45, 22, BLACK);
+            I18n_DrawText(warnText, wx, 44, 22, (Color){255, 190, 110, 230});
         }
 
         /* hurt flash */
@@ -599,9 +601,9 @@ void Screen_DrawGame(void) {
             DrawLineEx((Vector2){ (float)sx, (float)gy + 214 }, (Vector2){ (float)(sx + 270), (float)gy + 214 }, 1,
                        (Color){ 94, 231, 255, 45 });
             I18n_DrawText("FIELD LOG", sx, gy + 224, 15, (Color){ 120, 190, 175, 255 });
-            const char *log1 = TextFormat("Hunters felled: %d", Hunter_GetBounty());
+            const char *log1 = TextFormat(Tr("Hunters felled: %d"), Hunter_GetBounty());
             I18n_DrawText(log1, sx, gy + 246, 16, (Color){ 255, 200, 120, 255 });
-            const char *log2 = TextFormat("Nearby: %d crawlers, %d wisps, %d spiders",
+            const char *log2 = TextFormat(Tr("Nearby: %d crawlers, %d wisps, %d spiders"),
                                           Mobs_CrawlerCount(), Mobs_WispCount(), Mobs_SpiderCount());
             I18n_DrawText(log2, sx, gy + 270, 16, (Color){ 255, 140, 160, 255 });
 
@@ -913,10 +915,10 @@ void Screen_DrawLogin(void) {
     I18n_DrawText(subtitle, offsetX - (I18n_MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
 
     const char *hint = "WASD move - Space jump - Tab fly - M map - T chat - F5 camera";
-    I18n_DrawText(hint, offsetX - I18n_MeasureText(hint, 12) / 2, screenHeight - 26, 12,
+    I18n_DrawText(hint, offsetX - I18n_MeasureText(hint, 15) / 2, screenHeight - 28, 15,
              (Color){150, 160, 200, 200});
     const char *tag = "floating islands - starlit void - the sun is a black hole";
-    I18n_DrawText(tag, offsetX - I18n_MeasureText(tag, 12) / 2, screenHeight - 44, 12,
+    I18n_DrawText(tag, offsetX - I18n_MeasureText(tag, 15) / 2, screenHeight - 48, 15,
              (Color){190, 120, 230, 180});
 
     //Name Input

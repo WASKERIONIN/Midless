@@ -10,6 +10,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "hunter.h"
+#include "i18n.h"
 #include "player.h"
 #include "world.h"
 #include "chunk.h"
@@ -309,20 +310,20 @@ void Hunter_Update(float deltaTime) {
     waveTimer -= deltaTime;
     if (!surge && !tideWarned && waveTimer <= 10.0f) {
         tideWarned = true;
-        Chat_AddLine("The void stirs... a tide of hunters rises.");
+        Chat_AddLine(Tr("The void stirs... a tide of hunters rises."));
     }
     if (waveTimer <= 0.0f) {
         surge = !surge;
         if (surge) {
             waveTimer = 45.0f;
-            Chat_AddLine("THE VOID TIDE RISES - survive!");
+            Chat_AddLine(Tr("THE VOID TIDE RISES - survive!"));
             /* opening burst: the tide crashes in, not trickles */
             for (int b = 0; b < 3; b++) Hunter_SpawnAttempt();
         } else {
             waveTimer = 150.0f;
             tideWarned = false;
             Player_Heal(2);
-            Chat_AddLine("The tide recedes. The void grants +2 vitality.");
+            Chat_AddLine(Tr("The tide recedes. The void grants +2 vitality."));
         }
     }
     surgeLevel += ((surge ? 1.0f : 0.0f) - surgeLevel) * (1.0f - powf(0.05f, deltaTime));
