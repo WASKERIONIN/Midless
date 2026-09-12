@@ -6,7 +6,7 @@ set -u
 RAYLIB_SRC="${RAYLIB_SRC:-/tmp/raylib45/src}"
 
 CC=gcc
-CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -O1"
+CFLAGS="-Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wno-int-conversion -Werror=implicit-function-declaration -O1"
 DEFINES="-DPLATFORM_DESKTOP -DOS_LINUX"
 
 CLIENT_DIRS="./client/src ./client/src/chunk ./client/src/block ./client/src/entity ./client/src/gui ./client/src/networking"

@@ -154,6 +154,25 @@ static void *ChunkLoaderRun(void *unused) {
     }
 }
 
+/* v63: a chunk is shown to players only when its four horizontal
+ * neighbors exist (or nobody would ever generate them) - islands no
+ * longer pop in as quarter-slices */
+static bool ChunkNeighborsReady(Vector3 position) {
+    static const Vector3 dirs[4] = { {1,0,0}, {-1,0,0}, {0,0,1}, {0,0,-1} };
+    for (int d = 0; d < 4; d++) {
+        Vector3 n = Vector3Add(position, dirs[d]);
+        if (ServerWorld_GetChunkAt(n) != NULL) continue;
+        bool wanted = false;
+        for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+            Player *player = serverWorld.players[i];
+            if (player == NULL || player->disconnected) continue;
+            if (PositionInLoadRadius(player, n)) { wanted = true; break; }
+        }
+        if (wanted) return false;
+    }
+    return true;
+}
+
 static void DeliverChunkToPlayers(ChunkLoadResult *result) {
     Chunk *chunk = ServerWorld_GetChunkAt(result->position);
     for (int playerIndex = 0; playerIndex < WORLD_MAX_PLAYERS; playerIndex++) {

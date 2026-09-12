@@ -7,6 +7,7 @@
  * carry extra shards; the laser is the honest way to take one.
  */
 #include <math.h>
+#include <stdlib.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
