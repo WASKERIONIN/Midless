@@ -8,3 +8,4 @@ libs/*.h
 libs/*.a
 *.html
 *.battests/build/
+__pycache__/
