@@ -60,13 +60,23 @@ void Player_Damage(int amount, Vector3 push) { (void)amount; (void)push; playerD
 void Player_HotbarAutoAdd(int blockId) { (void)blockId; hotbarAdds++; }
 
 static int airWorld = 1;   /* 1 = all air, 0 = island floor at y=70 */
+static Vector3 cocoonCell;
+static int cocoonPlaced = 0;
 int World_GetBlock(Vector3 p) {
+    if (cocoonPlaced &&
+        (int)p.x == (int)cocoonCell.x && (int)p.y == (int)cocoonCell.y &&
+        (int)p.z == (int)cocoonCell.z) return 25;   /* void cocoon */
     if (airWorld) return 0;
     return (p.y < 70.0f) ? 3 : 0;   /* solid floor */
 }
 static Vector3 lastSetBlock;
 static int setBlockCalls = 0;
-void World_SetBlock(Vector3 p, int id, bool send) { (void)id; (void)send; lastSetBlock = p; setBlockCalls++; }
+void World_SetBlock(Vector3 p, int id, bool send) {
+    (void)send; lastSetBlock = p; setBlockCalls++;
+    if (id == 0 && cocoonPlaced &&
+        (int)p.x == (int)cocoonCell.x && (int)p.y == (int)cocoonCell.y &&
+        (int)p.z == (int)cocoonCell.z) cocoonPlaced = 0;
+}
 void World_ExplodeAt(Vector3 cell) { (void)cell; }
 static Texture2D fakeAtlas;
 Texture2D World_GetTerrainTexture(void) { return fakeAtlas; }
@@ -115,6 +125,7 @@ const char *TextFormat(const char *fmt, ...) {
 void BeginShaderMode(Shader s) { rlSetShader(s.id, NULL); }
 void EndShaderMode(void) { rlSetShader(RLM_defaultShaderId, NULL); }
 void UnloadTexture(Texture2D t) { (void)t; }
+void SetTextureFilter(Texture2D t, int f) { (void)t; (void)f; }
 float GetFrameTime(void) { return (float)simStep; }
 
 /* ---------------- the real code under test ---------------- */
@@ -349,6 +360,16 @@ static void TestPollenVisibility(void) {
     /* trail sinks gently, never free-falls nor rises away */
     float avgVy = PollenAvgVelY();
     REQUIRE(avgVy > -0.45f && avgVy < -0.05f, "dust hangs-and-falls (avg vel.y=%f)", avgVy);
+    /* v61.1 invariant: the trail must never cover its own emitter */
+    int covering = 0;
+    for (int i = 0; i < POLLEN_MAX; i++) {
+        if (pollen[i].life <= 0.0f) continue;
+        for (int mI = 0; mI < MOTH_MAX; mI++) {
+            if (!moths[mI].active) continue;
+            if (Vector3Distance(pollen[i].pos, moths[mI].pos) < 0.14f) covering++;
+        }
+    }
+    REQUIRE(covering == 0, "%d motes sit on top of a moth body", covering);
 }
 
 static void TestRenderShellEvent(void) {
@@ -401,8 +422,32 @@ static void TestSpiderRotation(void) {
     }
 }
 
+static void TestStarterSanctuary(void) {
+    printf("[8] starter island sanctuary (no enemies at spawn)\n");
+    ResetWorld(0);   /* floor world; player stands on the spawn pad */
+
+    for (int f = 0; f < 60 * 45; f++) { simTime += simStep; Mobs_Update((float)simStep); }
+    REQUIRE(Mobs_CrawlerCount() == 0, "no crawlers at the starter isle (got %d)", Mobs_CrawlerCount());
+    REQUIRE(Mobs_WispCount() == 0, "no wisps at the starter isle (got %d)", Mobs_WispCount());
+
+    /* a cocoon inside the sanctuary stays a decorative prop */
+    cocoonPlaced = 1;
+    cocoonCell = (Vector3){ 10, 77, 10 };
+    for (int f = 0; f < 60 * 3; f++) { simTime += simStep; Mobs_Update((float)simStep); }
+    REQUIRE(cocoonPlaced == 1, "sanctuary cocoon left intact");
+
+    /* walk far out: enemies live again, and a wild cocoon hatches */
+    player.position = (Vector3){ 100.5f, 77.5f, 100.5f };
+    cocoonCell = (Vector3){ 100, 77, 100 };
+    for (int f = 0; f < 60 * 20; f++) { simTime += simStep; Mobs_Update((float)simStep); }
+    REQUIRE(cocoonPlaced == 0, "wild cocoon hatched when approached");
+    REQUIRE(Mobs_SpiderCount() >= 1, "hatchling emerged from the wild cocoon");
+    REQUIRE(Mobs_CrawlerCount() >= 1, "crawlers roam far from the isle (got %d)", Mobs_CrawlerCount());
+    cocoonPlaced = 0;
+}
+
 static void TestReset(void) {
-    printf("[8] world reset hygiene\n");
+    printf("[9] world reset hygiene\n");
     ResetWorld(1);
     for (int f = 0; f < 60 * 20; f++) { simTime += simStep; Mobs_Update((float)simStep); }
     REQUIRE(CountLivePollen() > 0, "trail alive before reset");
@@ -426,6 +471,7 @@ int main(void) {
     TestPollenVisibility();
     TestRenderShellEvent();
     TestSpiderRotation();
+    TestStarterSanctuary();
     TestReset();
 
     printf("\n%s: %d checks, %d failures\n", failures ? "TESTS FAILED" : "TESTS OK", checks, failures);

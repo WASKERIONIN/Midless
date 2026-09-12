@@ -6,9 +6,15 @@
 typedef struct Player {
     Camera camera;
     Vector3 position;
+    Vector3 velocity;
     bool flying;
     int hp;
 } Player;
+
+#define COSMIC_SPAWN_X 8.0f
+#define COSMIC_SPAWN_Y 77.0f
+#define COSMIC_SPAWN_Z 8.0f
+#define COSMIC_VOID_Y  8.0f
 
 extern Player player;
 

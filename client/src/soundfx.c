@@ -251,32 +251,41 @@ static void FillWind(short *data, int frames) {
  * partials and the dry rustle of the shell splitting. Replaces the harsh
  * hit sound that used to carry the moment. */
 static void FillCocoonOpen(short *data, int frames) {
-    /* v59.8: a gentle hatch - fibrous husk tearing (filtered noise with
-     * a slow falling brightness) over a warm bloom that rises then
-     * settles. No metallic partials, no sub thump. */
-    float huskLp = 0.0f;
-    float tonePhase = 0.0f, fifthPhase = 0.0f;
-    unsigned int seed = 4451u;
+    /* v61.1: a SOFT hatch. The old fill opened with a bright noise burst
+     * (one-pole cutoff in the kHz range at full amplitude, 5 ms attack)
+     * right in the player's ear. Now: dark fibrous rustle whose cutoff
+     * closes over time, a warm low bloom (G2 + soft octave, 120 ms
+     * attack), a quiet sub pop, an explicit tail fade and a lower peak
+     * level overall. */
+    float lp = 0.0f;
+    float bloomPhase = 0.0f, octPhase = 0.0f, popPhase = 0.0f;
+    unsigned int seed = 991u;
     for (int i = 0; i < frames; i++) {
         float t = (float)i / frames;
         seed = seed * 1664525u + 1013904223u;
         float n = ((int)seed % 20000) / 10000.0f - 1.0f;
-        float bright = 0.35f * expf(-t * 3.2f) + 0.06f;
-        huskLp += (n - huskLp) * (bright * 0.9f + 0.02f);
-        if (huskLp < 1e-15f && huskLp > -1e-15f) huskLp = 0.0f;
-        float huskEnv = expf(-t * 4.0f) * (t < 0.02f ? t / 0.02f : 1.0f);
-        float husk = huskLp * 1.6f * huskEnv;
-        float f = 196.0f + 58.0f * sinf(3.1416f * (t < 0.7f ? t / 0.7f : 1.0f));
-        tonePhase += 6.28318f * f / 22050.0f;
-        if (tonePhase > 6.28318f) tonePhase -= 6.28318f;
-        fifthPhase += 6.28318f * f * 1.4983f / 22050.0f;
-        if (fifthPhase > 6.28318f) fifthPhase -= 6.28318f;
-        float bloomEnv = (t < 0.10f ? t / 0.10f : 1.0f) * expf(-t * 2.6f);
-        float bloom = (sinf(tonePhase) + 0.35f * sinf(fifthPhase)) * bloomEnv * 0.24f;
-        float v = husk * 0.42f + bloom;
-        if (v > 0.92f) v = 0.92f;
-        if (v < -0.92f) v = -0.92f;
-        data[i] = (short)(v * 11000.0f);
+        float cutoff = 0.10f * expf(-t * 2.5f) + 0.015f;
+        lp += (n - lp) * cutoff;
+        if (lp < 1e-15f && lp > -1e-15f) lp = 0.0f;
+        float rustleEnv = expf(-t * 3.0f) * (t < 0.06f ? t / 0.06f : 1.0f);
+        float rustle = lp * 2.2f * rustleEnv * 0.30f;
+        float f = 98.0f + 10.0f * expf(-t * 3.0f);
+        bloomPhase += 6.28318f * f / 22050.0f;
+        if (bloomPhase > 6.28318f) bloomPhase -= 6.28318f;
+        octPhase += 6.28318f * f * 2.0f / 22050.0f;
+        if (octPhase > 6.28318f) octPhase -= 6.28318f;
+        float bloomEnv = (t < 0.12f ? t / 0.12f : 1.0f) * expf(-t * 2.2f);
+        float bloom = (sinf(bloomPhase) + 0.18f * sinf(octPhase)) * bloomEnv * 0.20f;
+        float popEnv = expf(-t * 22.0f);
+        popPhase += 6.28318f * (70.0f + 40.0f * popEnv) / 22050.0f;
+        if (popPhase > 6.28318f) popPhase -= 6.28318f;
+        float pop = sinf(popPhase) * popEnv * 0.16f;
+        float v = rustle + bloom + pop;
+        float fade = (t > 0.92f) ? (1.0f - t) / 0.08f : 1.0f;
+        v *= fade;
+        if (v > 0.85f) v = 0.85f;
+        if (v < -0.85f) v = -0.85f;
+        data[i] = (short)(v * 9000.0f);
     }
 }
 
@@ -692,7 +701,7 @@ void SoundFx_Init(void) {
     placeSnd = MakeSound(3600, FillPlace);
     jumpSnd = MakeSound(1400, FillJump);
     teleportSnd = MakeSound(8800, FillTeleport);
-    cocoonSnd = MakeSound(48510, FillCocoonOpen);   /* v59.2 */
+    cocoonSnd = MakeSound(32000, FillCocoonOpen);   /* v59.2, v61.1 softer + shorter */
     clickSnd = MakeSound(900, FillClick);
     windSnd = MakeSound(22050 * 4, FillWind);
     droneSnd = MakeSound(22050 * 8, FillDrone);

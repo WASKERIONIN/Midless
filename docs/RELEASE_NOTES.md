@@ -1,4 +1,14 @@
-# Midless: Cosmic Edition v61
+# Midless: Cosmic Edition v61.1
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v61.1 - polish pass on player feedback
+
+- **Pollen**: slimmer motes, and the trail is laid BEHIND and slightly UNDER the flyer - the moth is never hidden behind its own dust anymore.
+- **The violet shell**: rebuilt 512x256 cumulus texture with distinct lobe rims (no more stretched blur), bilinear filtering, the crooked pentagram circle on the crest is gone, and the alien sky under the dome got a smooth nebula glow instead of a hard bent line.
+- **Starter island sanctuary**: no crawlers, wisps, hunter or cocoon hatches within 30 m of the spawn pad - new players get to learn walking first.
+- **Enemy AI pass**: crawlers now curve around you at close range instead of forming a conga line, remember where they last saw you for a couple of seconds, and spiders only leap when actually facing you, leading your movement (sidestep-baiting jumps is harder now).
+- **Cocoon hatch sound**: rebuilt from scratch - dark fibrous rustle + warm low bloom, a fraction of the old harshness.
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

@@ -30,5 +30,6 @@ int Mobs_SpiderCount(void);                  /* satchel fauna line */
 bool Mobs_EatMushroom(void);                 /* +3 HP if any */
 bool Mobs_TryCollectMushroom(void);          /* E near one */
 bool Mobs_CocoonLaser(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitPoint);
+bool Mobs_InStarterSanctuary(Vector3 p);     /* v61.1: spawn-free starter isle */
 
 #endif

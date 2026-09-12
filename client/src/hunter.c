@@ -10,6 +10,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "hunter.h"
+#include "mobs.h"
 #include "i18n.h"
 #include "player.h"
 #include "world.h"
@@ -144,6 +145,7 @@ static bool Hunter_HasLineOfSight(Vector3 from, Vector3 to) {
 static void Hunter_SpawnAttempt(void) {
     if (player.flying) return;
     Vector3 center = PlayerCenter();
+    if (Mobs_InStarterSanctuary(center)) return;   /* v61.1: starter isle is safe */
     for (int attempt = 0; attempt < 6; attempt++) {
         float ang = (float)GetRandomValue(0, 3599) * 0.001745f;
         float dist = 15.0f + (float)GetRandomValue(0, 700) / 100.0f;

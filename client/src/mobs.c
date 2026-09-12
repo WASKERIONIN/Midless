@@ -64,6 +64,16 @@ static Vector3 Mob_PlayerCenter(void) {
     return (Vector3){ player.position.x + 0.5f, player.position.y + 0.9f, player.position.z + 0.5f };
 }
 
+/* v61.1: the starter island is a SANCTUARY - no mob spawns, no cocoon
+ * hatches (and no hunter materializations; see hunter.c) around the
+ * cosmic spawn pad. New players get to learn walking before dying. */
+#define STARTER_SAFE_R 30.0f
+bool Mobs_InStarterSanctuary(Vector3 p) {
+    float dx = p.x - COSMIC_SPAWN_X;
+    float dz = p.z - COSMIC_SPAWN_Z;
+    return dx * dx + dz * dz < STARTER_SAFE_R * STARTER_SAFE_R;
+}
+
 /* ---------------------------------------------------------------- crawlers */
 #define CRAWLER_MAX 4
 #define CRAWLER_HP 2
@@ -84,6 +94,12 @@ typedef struct Crawler {
     float age;
     bool grounded;
     float stuck;   /* v56: how long the body has been fighting a wall */
+    /* v61.1 AI pass: flanking curve around the target at close range and
+     * a short memory of the last seen position */
+    float flankSide;
+    float flankTimer;
+    Vector3 lastSeen;
+    float memoryTimer;
 } Crawler;
 static Crawler crawlers[CRAWLER_MAX];
 static bool crawlerAnnounced;
@@ -147,6 +163,7 @@ static void Crawler_SpawnTry(bool surge) {
     Vector3 center = Mob_PlayerCenter();
     Vector3 spot;
     if (!Mob_FindSurfaceSpot(center, 10.0f, 24.0f, &spot)) return;
+    if (Mobs_InStarterSanctuary(spot)) return;   /* v61.1: spawn sanctuary */
     for (int i = 0; i < CRAWLER_MAX; i++) {
         Crawler *c = &crawlers[i];
         if (c->active) continue;
@@ -161,6 +178,11 @@ static void Crawler_SpawnTry(bool surge) {
         c->wanderTimer = 2.0f;
         c->age = 0.0f;
         c->grounded = false;
+        c->stuck = 0.0f;
+        c->flankSide = (GetRandomValue(0, 1) == 0) ? 1.0f : -1.0f;
+        c->flankTimer = 1.5f + GetRandomValue(0, 150) / 100.0f;
+        c->lastSeen = (Vector3){ 0 };
+        c->memoryTimer = 0.0f;
         if (!crawlerAnnounced) {
             crawlerAnnounced = true;
             Chat_AddLine(Tr("Something skitters across the island..."));
@@ -178,7 +200,7 @@ static void Wisp_SpawnTry(void) {
         Vector3 p = { center.x + cosf(ang) * dist,
                       center.y - 3.0f + (float)GetRandomValue(0, 600) / 100.0f,
                       center.z + sinf(ang) * dist };
-        if (!Mob_BodyBlocked(p)) {
+        if (!Mob_BodyBlocked(p) && !Mobs_InStarterSanctuary(p)) {
             for (int i = 0; i < WISP_MAX; i++) {
                 Wisp *w = &wisps[i];
                 if (w->active) continue;
@@ -215,15 +237,45 @@ static void Crawler_Update(float deltaTime, bool surge, double now) {
         if (!player.flying && hdist < CRAWLER_SIGHT &&
             Mob_HasLOS(c->pos, center)) {
             c->aggroTimer = CRAWLER_SIGHT_MEM;
+            c->lastSeen = center;          /* v61.1: remember the spot */
+            c->memoryTimer = 2.5f;
         } else if (c->aggroTimer > 0.0f) {
             c->aggroTimer -= deltaTime;
+        } else if (c->memoryTimer > 0.0f) {
+            c->memoryTimer -= deltaTime;
         }
         bool aggro = ((surge && hdist < 12.0f) || c->aggroTimer > 0.0f) &&
                      now >= c->retreatUntil;
 
         Vector3 desired;
         if (aggro && hdist > 0.05f) {
-            desired = Vector3Scale(Vector3Scale(toPlayer, 1.0f / hdist), CRAWLER_SPEED * (surge ? 1.2f : 1.0f));
+            Vector3 chase = Vector3Scale(Vector3Scale(toPlayer, 1.0f / hdist),
+                                         CRAWLER_SPEED * (surge ? 1.2f : 1.0f));
+            /* v61.1: at close range curve AROUND the target instead of
+             * forming a conga line straight up the player's nose */
+            c->flankTimer -= deltaTime;
+            if (c->flankTimer <= 0.0f) {
+                c->flankSide = -c->flankSide;
+                c->flankTimer = 1.5f + GetRandomValue(0, 150) / 100.0f;
+            }
+            if (hdist < 4.5f && hdist > 0.9f) {
+                Vector3 tangent = Vector3Normalize((Vector3){ -toPlayer.z, 0, toPlayer.x });
+                float curve = CRAWLER_SPEED * 0.55f * c->flankSide * (1.0f - hdist / 4.5f);
+                chase = Vector3Add(Vector3Scale(chase, 0.72f), Vector3Scale(tangent, curve));
+            }
+            desired = chase;
+        } else if (!aggro && c->memoryTimer > 0.0f) {
+            /* v61.1: the trail went cold - walk to where the player was
+             * last seen before drifting back to wandering */
+            Vector3 toSeen = Vector3Subtract(c->lastSeen, c->pos);
+            toSeen.y = 0;
+            float sd = Vector3Length(toSeen);
+            if (sd > 0.6f) {
+                desired = Vector3Scale(Vector3Scale(toSeen, 1.0f / sd), CRAWLER_SPEED * 0.8f);
+            } else {
+                c->memoryTimer = 0.0f;
+                desired = (Vector3){ 0 };
+            }
         } else {
             c->wanderTimer -= deltaTime;
             if (c->wanderTimer <= 0.0f) {
@@ -472,15 +524,30 @@ static void Spider_Update(float deltaTime, double now) {
                 desired = Vector3Add(desired, Vector3Scale(away, (1.6f - d) * 2.6f / d));
         }
 
-        /* leap attack: from up to three blocks away it jumps at the player */
+        /* leap attack: from up to three blocks away it jumps at the player.
+         * v61.1: it leaps only once actually FACING the target (no more
+         * mid-turn backward hops) and leads the aim by half the player's
+         * motion during the flight - sidestep-dodging straight lines no
+         * longer trivially baits every jump. */
         if (aggro && s->grounded && s->jumpCd <= 0.0f &&
             dist3 > 1.3f && dist3 < SPIDER_LEAP_RANGE && now >= s->bounceBackUntil) {
-            Vector3 dir = (hdist > 0.05f) ? Vector3Scale(toPlayer, 1.0f / hdist) : (Vector3){ 0, 0, 1 };
-            s->vel = (Vector3){ dir.x * 3.3f, 1.55f, dir.z * 3.3f };
-            s->airborne = true;
-            s->grounded = false;
-            s->jumpCd = 1.7f;
-            SoundFx_PlayJump();
+            Vector3 facing = (Vector3){ cosf(s->faceAng), 0, sinf(s->faceAng) };
+            Vector3 pn = (hdist > 0.05f) ? Vector3Scale(toPlayer, 1.0f / hdist) : (Vector3){ 0, 0, 1 };
+            if (pn.x * facing.x + pn.z * facing.z > 0.25f) {
+                float flight = dist3 / 3.6f;
+                Vector3 aim = (Vector3){ center.x + player.velocity.x * 0.5f * flight,
+                                         center.y,
+                                         center.z + player.velocity.z * 0.5f * flight };
+                Vector3 toAim = Vector3Subtract(aim, s->pos);
+                toAim.y = 0;
+                float ad = Vector3Length(toAim);
+                Vector3 dir = (ad > 0.05f) ? Vector3Scale(toAim, 1.0f / ad) : pn;
+                s->vel = (Vector3){ dir.x * 3.3f, 1.55f, dir.z * 3.3f };
+                s->airborne = true;
+                s->grounded = false;
+                s->jumpCd = 1.7f;
+                SoundFx_PlayJump();
+            }
         }
 
         if (!s->airborne) {
@@ -581,7 +648,7 @@ static void Cocoon_Scan(float deltaTime) {
         for (int dz = -3; dz <= 3; dz++)
             for (int dx = -3; dx <= 3; dx++) {
                 Vector3 cell = { px + dx, py + dy, pz + dz };
-                if (World_GetBlock(cell) == 25) {
+                if (World_GetBlock(cell) == 25 && !Mobs_InStarterSanctuary(cell)) {
                     Cocoon_Hatch(cell);
                     return;   /* one hatch per scan keeps the moment readable */
                 }
@@ -658,12 +725,13 @@ static int mushroomsStored = 0;   /* inventory count */
 static bool mushHintShown;
 
 /* ------------------- v59.3: shell textures (runtime) --------------------
- * Atlas tiles are 16 px - stretched over a 9 m dome they read as colored
- * patches. The shell gets real 256x128 textures generated once at start:
- * a puffy cumulus for the top and an ALIEN starfield for the underside -
- * looking up under the umbrella shows a window to another world. */
-#define SHELL_TW 256
-#define SHELL_TH 128
+ * v61.1: the atlas tiles were never going to read over a 9 m dome, so the
+ * cap wears RUNTIME textures. 512x256 now (the first 256x128 pass read
+ * stretched and mushy up close), with distinct cumulus lobes: cell rims
+ * come from the noise gradient, the pole stays lit, a touch of dither
+ * kills banding - and both shells use bilinear filtering. */
+#define SHELL_TW 512
+#define SHELL_TH 256
 static Texture2D shellTopTex;
 static Texture2D shellUndTex;
 static bool shellTexReady;
@@ -683,35 +751,48 @@ static float Shell_WrappedNoiseN(const float *g, int n, float fx, float fy) {
 static Texture2D Shell_MakeTopTexture(void) {
     Color *px = (Color *)MemAlloc(SHELL_TW * SHELL_TH * sizeof(Color));
     unsigned int seed = 987654321u;
-    float g8[9][9], g16[17][17];
-    for (int j = 0; j < 9; j++)
-        for (int i = 0; i < 9; i++) {
-            seed = seed * 1664525u + 1013904223u;
-            g8[j][i] = (float)(seed >> 16) / 65535.0f;
-        }
-    for (int j = 0; j < 9; j++) { g8[j][8] = g8[j][0]; g8[8][j] = g8[0][j]; }
-    g8[8][8] = g8[0][0];
-    for (int j = 0; j < 17; j++)
-        for (int i = 0; i < 17; i++) {
-            seed = seed * 1664525u + 1013904223u;
-            g16[j][i] = (float)(seed >> 16) / 65535.0f;
-        }
-    for (int j = 0; j < 17; j++) { g16[j][16] = g16[j][0]; g16[16][j] = g16[0][j]; }
-    g16[16][16] = g16[0][0];
+    float g8[9][9], g16[17][17], g32[33][33];
+    #define SHELL_FILL_GRID(n) \
+        for (int j = 0; j < (n)+1; j++) \
+            for (int i = 0; i < (n)+1; i++) { \
+                seed = seed * 1664525u + 1013904223u; \
+                g##n[j][i] = (float)(seed >> 16) / 65535.0f; \
+            } \
+        for (int j = 0; j < (n)+1; j++) { g##n[j][n] = g##n[j][0]; g##n[n][j] = g##n[0][j]; } \
+        g##n[n][n] = g##n[0][0];
+    SHELL_FILL_GRID(8)
+    SHELL_FILL_GRID(16)
+    SHELL_FILL_GRID(32)
+    #undef SHELL_FILL_GRID
 
-    /* v59.4: a REAL cloud - smooth lavender-white gradients, lit toward
-     * the pole. The old version quantized the noise into 4 hard shades
-     * (those flat square-ish patches) and painted a misplaced bright
-     * crest ring (the "ridiculous circle"). */
     for (int y = 0; y < SHELL_TH; y++) {
         float fy = (float)y / SHELL_TH;          /* 0 = pole row, 1 = rim */
         for (int x = 0; x < SHELL_TW; x++) {
             float fx = (float)x / SHELL_TW;
-            float n = Shell_WrappedNoiseN(&g8[0][0], 8, fx, fy) * 0.62f +
-                      Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.38f;
-            float puff = 0.5f + 0.5f * sinf((n * 2.0f - 0.35f) * 3.1416f);  /* soft lobes */
-            float shade = 0.30f + 0.42f * puff + (1.0f - fy) * 0.30f;       /* lit top */
+            float n  = Shell_WrappedNoiseN(&g8[0][0],  8, fx, fy) * 0.40f +
+                       Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.35f +
+                       Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy) * 0.25f;
+            /* soft dither kills gradient banding on big surfaces */
+            seed = seed * 1664525u + 1013904223u;
+            float dith = ((int)(seed >> 12) % 64) / 64.0f - 0.5f;
+            /* cumulus lobe rims: darken where the noise field slopes hard */
+            float e = 1.5f / SHELL_TW;
+            float nx1 = Shell_WrappedNoiseN(&g16[0][0], 16, fx + e, fy) * 0.35f +
+                        Shell_WrappedNoiseN(&g32[0][0], 32, fx + e, fy) * 0.25f;
+            float nx0 = Shell_WrappedNoiseN(&g16[0][0], 16, fx - e, fy) * 0.35f +
+                        Shell_WrappedNoiseN(&g32[0][0], 32, fx - e, fy) * 0.25f;
+            float ny1 = Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy + e) * 0.35f +
+                        Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy + e) * 0.25f;
+            float ny0 = Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy - e) * 0.35f +
+                        Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy - e) * 0.25f;
+            float grad = sqrtf((nx1 - nx0) * (nx1 - nx0) + (ny1 - ny0) * (ny1 - ny0));
+            float rim = Clamp((grad - 0.055f) * 14.0f, 0.0f, 1.0f);
+
+            float puff = 0.5f + 0.5f * sinf((n * 2.0f - 0.35f) * 3.1416f);
+            float shade = 0.34f + 0.40f * puff + (1.0f - fy) * 0.26f
+                          - rim * 0.16f + dith * 0.03f;
             if (shade > 1.0f) shade = 1.0f;
+            if (shade < 0.0f) shade = 0.0f;
             int r = (int)(104.0f + 134.0f * shade);
             int g = (int)(92.0f + 148.0f * shade);
             int b = (int)(148.0f + 106.0f * shade);
@@ -719,19 +800,10 @@ static Texture2D Shell_MakeTopTexture(void) {
                                             (unsigned char)b, 255 };
         }
     }
-    /* a few soft teal glints tucked into the shaded underside */
-    for (int k = 0; k < 26; k++) {
-        seed = seed * 1664525u + 1013904223u;
-        int gx = (int)((seed >> 10) % SHELL_TW);
-        seed = seed * 1664525u + 1013904223u;
-        int gy = (int)((seed >> 10) % (SHELL_TH / 3)) + (SHELL_TH * 2) / 3;
-        int i0 = gy * SHELL_TW + gx;
-        px[i0] = (Color){ 128, 216, 204, 255 };
-        if (gx + 1 < SHELL_TW) px[i0 + 1] = (Color){ 96, 168, 162, 255 };
-    }
     Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
                   .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     Texture2D t = LoadTextureFromImage(img);
+    SetTextureFilter(t, TEXTURE_FILTER_BILINEAR);
     MemFree(px);
     return t;
 }
@@ -747,19 +819,22 @@ static Texture2D Shell_MakeUnderTexture(void) {
                                             (unsigned char)(8 + shade),
                                             (unsigned char)(7 + shade / 2), 255 };
         }
-    /* emerald nebula band snaking across */
+    /* emerald nebula glow snaking across - a smooth gradient wash, not a
+     * hard line (the old 3-row band read as a crooked circle overhead) */
     for (int x = 0; x < SHELL_TW; x++) {
-        int cyN = SHELL_TH / 2 + (int)(sinf(6.2832f * x / SHELL_TW) * SHELL_TH * 0.16f);
-        for (int dy = -6; dy <= 6; dy++) {
-            int yy = cyN + dy;
-            if (yy < 0 || yy >= SHELL_TH) continue;
-            if (dy == 0) px[yy * SHELL_TW + x] = (Color){ 16, 92, 60, 255 };
-            else if (dy == -1 || dy == 1) px[yy * SHELL_TW + x] = (Color){ 12, 62, 44, 255 };
-            else if ((x + yy) % 7 == 0) px[yy * SHELL_TW + x] = (Color){ 9, 40, 30, 255 };
+        float cyN = SHELL_TH / 2.0f + sinf(6.2832f * x / SHELL_TW) * SHELL_TH * 0.16f;
+        for (int yy = 0; yy < SHELL_TH; yy++) {
+            float d = (yy - cyN) / (SHELL_TH * 0.10f);
+            float glow = expf(-d * d) * 0.8f;
+            if (glow < 0.02f) continue;
+            Color *c = &px[yy * SHELL_TW + x];
+            c->r = (unsigned char)(c->r * (1.0f - glow) + 26.0f * glow);
+            c->g = (unsigned char)(c->g * (1.0f - glow) + 112.0f * glow);
+            c->b = (unsigned char)(c->b * (1.0f - glow) + 70.0f * glow);
         }
     }
     /* alien stars: gold / ice / magenta-white, plus two bright crosses */
-    for (int k = 0; k < 220; k++) {
+    for (int k = 0; k < 460; k++) {
         seed = seed * 1664525u + 1013904223u;
         int sx = (int)((seed >> 10) % SHELL_TW);
         seed = seed * 1664525u + 1013904223u;
@@ -784,6 +859,7 @@ static Texture2D Shell_MakeUnderTexture(void) {
     Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
                   .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     Texture2D t = LoadTextureFromImage(img);
+    SetTextureFilter(t, TEXTURE_FILTER_BILINEAR);
     MemFree(px);
     return t;
 }
@@ -944,14 +1020,22 @@ static void Moth_Update(float deltaTime, double now) {
             m->hasLastDrop = true;
             Pollen *p = &pollen[pollenNext];
             pollenNext = (pollenNext + 1) % POLLEN_MAX;
-            p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
-                                m->pos.y + GetRandomValue(-6, 6) / 100.0f,
-                                m->pos.z + GetRandomValue(-8, 8) / 100.0f };
+            /* v61.1: motes are laid BEHIND and slightly UNDER the flyer -
+             * the old drop right at the body center piled a glowing blob
+             * on top of the moth and hid it. Slimmer motes, too. */
+            Vector3 emit = m->pos;
+            float spd = Vector3Length(m->vel);
+            if (spd > 0.25f)
+                emit = Vector3Add(emit, Vector3Scale(m->vel, -0.16f / spd));
+            emit.y -= 0.18f;   /* well clear of the body/wings */
+            p->pos = (Vector3){ emit.x + GetRandomValue(-6, 6) / 100.0f,
+                                emit.y + GetRandomValue(-5, 5) / 100.0f,
+                                emit.z + GetRandomValue(-6, 6) / 100.0f };
             p->vel = (Vector3){ GetRandomValue(-16, 16) / 100.0f,
                                 -(14 + GetRandomValue(0, 12)) / 100.0f,
                                 GetRandomValue(-16, 16) / 100.0f };
             p->life = 1.8f + GetRandomValue(0, 80) / 100.0f;
-            p->size = 0.082f + GetRandomValue(0, 40) / 1000.0f;
+            p->size = 0.064f + GetRandomValue(0, 30) / 1000.0f;
             p->shift = GetRandomValue(0, 628) / 100.0f;
         }
     }
@@ -1852,7 +1936,7 @@ void Mobs_Draw(void) {
     if (shellActive) {
         float t0 = (float)now;
         float R = 9.0f, cy2 = shellCenter.y;
-        /* v59.2: the light rain is back - streaks sliding down under the
+        /* v59.2: the light rain - streaks sliding down under the
          * umbrella; it is the event's signature */
         for (int k = 0; k < 48; k++) {
             float seed = k * 7.13f;
@@ -1867,26 +1951,8 @@ void Mobs_Draw(void) {
             rlVertex3f(x, yTop, z);
             rlVertex3f(x, yTop - 0.45f, z);
         }
-        /* v59: ONE plain pentagram on the dome TOP (straight chords, no
-         * ornaments) - it used to hang under the cloud as a twin spiral */
-        {
-            float py = cy2 + R * 0.58f;   /* the flattened dome's crest */
-            float pr = R * 0.38f;
-            float spin = t0 * 0.5f;
-            unsigned char pb = (unsigned char)(200.0f + 55.0f * sinf(t0 * 2.6f));
-            Color pc = { 255, 70, pb, 255 };
-            Vector3 pts[5];
-            for (int k = 0; k < 5; k++) {
-                float an = spin + 6.2832f * k / 5.0f;
-                pts[k] = (Vector3){ shellCenter.x + cosf(an) * pr, py, shellCenter.z + sinf(an) * pr };
-            }
-            for (int k = 0; k < 5; k++) {   /* star: straight chords, k -> k+2 */
-                Vector3 a = pts[k], b = pts[(k + 2) % 5];
-                rlColor4ub(pc.r, pc.g, pc.b, 255);
-                rlVertex3f(a.x, a.y, a.z);
-                rlVertex3f(b.x, b.y, b.z);
-            }
-        }
+        /* v61.1: the crest pentagram is gone - up close it read as a
+         * crooked circle scribbled over the cloud */
     }
 
     rlEnd();
