@@ -41,6 +41,7 @@ const Block *Block_GetDefinition(int id);
 
 bool Block_IsDefined(int id);
 bool Block_IsSelectable(int id);
+bool Block_IsPlant(int id);                 /* v59.7: sprite-model flora */
 bool Block_IsOverridden(int id);
 int Block_NextSelectable(int id, int direction);
 bool Block_ApplyDefinition(int id, const BlockDefinition *definition);

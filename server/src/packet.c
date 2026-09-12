@@ -187,6 +187,18 @@ void ServerPacket_HandleSetBlock(void) {
             (unsigned char)ServerWorld_GetBlock(position), position, false));
         return;
     }
+    /* v59.7: plants never stack - the server is authoritative, so a
+     * hacked client cannot plant a flower on a flower either */
+    if (serverWorld.blockDefinitions[blockId].modelType == BLOCK_MODEL_SPRITE) {
+        Vector3 below = { position.x, position.y - 1.0f, position.z };
+        int belowId = ServerWorld_GetBlock(below);
+        if (belowId > 0 && belowId < 256 &&
+            serverWorld.blockDefinitions[belowId].modelType == BLOCK_MODEL_SPRITE) {
+            ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateSetBlock(
+                (unsigned char)ServerWorld_GetBlock(position), position, false));
+            return;
+        }
+    }
     ServerWorld_SetBlock(position, blockId, true, true, true);
 }
 

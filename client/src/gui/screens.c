@@ -377,6 +377,15 @@ void Screen_DrawGame(void) {
         DrawLine(bx + 128, sy + 11, bx + 124, sy + 7, dEdge);
         DrawLine(bx + 124, sy + 7, bx + 128, sy + 3, dEdge);
 
+        /* v59.7: the radio station name, top right corner */
+        {
+            const char *stText = TextFormat("\xe2\x99\xaa %s", SoundFx_TrackName());
+            int stw = I18n_MeasureText(stText, 16);
+            int stx = screenWidth - stw - 16;
+            I18n_DrawText(stText, stx + 1, 21, 16, BLACK);
+            I18n_DrawText(stText, stx, 20, 16, (Color){255, 214, 130, 235});
+        }
+
         /* v49.1: the edge vignette is gone - the tide speaks through the
          * banner, the hunters' red glow and the swelling drone */
         float tideIncoming = Hunter_GetCalmTimeLeft();

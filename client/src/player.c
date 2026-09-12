@@ -559,6 +559,8 @@ void Player_CheckInputs() {
         if (IsKeyPressed(KEY_F5))
             player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
         if (IsKeyPressed(KEY_M) && currentScreen == SCREEN_GAME) MapView_Toggle();
+        /* v59.7: N skips to the next radio station */
+        if (IsKeyPressed(KEY_N) && currentScreen == SCREEN_GAME) SoundFx_NextTrack();
         if (IsKeyPressed(KEY_TAB) && currentScreen == SCREEN_GAME) {
             player.flying = !player.flying;
             player.velocity.y = 0;
@@ -1024,6 +1026,11 @@ void Player_CheckInputs() {
 bool Player_TryPlaceBlock(Vector3 pos, int blockId)
 {
     if (!Block_IsSelectable(blockId)) return false;
+    /* v59.7: plants never stack - no flower on top of a flower */
+    if (Block_IsPlant(blockId)) {
+        Vector3 below = { pos.x, pos.y - 1.0f, pos.z };
+        if (Block_IsPlant(World_GetBlock(below))) return false;
+    }
     int oldBlock = World_GetBlock(pos);
     World_SetBlock(pos, blockId, true);
     if (Player_TestCollision((Vector3){ 0 }))

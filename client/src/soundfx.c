@@ -301,10 +301,11 @@ static const float NOTE_A2 = 110.0f, NOTE_C3 = 130.81f, NOTE_D3 = 146.83f,
     NOTE_E3 = 164.81f, NOTE_F3 = 174.61f, NOTE_G3 = 196.0f, NOTE_A3 = 220.0f,
     NOTE_B3 = 246.94f, NOTE_C4 = 261.63f, NOTE_D4 = 293.66f, NOTE_E4 = 329.63f,
     NOTE_F4 = 349.23f, NOTE_G4 = 392.0f, NOTE_A4 = 440.0f, NOTE_C5 = 523.25f,
-    NOTE_D5 = 587.33f, NOTE_BB3 = 233.08f, NOTE_GS4 = 415.30f, NOTE_E2 = 82.41f,
+    NOTE_D5 = 587.33f, NOTE_F5 = 698.46f, NOTE_BB3 = 233.08f, NOTE_GS4 = 415.30f, NOTE_E2 = 82.41f,
     NOTE_D2 = 73.42f, NOTE_B4 = 493.88f, NOTE_E5 = 659.26f, NOTE_G5 = 783.99f;
 
 typedef struct MusTrack {
+    const char *name;         /* v59.7: station name for the HUD */
     const float *chords;      /* 4 chords x 3 notes (freqs), 0 = rest */
     const float *motif;       /* melody quote, freqs */
     int motifLen;
@@ -351,6 +352,18 @@ static const float motifDies[] = {
     NOTE_F4, NOTE_E4, NOTE_F4, NOTE_D4,  NOTE_E4, NOTE_C4, NOTE_D4, NOTE_D4,
     NOTE_F4, NOTE_E4, NOTE_F4, NOTE_D4,  NOTE_E4, NOTE_C4, NOTE_D4, 0
 };
+/* v59.7: Veni Veni Emmanuel - the 12th-century Advent plainchant
+ * (public domain), sung in catacombs and cold chapels */
+static const float motifVeni[] = {
+    NOTE_E4, NOTE_E4, NOTE_G4, NOTE_A4,  NOTE_A4, NOTE_G4, NOTE_A4, NOTE_B4,
+    NOTE_C5, NOTE_B4, NOTE_A4, NOTE_G4,  NOTE_A4, NOTE_G4, NOTE_E4, 0
+};
+/* v59.7: Greensleeves - the 16th-century English tune (public domain),
+ * here as a fading music-box memory over the meadows */
+static const float motifGreen[] = {
+    NOTE_A4, NOTE_C5, NOTE_D5, NOTE_E5,  NOTE_F5, NOTE_E5, NOTE_D5, NOTE_B4,
+    NOTE_G4, NOTE_A4, NOTE_B4, NOTE_C5,  NOTE_A4, 0, NOTE_A4, 0
+};
 /* v59.2: "Frozen chapel" - the Andalusian lament (Am-G-F-E) answered by
  * a thin choir third */
 static const float motifChapel[] = {
@@ -373,20 +386,32 @@ static const float chordsChapel[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
     NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_E3, NOTE_GS4, NOTE_B3,
 };
+/* v59.7: Em - Am - C - G for the catacomb vigil */
+static const float chordsVigil[] = {
+    NOTE_E3, NOTE_G3, NOTE_B3,  NOTE_A3, NOTE_C4, NOTE_E4,
+    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_G3, NOTE_B3, NOTE_D4,
+};
+/* v59.7: Am - G - Am - E(half cadence) under Greensleeves */
+static const float chordsGhost[] = {
+    NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
+    NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_E3, NOTE_GS4, NOTE_B3,
+};
 
-static const MusTrack tracks[4] = {
-    /* 0 "Wanderer's march": dorian stride, LUTE lead, warm pad.
-     * Quotes L'homme arme (15th c., public domain). */
-    { chordsAm,     motifHomme,  16, NOTE_A2, 0, 3.8f, 2.0f, 0.50f, 5.5f, 0.26f, 0.30f, 0.20f, 1.0f, 0.20f, 4, 880.0f, 0, 1, 0 },
-    /* 1 "Abyss": one held fifth over a breath drone, FLUTE lead.
-     * Chant-style stepwise line, whispered dynamics. */
-    { chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.40f, 0.0f, 0.32f, 0.10f, 0.11f, 0.5f, 0.10f, 2, 220.0f, 1, 2, 2 },
-    /* 2 "Wraith procession": quarter-note march, STRING pad, CHOIR lead.
-     * Quotes the Dies irae plainchant. */
-    { chordsWraith, motifDies,   16, NOTE_D2, 0, 4.6f, 4.0f, 0.42f, 7.5f, 0.24f, 0.45f, 0.19f, 1.0f, 0.15f, 3, 660.0f, 0, 3, 3 },
-    /* 3 "Frozen chapel": ORGAN pad, GLASS-BELL lead, icy tolling.
-     * The Andalusian lament (Am-G-F-E). */
-    { chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.34f, 0.0f, 0.30f, 0.50f, 0.18f, 2.0f, 0.17f, 1, 1760.0f, 0, 4, 1 },
+#define MUS_NTRACKS 6
+
+static const MusTrack tracks[MUS_NTRACKS] = {
+    /* 0: dorian stride, SOFT LUTE lead, warm pad. L'homme arme (15th c.). */
+    { "Wanderer's March", chordsAm,     motifHomme,  16, NOTE_A2, 0, 3.8f, 2.0f, 0.44f, 5.5f, 0.26f, 0.30f, 0.17f, 1.0f, 0.20f, 4, 880.0f, 0, 1, 0 },
+    /* 1: one held fifth, breath FLUTE, airy whisper pad. */
+    { "The Abyss",        chordsAbyss,  motifChant,  16, NOTE_D2, 1, 7.4f, 0.0f, 0.40f, 0.0f, 0.32f, 0.10f, 0.11f, 0.5f, 0.10f, 2, 220.0f, 1, 2, 2 },
+    /* 2: STRING pad, CHOIR lead, Dies irae plainchant (13th c.). */
+    { "Wraith Procession", chordsWraith, motifDies,  16, NOTE_D2, 0, 4.6f, 4.0f, 0.42f, 7.5f, 0.24f, 0.45f, 0.19f, 1.0f, 0.15f, 3, 660.0f, 0, 3, 3 },
+    /* 3: ORGAN pad, GLASS-BELL lead, icy tolling. Andalusian lament. */
+    { "Frozen Chapel",    chordsChapel, motifChapel, 16, NOTE_E2, 0, 5.8f, 0.0f, 0.34f, 0.0f, 0.30f, 0.50f, 0.18f, 2.0f, 0.17f, 1, 1760.0f, 0, 4, 1 },
+    /* 4: Veni Emmanuel plainchant (12th c.), organ breath + flute. */
+    { "Catacomb Vigil",   chordsVigil,  motifVeni,   16, NOTE_E2, 1, 6.6f, 0.0f, 0.36f, 0.0f, 0.30f, 0.60f, 0.12f, 1.0f, 0.13f, 2, 440.0f, 0, 2, 1 },
+    /* 5: Greensleeves (16th c.) as a music box over soft strings. */
+    { "Ghost of the Green", chordsGhost, motifGreen, 16, NOTE_A2, 1, 4.4f, 2.0f, 0.40f, 5.0f, 0.24f, 0.20f, 0.17f, 1.0f, 0.22f, 0, 880.0f, 0, 5, 3 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -401,8 +426,8 @@ static unsigned int Mus_NextRand(void) {
 static int musTrack = 0;
 
 static int Mus_PickDifferent(void) {
-    int pick = (int)(Mus_NextRand() % 3u);
-    if (pick >= musTrack) pick++;     /* 0..3 minus current */
+    int pick = (int)(Mus_NextRand() % (MUS_NTRACKS - 1u));
+    if (pick >= musTrack) pick++;     /* 0..5 minus current */
     return pick;
 }
 
@@ -429,11 +454,20 @@ static float Mus_Noise(void) {
 static float Mus_LeadVoice(int voice, float freq, float ph, float env) {
     static float vibPh = 0.0f, tremPh = 0.0f;
     switch (voice) {
-        case 1: {   /* lute pluck: soft-rolled saw, decays like a string */
-            float saw = ph / 3.14159f - 1.0f;
-            static float plkLp = 0.0f;
-            plkLp += (saw - plkLp) * 0.30f;
-            return plkLp * env;
+        case 1: {   /* v59.7 soft lute: two DETUNED deep-rolled saws plus
+                     * a warm sine fundamental - the single hard-rolled
+                     * saw sounded like a toy keyboard */
+            static float plkA = 0.0f, plkB = 0.0f;
+            melPhaseB += 6.28318f * freq * 1.0045f / MUS_SR;
+            if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
+            float sawA = ph / 3.14159f - 1.0f;
+            float sawB = melPhaseB / 3.14159f - 1.0f;
+            plkA += (sawA - plkA) * 0.13f;
+            plkB += (sawB - plkB) * 0.13f;
+            if (plkA < 1e-15f && plkA > -1e-15f) plkA = 0.0f;  /* denormal flush */
+            if (plkB < 1e-15f && plkB > -1e-15f) plkB = 0.0f;
+            float body = (plkA + plkB) * 0.5f + 0.42f * sinf(ph);
+            return body * env;
         }
         case 2: {   /* breath flute: sine + octave, vibrato, a whiff of air */
             vibPh += 6.28318f * 4.7f / MUS_SR;
@@ -455,26 +489,48 @@ static float Mus_LeadVoice(int voice, float freq, float ph, float env) {
             if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
             return (sinf(ph) + 0.55f * sinf(melPhaseB) + 0.30f * sinf(ph * 4.4f)) * env;
         }
+        case 5: {   /* v59.7 music box: pure partials, quick shimmer */
+            melPhaseB += 6.28318f * freq * 3.01f / MUS_SR;
+            if (melPhaseB > 6.28318f) melPhaseB -= 6.28318f;
+            return (sinf(ph) + 0.4f * sinf(melPhaseB)) * env;
+        }
         default:    /* soft woodwind-ish default */
             return (sinf(ph) + 0.3f * sinf(ph * 2.0f)) * env;
     }
 }
 
 static float Mus_NextSample(void) {
+    /* v59.7: curNote/xfadePos live at the top so the hand-off and the
+     * manual station skip can reset them */
+    static float curNote = 0.0f;
+    static int xfadePos = 0;
+
     const MusTrack *T = &tracks[musTrack];
-    const float BAR = (float)MUS_SR * T->barSec;         /* per-track tempo */
-    unsigned int total = (unsigned int)(musSample / BAR);
+    float BAR = (float)MUS_SR * T->barSec;               /* per-track tempo */
+    /* v59.7: the station changes at every 4-bar pass (~15-30 s) and the
+     * new track STARTS FROM ITS TOP: no mid-bar envelope jump (that was
+     * the click on every hand-off), the sample counter stays small so
+     * the bar math never drifts, and the pick is always a DIFFERENT
+     * station */
+    unsigned int cycle = (unsigned int)(musSample / (BAR * 4.0f));
+    if (cycle > 0 && cycle != musLastCycle) {
+        musTrack = Mus_PickDifferent();
+        T = &tracks[musTrack];
+        BAR = (float)MUS_SR * T->barSec;
+        musSample = 0;
+        curNote = 0;
+        xfadePos = 0;
+        musLastCycle = 0;
+    } else {
+        musLastCycle = cycle;
+    }
+    /* bar position in double, then truncate - the old chain (sample over
+     * a float bar, through a truncated ULL multiply) lost precision the
+     * longer the game ran and wobbled every envelope */
+    unsigned int total = (unsigned int)((double)musSample / (double)BAR);
     int chordIdx = T->drone ? 0 : (int)(total % 4);
     int barIn2 = (int)(total % 8);
-    /* v59.6: the station changes at every 4-bar pass (~15-30 s) - the
-     * hand-off was real but inaudible when all loops shared one timbre;
-     * now instruments differ per track, so the sweep is unmistakable */
-    unsigned int cycle = (unsigned int)(musSample / (BAR * 4.0f));
-    if (cycle != musLastCycle) {
-        musLastCycle = cycle;
-        if (cycle > 0) musTrack = Mus_PickDifferent();
-    }
-    float tInBar = (float)((double)musSample - (double)((unsigned long long)total * (unsigned long long)BAR)) / BAR; /* 0..1 */
+    float tInBar = (float)((double)musSample / (double)BAR - (double)total); /* 0..1 */
 
     const float *ch = &T->chords[chordIdx * 3];
 
@@ -524,8 +580,6 @@ static float Mus_NextSample(void) {
 
     /* melody: chant-like walk; quotes the motif every second 8-bar cycle */
     float mel = 0.0f;
-    static float curNote = 0.0f;
-    static int xfadePos = 0;
     int step = (int)(tInBar * 8.0f);                 /* 8 steps per bar */
     float stepT = tInBar * 8.0f - (float)step;
     float want;
@@ -550,10 +604,12 @@ static float Mus_NextSample(void) {
     melPhase += 6.28318f * (curNote * T->leadOct) / MUS_SR;
     if (melPhase > 6.28318f) melPhase -= 6.28318f;
     float mEnv;
-    if (T->leadVoice == 1)        /* pluck: strike then decay */
-        mEnv = (expf(-(float)xfadePos / (MUS_SR * 0.50f)) * 0.85f + 0.10f) * T->leadGain * 2.4f;
+    if (T->leadVoice == 1)        /* lute: gentle strike, soft long decay */
+        mEnv = (expf(-(float)xfadePos / (MUS_SR * 0.65f)) * 0.70f + 0.08f) * T->leadGain * 2.1f;
     else if (T->leadVoice == 4)   /* bell: long icy decay */
         mEnv = (expf(-(float)xfadePos / (MUS_SR * 1.60f)) * 0.80f + 0.08f) * T->leadGain * 2.0f;
+    else if (T->leadVoice == 5)   /* music box: quick shimmer decay */
+        mEnv = (expf(-(float)xfadePos / (MUS_SR * 0.90f)) * 0.80f + 0.06f) * T->leadGain * 2.0f;
     else
         mEnv = (1.0f - stepT * 0.35f) * T->leadGain;
     mel = Mus_LeadVoice(T->leadVoice, curNote * T->leadOct, melPhase, mEnv);
@@ -567,6 +623,7 @@ static float Mus_NextSample(void) {
     float mix = pad + bass + mel;
     /* one-pole lowpass, per-track brightness */
     musLp += (mix - musLp) * T->lpCoef;
+    if (musLp < 1e-15f && musLp > -1e-15f) musLp = 0.0f;   /* denormal flush */
     float outv = musLp * 1.30f + mix * 0.55f;   /* v59.6: louder make-up */
 
     musSample++;
@@ -581,13 +638,28 @@ static void MusicCallback(void *bufferData, unsigned int frames) {
     }
     for (unsigned int i = 0; i < frames; i++) {
         float v = Mus_NextSample();
-        if (v > 0.95f) v = 0.95f;
-        if (v < -0.95f) v = -0.95f;
-        /* v59.6: the mix sat far below the stream's headroom - nearly
-         * twice as loud now, with the existing soft clip as the guard */
-        d[i * 2] = (short)(v * 15500.0f);
-        d[i * 2 + 1] = (short)(v * 14200.0f);
+        /* v59.7: a synth must never hiss. Any NaN, infinity or runaway
+         * envelope folds to silence, and a soft saturation knee replaces
+         * the hard clip (clipped squares read as buzzy interference) */
+        if (!(v > -4.0f && v < 4.0f)) v = 0.0f;
+        v = tanhf(v * 1.15f) * 0.90f;
+        d[i * 2] = (short)(v * 16000.0f);
+        d[i * 2 + 1] = (short)(v * 14700.0f);
     }
+}
+
+/* v59.7: the HUD station label */
+const char *SoundFx_TrackName(void) {
+    return tracks[musTrack].name;
+}
+
+/* v59.7: N skips to the next station; the new one starts from its top.
+ * Called on the main thread; every write is a single word, and the
+ * audio thread re-reads the state each sample. */
+void SoundFx_NextTrack(void) {
+    musTrack = Mus_PickDifferent();
+    musSample = 0;
+    musLastCycle = 0;
 }
 
 void SoundFx_SetMusicEnabled(bool on) {

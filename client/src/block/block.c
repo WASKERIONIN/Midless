@@ -291,6 +291,13 @@ bool Block_IsDefined(int id) {
     return id >= 0 && id < 256 && defined[id];
 }
 
+/* v59.7: sprite-model blocks are the flora - used to keep plants from
+ * being planted on top of each other */
+bool Block_IsPlant(int id) {
+    return id > 0 && id < 256 &&
+           blockDefinitions[id].modelType == BLOCK_MODEL_SPRITE;
+}
+
 bool Block_IsSelectable(int id) {
     return id > 0 && Block_IsDefined(id) && blockDefinitions[id].modelType != BLOCK_MODEL_GAS;
 }
