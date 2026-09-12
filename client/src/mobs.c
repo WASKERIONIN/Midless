@@ -638,15 +638,15 @@ static Texture2D shellTopTex;
 static Texture2D shellUndTex;
 static bool shellTexReady;
 
-static float Shell_WrappedNoise(float gx[9][9], float fx, float fy) {
-    float x = fx * 8.0f, y = fy * 8.0f;
-    int x0 = (int)x % 8, y0 = (int)y % 8;
-    int x1 = (x0 + 1) % 8, y1 = (y0 + 1) % 8;
+static float Shell_WrappedNoiseN(const float *g, int n, float fx, float fy) {
+    float x = fx * n, y = fy * n;
+    int x0 = (int)x % n, y0 = (int)y % n;
+    int x1 = (x0 + 1) % n, y1 = (y0 + 1) % n;
     float tx = x - (int)x, ty = y - (int)y;
     tx = tx * tx * (3 - 2 * tx);
     ty = ty * ty * (3 - 2 * ty);
-    float a = gx[y0][x0] * (1 - tx) + gx[y0][x1] * tx;
-    float b = gx[y1][x0] * (1 - tx) + gx[y1][x1] * tx;
+    float a = g[y0 * n + x0] * (1 - tx) + g[y0 * n + x1] * tx;
+    float b = g[y1 * n + x0] * (1 - tx) + g[y1 * n + x1] * tx;
     return a * (1 - ty) + b * ty;
 }
 
@@ -672,8 +672,8 @@ static Texture2D Shell_MakeTopTexture(void) {
     for (int y = 0; y < SHELL_TH; y++) {
         for (int x = 0; x < SHELL_TW; x++) {
             float fx = (float)x / SHELL_TW, fy = (float)y / SHELL_TH;
-            float n = Shell_WrappedNoise(g8, fx, fy) * 0.68f +
-                      Shell_WrappedNoise(g16, fx, fy) * 0.32f;
+            float n = Shell_WrappedNoiseN(&g8[0][0], 8, fx, fy) * 0.68f +
+                      Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.32f;
             /* light rises toward the pole (texture v=0 is the pole) */
             n += (1.0f - fy) * 0.30f;
             int band = (int)(n * 3.6f);
