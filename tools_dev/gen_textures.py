@@ -1266,6 +1266,10 @@ def build_atlas():
         43: t_cloud(43),
         44: t_undersky(44),
         45: t_glassbell(45),
+        49: t_void_tree(49),
+        50: t_lantern_tree(50),
+        51: t_crystal_stalk(51),
+        52: t_void_puff(52),
         46: t_embercup(46),
         47: t_voidorchid(47),
         48: t_frostfern(48),
@@ -1423,6 +1427,147 @@ def enforce_opaque_cube_tiles(atlas):
                 r, g, b, a = px[x, y]
                 if a != 255:
                     px[x, y] = (r, g, b, 255)
+
+
+def t_void_tree(index):
+    """v61.2: void tree - a slender indigo trunk holding a heavy teal
+    canopy that drips glow. 3.4 blocks tall on the billboard; drawn to
+    fill the top half of the tile so the sprite reads from far."""
+    img = blank_tile()
+    px = img.load()
+    TR_D = (30, 20, 48)     # trunk shadow
+    TR = (52, 36, 78)       # trunk
+    CN = (16, 92, 84)       # canopy deep teal
+    CN2 = (28, 138, 122)    # canopy teal
+    A = (110, 240, 224)     # aqua glow drip
+    P = (206, 255, 246)     # pale tip
+    # trunk with a bend and two root flares
+    for y in range(6, 16):
+        px[7, y] = TR
+        px[8, y] = TR if y < 11 else TR_D
+    px[7, 10] = TR_D
+    px[8, 14] = TR_D
+    px[6, 15] = TR_D
+    px[9, 15] = TR_D
+    px[5, 9] = TR       # stub branch left
+    px[10, 8] = TR      # stub branch right
+    # canopy: layered blob rows 0-5
+    rows = {0: (7, 8), 1: (5, 10), 2: (4, 11), 3: (3, 12), 4: (4, 11), 5: (6, 9)}
+    for y, (x0, x1) in rows.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1) or y in (0, 5)
+            if edge:
+                px[x, y] = CN
+            else:
+                px[x, y] = CN2 if (x * 3 + y * 5) % 4 else CN
+    # glow drips + pale tips
+    px[5, 6] = A
+    px[10, 6] = A
+    px[7, 6] = A
+    px[6, 1] = P
+    px[9, 2] = P
+    px[4, 3] = A
+    px[11, 4] = A
+    return img
+
+
+def t_lantern_tree(index):
+    """v61.2: lantern tree - dark copper trunk, round canopy of gold
+    lanterns. The warm twin of the void tree (2.9 blocks tall)."""
+    img = blank_tile()
+    px = img.load()
+    TR_D = (40, 26, 20)
+    TR = (74, 48, 30)
+    L = (255, 200, 90)      # lantern gold
+    L2 = (200, 140, 60)     # dim lantern
+    G = (255, 240, 170)     # bright wick
+    LF = (36, 70, 58)       # dark leaf mass
+    for y in range(7, 16):
+        px[7, y] = TR
+        px[8, y] = TR if y < 12 else TR_D
+    px[6, 15] = TR_D
+    px[9, 15] = TR_D
+    rows = {1: (6, 9), 2: (5, 10), 3: (4, 11), 4: (4, 11), 5: (5, 10), 6: (6, 9)}
+    for y, (x0, x1) in rows.items():
+        for x in range(x0, x1 + 1):
+            if x in (x0, x1) or y in (1, 6):
+                px[x, y] = LF
+            else:
+                px[x, y] = LF if (x + y) % 3 else (60, 96, 74)
+    # hanging lanterns inside the leaf mass
+    for lx, ly in ((6, 2), (9, 3), (5, 4), (8, 5), (10, 4), (7, 3)):
+        px[lx, ly] = L
+    px[9, 3] = L2
+    px[10, 4] = L2
+    px[7, 4] = G
+    return img
+
+
+def t_crystal_stalk(index):
+    """v61.2: crystal stalk - a tight cluster of raw cosmic crystal
+    shards rising from a rocky base (1.9 blocks). Rigid, no sway."""
+    img = blank_tile()
+    px = img.load()
+    RK = (52, 40, 74)       # rocky base
+    RK_D = (36, 26, 54)
+    C_D = (40, 96, 128)     # shard deep
+    C = (90, 190, 216)      # shard
+    C_L = (190, 244, 252)   # shard edge
+    # base rocks
+    for x in range(5, 11):
+        px[x, 14] = RK_D
+        px[x, 15] = RK_D
+    px[6, 13] = RK
+    px[9, 13] = RK
+    # main shard: tall kite x=7-8, rows 1-13
+    kite = {1: (7, 8), 2: (7, 8), 3: (6, 9), 4: (6, 9), 5: (6, 9),
+            6: (6, 9), 7: (6, 9), 8: (7, 8), 9: (7, 8), 10: (7, 8)}
+    for y, (x0, x1) in kite.items():
+        for x in range(x0, x1 + 1):
+            px[x, y] = C_D if x == x0 or y == 10 else C
+    px[7, 1] = C_L
+    px[7, 3] = C_L
+    px[6, 5] = C_L
+    # two side shards
+    for y in range(6, 13):
+        px[4, y] = C if y < 11 else C_D
+    px[4, 5] = C_L
+    for y in range(8, 13):
+        px[11, y] = C_D if y > 10 else C
+    px[11, 7] = C
+    return img
+
+
+def t_void_puff(index):
+    """v61.2: void puff - a fat ball of luminous cotton on a short stem
+    (0.85 blocks). Soft lavender-white fluff over a teal stem; the one
+    pale accent in the meadow."""
+    img = blank_tile()
+    px = img.load()
+    ST = (24, 88, 78)
+    F_D = (148, 134, 196)   # fluff shadow
+    F = (198, 188, 232)     # fluff
+    F_L = (240, 236, 255)   # fluff light
+    T = (150, 255, 236)     # teal mote
+    for y in range(11, 16):
+        px[7, y] = ST
+        px[8, y] = ST
+    px[6, 13] = ST
+    ball = {3: (5, 10), 4: (4, 11), 5: (3, 12), 6: (3, 12),
+            7: (4, 11), 8: (5, 10), 9: (6, 9), 10: (7, 8)}
+    for y, (x0, x1) in ball.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1) or y in (3, 10)
+            if edge:
+                px[x, y] = F_D
+            else:
+                px[x, y] = F if (x * 5 + y * 3) % 4 else F_L
+    px[6, 4] = F_L
+    px[9, 5] = F_L
+    px[5, 7] = T
+    px[10, 8] = T
+    px[7, 8] = F_L
+    return img
 
 
 def main():

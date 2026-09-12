@@ -653,22 +653,38 @@ static void World_DrawWireAurasAt(Vector3 center, int kind) {
 }
 
 /* v57: per-block billboard silhouette - halfW + full height */
+/* v61.2: stable per-position pseudo-random 0..1 - grass clumps must vary
+ * BETWEEN plants but stay identical for the SAME plant every frame */
+static float World_PosHash(float x, float z) {
+    float v = sinf(x * 12.9898f + z * 78.233f) * 43758.5453f;
+    return v - floorf(v);
+}
+
 /* v59: a little skirt of grass at the stem base - flowers stop looking
  * stabbed into the dirt; several blades around the perimeter with varied
- * height and phase so they never read as a flat decal */
+ * height and phase so they never read as a flat decal.
+ * v61.2: every clump rolls its own dice - blade count, heights and widths
+ * come from a stable per-position hash, so the lawn reads as grown, not
+ * stamped from one cookie cutter. */
 static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
                              float t, float gust, float phase) {
+    float h0 = World_PosHash(base.x, base.z);
     const float offs[5][2] = { { 0, 0 }, { 0.16f, 0.13f }, { -0.15f, 0.14f },
                                { 0.14f, -0.16f }, { -0.13f, -0.15f } };
     for (int i = 0; i < 5; i++) {
+        float hp = h0 * 7.13f + i * 0.618f;
+        hp -= floorf(hp);                        /* per-blade hash 0..1 */
+        if (i > 0 && hp < 0.22f) continue;       /* some clumps are thinner */
         Vector3 at = { base.x + offs[i][0], base.y, base.z + offs[i][1] };
-        float hMul = (i == 0) ? 1.0f : (0.72f + 0.20f * ((float)(((i * 37) % 5)) / 5.0f));
+        float hMul = (i == 0) ? (0.85f + 0.35f * hp)
+                              : (0.55f + 0.75f * hp);
         float amp = 0.075f * gust;
         float lean = amp * sinf(t * 2.1f + phase + i * 1.7f);
-        Mobs_DrawBillboard(at, 0.24f * scale, 0.21f * scale * hMul, 39, bright, lean);
-        /* the taller sedge layers over the tuft on the ring blades */
-        if (i > 0) {
-            float sh = 0.30f * scale * (0.85f + 0.25f * ((float)((i * 53) % 4) / 4.0f));
+        float bw = 0.24f * scale * (0.85f + 0.3f * hp);
+        Mobs_DrawBillboard(at, bw, 0.21f * scale * hMul, 39, bright, lean);
+        /* the taller sedge layers over the tuft on most ring blades */
+        if (i > 0 && hp > 0.30f) {
+            float sh = 0.30f * scale * (0.70f + 0.55f * hp);
             Mobs_DrawBillboard(at, 0.22f * scale, sh, 41, bright, lean * 1.15f);
         }
     }
@@ -694,7 +710,19 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 46: halfW = 0.40f; h = 1.35f; swayAmp = 0.085f; break; /* embercup */
         case 47: halfW = 0.46f; h = 1.70f; swayAmp = 0.075f; break; /* void orchid */
         case 48: halfW = 0.44f; h = 1.80f; swayAmp = 0.11f; break;  /* frostfern */
+        /* v61.2: trees & meadow accents */
+        case 49: halfW = 0.95f; h = 3.40f; swayAmp = 0.035f; break; /* void tree */
+        case 50: halfW = 0.85f; h = 2.90f; swayAmp = 0.045f; break; /* lantern tree */
+        case 51: halfW = 0.42f; h = 1.90f; swayAmp = 0.020f; break; /* crystal stalk */
+        case 52: halfW = 0.45f; h = 0.85f; swayAmp = 0.095f; break; /* void puff */
         default: return;
+    }
+    /* v61.2: stable per-instance variation - plants of one species are
+     * NOT all the same size anymore (+-30% height, +-20% width) */
+    {
+        float hv = World_PosHash(base.x + 31.7f, base.z - 17.3f);
+        h *= 0.72f + 0.58f * hv;
+        halfW *= 0.82f + 0.36f * World_PosHash(base.z - 5.1f, base.x + 9.9f);
     }
     float brightF = World_GetBrightness((Vector3){ base.x, base.y + 0.5f, base.z });
     unsigned char bright = (unsigned char)(Clamp(brightF, 0.0f, 1.0f) * 255.0f);
@@ -704,7 +732,11 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     float gust = 0.55f + 0.45f * sinf(t * 0.35f + base.z * 0.08f);   /* slow gust front */
     float lean = swayAmp * gust * sinf(t * 1.9f + phase);
     /* v59: grass under everything that blooms (tuft/sedge are grass already) */
-    if (id != 39 && id != 41 && id != 32) World_GrassSkirt(base, id >= 37 ? 1.6f : 1.0f, bright, t, gust, phase);
+    /* v61.2: trees root into a big underbrush clump */
+    if (id != 39 && id != 41 && id != 32) {
+        float skirt = (id == 49 || id == 50) ? 2.3f : (id >= 37 ? 1.6f : 1.0f);
+        World_GrassSkirt(base, skirt, bright, t, gust, phase);
+    }
     Mobs_DrawBillboard(base, halfW, h, id, bright, lean);
     if (id == 39) {
         /* v59: a taller sedge strand beside every tuft, its own phase */

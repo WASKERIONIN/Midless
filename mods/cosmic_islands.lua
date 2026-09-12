@@ -173,6 +173,41 @@ midless.define_block(48, {
     collider = block.collider.NONE,
 })
 
+midless.define_block(49, {
+    name = "Void Tree",
+    textures = { all = 49 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
+-- v61.2: lantern tree - gold canopy twin of the void tree
+midless.define_block(50, {
+    name = "Lantern Tree",
+    textures = { all = 50 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
+-- v61.2: crystal stalk - raw shard cluster
+midless.define_block(51, {
+    name = "Crystal Stalk",
+    textures = { all = 51 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
+-- v61.2: void puff - luminous cotton ball
+midless.define_block(52, {
+    name = "Void Puff",
+    textures = { all = 52 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -303,6 +338,7 @@ for _, band in ipairs({
     { 0.52, 31 },  -- twin tulip
     { 0.63, 48 },  -- v59.5: frostfern
     { 0.74, 32 },  -- glow grass
+    { 0.80, 50 },  -- v61.2: lantern tree groves (very rare)
 }) do
     flower_id = f.select(f.lt(band[1], which_n), band[2], flower_id)
 end
@@ -311,8 +347,13 @@ end
 -- two-block moon bell, and the very densest spots grow a star reed
 -- v57: tall flora - rare giants keyed on the fine noise (which_n's top
 -- tail is too thin to bank on); moon bells and star reeds rise singly
-flower_id = f.select(f.lt(0.72, fine_n) * f.lt(fine_n, 0.82), 38, flower_id)
-flower_id = f.select(f.lt(0.82, fine_n), 37, flower_id)
+-- v61.2: the giant ladder got five rungs - puffs, moon bells, star
+-- reeds, crystal stalks and (the rarest) void trees
+flower_id = f.select(f.lt(0.60, fine_n) * f.lt(fine_n, 0.70), 52, flower_id)
+flower_id = f.select(f.lt(0.70, fine_n) * f.lt(fine_n, 0.80), 38, flower_id)
+flower_id = f.select(f.lt(0.80, fine_n) * f.lt(fine_n, 0.90), 37, flower_id)
+flower_id = f.select(f.lt(0.90, fine_n) * f.lt(fine_n, 0.965), 51, flower_id)
+flower_id = f.select(f.lt(0.965, fine_n), 49, flower_id)
 
 -- stratified bodies: crystal turf over dirt over void rock over stone
 local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))

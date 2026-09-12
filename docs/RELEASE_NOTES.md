@@ -1,4 +1,20 @@
-# Midless: Cosmic Edition v61.1
+# Midless: Cosmic Edition v61.2
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v61.2 - a cloud worth looking at, and a living meadow
+
+- **The violet shell's top is completely new**: a plateau-cumulus in the world's own palette - big lavender lobes with moonlit crests over indigo valleys, a lit pole cap and a dusting of faint stars. No more stretched white mush.
+- **The alien sky under the dome lost its checkerboard**: smooth deep green-black with soft noise drift.
+- **Four new plants**: slender **void trees** (3.4 blocks, teal canopy dripping glow), warm **lantern trees** (gold canopy), raw **crystal stalks** and soft luminous **void puffs**. Trees root into big underbrush clumps; rare groves and lone giants appear in worldgen (regenerate the world to see them).
+- **The lawn is no longer uniform**: every grass clump rolls its own stable dice - blade count, heights and widths vary per plant, and every plant of a species varies in size (+-30% height).
+
+## v61.1 - polish pass on player feedback
+
+- Pollen: slimmer motes laid behind/below the flyer - the moth is never hidden by its own dust.
+- Cocoon hatch sound rebuilt (soft rustle + warm bloom).
+- Starter island is a sanctuary (no mob spawns within 30 m of the pad).
+- Enemy AI pass: crawler flanking + last-seen memory, spider facing-gated leading leaps.
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

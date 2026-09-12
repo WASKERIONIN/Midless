@@ -210,6 +210,35 @@ void Block_BuildDefinition(void) {
     blockDefinitions[48].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[48].minBB = (Vector3) {4, 0, 4};
     blockDefinitions[48].maxBB = (Vector3) {12, 10, 12};
+
+    /* v61.2: trees & meadow accents - same sprite contract as above */
+    Block_Define(49, "void_tree", 49, 49, 49);
+    blockDefinitions[49].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[49].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[49].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[49].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[49].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(50, "lantern_tree", 50, 50, 50);
+    blockDefinitions[50].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[50].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[50].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[50].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[50].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(51, "crystal_stalk", 51, 51, 51);
+    blockDefinitions[51].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[51].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[51].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[51].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[51].maxBB = (Vector3) {12, 10, 12};
+
+    Block_Define(52, "void_puff", 52, 52, 52);
+    blockDefinitions[52].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[52].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[52].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[52].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[52].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;

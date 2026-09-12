@@ -749,56 +749,81 @@ static float Shell_WrappedNoiseN(const float *g, int n, float fx, float fy) {
 }
 
 static Texture2D Shell_MakeTopTexture(void) {
+    /* v61.2b: PLATEAU CUMULUS. Noise soup failed twice on the dome, so
+     * this is a cartoon-cloud construction instead: the low-frequency
+     * field is threshold-smoothed into big flat lobes with soft skirts,
+     * a directional light brush paints the crest of every lobe, and the
+     * valleys sink into indigo with a teal wash. Reads as ONE cloud from
+     * any distance, in the world's own palette. */
     Color *px = (Color *)MemAlloc(SHELL_TW * SHELL_TH * sizeof(Color));
     unsigned int seed = 987654321u;
-    float g8[9][9], g16[17][17], g32[33][33];
-    #define SHELL_FILL_GRID(n) \
-        for (int j = 0; j < (n)+1; j++) \
-            for (int i = 0; i < (n)+1; i++) { \
-                seed = seed * 1664525u + 1013904223u; \
-                g##n[j][i] = (float)(seed >> 16) / 65535.0f; \
-            } \
-        for (int j = 0; j < (n)+1; j++) { g##n[j][n] = g##n[j][0]; g##n[n][j] = g##n[0][j]; } \
-        g##n[n][n] = g##n[0][0];
-    SHELL_FILL_GRID(8)
-    SHELL_FILL_GRID(16)
-    SHELL_FILL_GRID(32)
-    #undef SHELL_FILL_GRID
+    float g8[9][9], g16[17][17];
+    for (int j = 0; j < 9; j++)
+        for (int i = 0; i < 9; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            g8[j][i] = (float)(seed >> 16) / 65535.0f;
+        }
+    for (int j = 0; j < 9; j++) { g8[j][8] = g8[j][0]; g8[8][j] = g8[0][j]; }
+    g8[8][8] = g8[0][0];
+    for (int j = 0; j < 17; j++)
+        for (int i = 0; i < 17; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            g16[j][i] = (float)(seed >> 16) / 65535.0f;
+        }
+    for (int j = 0; j < 17; j++) { g16[j][16] = g16[j][0]; g16[16][j] = g16[0][j]; }
+    g16[16][16] = g16[0][0];
+
+    #define SHELL_SSTEP(a, b, v) (Clamp(((v) - (a)) / ((b) - (a)), 0.0f, 1.0f))
 
     for (int y = 0; y < SHELL_TH; y++) {
-        float fy = (float)y / SHELL_TH;          /* 0 = pole row, 1 = rim */
+        float fy = (float)y / SHELL_TH;
+        /* pole cap: near the pinch everything settles to one lit tone */
+        float capMix = 1.0f - SHELL_SSTEP(0.06f, 0.20f, fy);
         for (int x = 0; x < SHELL_TW; x++) {
             float fx = (float)x / SHELL_TW;
-            float n  = Shell_WrappedNoiseN(&g8[0][0],  8, fx, fy) * 0.40f +
-                       Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.35f +
-                       Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy) * 0.25f;
-            /* soft dither kills gradient banding on big surfaces */
-            seed = seed * 1664525u + 1013904223u;
-            float dith = ((int)(seed >> 12) % 64) / 64.0f - 0.5f;
-            /* cumulus lobe rims: darken where the noise field slopes hard */
-            float e = 1.5f / SHELL_TW;
-            float nx1 = Shell_WrappedNoiseN(&g16[0][0], 16, fx + e, fy) * 0.35f +
-                        Shell_WrappedNoiseN(&g32[0][0], 32, fx + e, fy) * 0.25f;
-            float nx0 = Shell_WrappedNoiseN(&g16[0][0], 16, fx - e, fy) * 0.35f +
-                        Shell_WrappedNoiseN(&g32[0][0], 32, fx - e, fy) * 0.25f;
-            float ny1 = Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy + e) * 0.35f +
-                        Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy + e) * 0.25f;
-            float ny0 = Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy - e) * 0.35f +
-                        Shell_WrappedNoiseN(&g32[0][0], 32, fx, fy - e) * 0.25f;
-            float grad = sqrtf((nx1 - nx0) * (nx1 - nx0) + (ny1 - ny0) * (ny1 - ny0));
-            float rim = Clamp((grad - 0.055f) * 14.0f, 0.0f, 1.0f);
+            float n = Shell_WrappedNoiseN(&g8[0][0], 8, fx, fy) * 0.72f +
+                      Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy) * 0.28f;
+            /* big smooth lobes: plateau where the field is high */
+            float plateau = SHELL_SSTEP(0.42f, 0.58f, n);
+            /* directional brush: light falls from up-left */
+            float e = 0.018f;
+            float ns = Shell_WrappedNoiseN(&g8[0][0], 8, fx + e, fy + e * 0.6f) * 0.72f +
+                       Shell_WrappedNoiseN(&g16[0][0], 16, fx + e, fy + e * 0.6f) * 0.28f;
+            float ps = SHELL_SSTEP(0.42f, 0.58f, ns);
+            float crest = Clamp((plateau - ps) * 9.0f, 0.0f, 1.0f) * plateau;
+            float valley = 1.0f - plateau;
 
-            float puff = 0.5f + 0.5f * sinf((n * 2.0f - 0.35f) * 3.1416f);
-            float shade = 0.34f + 0.40f * puff + (1.0f - fy) * 0.26f
-                          - rim * 0.16f + dith * 0.03f;
-            if (shade > 1.0f) shade = 1.0f;
-            if (shade < 0.0f) shade = 0.0f;
-            int r = (int)(104.0f + 134.0f * shade);
-            int g = (int)(92.0f + 148.0f * shade);
-            int b = (int)(148.0f + 106.0f * shade);
+            float valley3 = valley * valley * valley;
+            float r = 48.0f + 88.0f * plateau + 64.0f * crest - 6.0f * valley + 14.0f * valley3;
+            float g = 38.0f + 76.0f * plateau + 58.0f * crest + 8.0f * valley;
+            float b = 86.0f + 112.0f * plateau + 38.0f * crest - 4.0f * valley + 8.0f * valley3;
+            /* teal wash pooling in the valleys, faint magenta in the deepest */
+            g += 16.0f * valley * SHELL_SSTEP(0.15f, 0.55f, Shell_WrappedNoiseN(&g16[0][0], 16, fx, fy));
+            /* pole cap */
+            r = r * (1.0f - capMix) + 132.0f * capMix;
+            g = g * (1.0f - capMix) + 122.0f * capMix;
+            b = b * (1.0f - capMix) + 168.0f * capMix;
+            /* soft dither vs banding */
+            seed = seed * 1664525u + 1013904223u;
+            float dith = ((int)(seed >> 12) % 32) / 32.0f - 0.5f;
+            r += dith * 3.0f; g += dith * 3.0f; b += dith * 3.0f;
+            if (r > 255.0f) r = 255.0f; if (r < 0.0f) r = 0.0f;
+            if (g > 255.0f) g = 255.0f; if (g < 0.0f) g = 0.0f;
+            if (b > 255.0f) b = 255.0f; if (b < 0.0f) b = 0.0f;
             px[y * SHELL_TW + x] = (Color){ (unsigned char)r, (unsigned char)g,
                                             (unsigned char)b, 255 };
         }
+    }
+    #undef SHELL_SSTEP
+    /* a sparse dusting of faint stars, never near the pinch */
+    for (int k = 0; k < 18; k++) {
+        seed = seed * 1664525u + 1013904223u;
+        int sx = (int)((seed >> 10) % SHELL_TW);
+        seed = seed * 1664525u + 1013904223u;
+        int sy = (int)((seed >> 10) % (SHELL_TH / 2)) + SHELL_TH / 3;
+        seed = seed * 1664525u + 1013904223u;
+        unsigned char tint = (unsigned char)(180 + (seed >> 14) % 60);
+        px[sy * SHELL_TW + sx] = (Color){ (unsigned char)(tint * 9 / 10), tint, 255, 255 };
     }
     Image img = { .data = px, .width = SHELL_TW, .height = SHELL_TH,
                   .mipmaps = 1, .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
@@ -811,14 +836,42 @@ static Texture2D Shell_MakeTopTexture(void) {
 static Texture2D Shell_MakeUnderTexture(void) {
     Color *px = (Color *)MemAlloc(SHELL_TW * SHELL_TH * sizeof(Color));
     unsigned int seed = 192837465u;
-    /* a deep alien green-black, nothing like our purple void */
-    for (int y = 0; y < SHELL_TH; y++)
-        for (int x = 0; x < SHELL_TW; x++) {
-            int shade = 10 + ((x / 24 + y / 24) % 3) * 3;
-            px[y * SHELL_TW + x] = (Color){ (unsigned char)(4 + shade / 2),
-                                            (unsigned char)(8 + shade),
-                                            (unsigned char)(7 + shade / 2), 255 };
+    float bg8[9][9], bg16[17][17];
+    for (int j = 0; j < 9; j++)
+        for (int i = 0; i < 9; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            bg8[j][i] = (float)(seed >> 16) / 65535.0f;
         }
+    for (int j = 0; j < 9; j++) { bg8[j][8] = bg8[j][0]; bg8[8][j] = bg8[0][j]; }
+    bg8[8][8] = bg8[0][0];
+    for (int j = 0; j < 17; j++)
+        for (int i = 0; i < 17; i++) {
+            seed = seed * 1664525u + 1013904223u;
+            bg16[j][i] = (float)(seed >> 16) / 65535.0f;
+        }
+    for (int j = 0; j < 17; j++) { bg16[j][16] = bg16[j][0]; bg16[16][j] = bg16[0][j]; }
+    bg16[16][16] = bg16[0][0];
+    /* v61.2: a smooth deep green-black sky - the old (x/24+y/24)%3 base
+     * pattern read as a checkerboard. Now: vertical depth gradient plus
+     * soft wrapped-noise drift, no visible tiling. */
+    for (int y = 0; y < SHELL_TH; y++) {
+        float fy = (float)y / SHELL_TH;
+        for (int x = 0; x < SHELL_TW; x++) {
+            float fx = (float)x / SHELL_TW;
+            float n = Shell_WrappedNoiseN(&bg8[0][0], 8, fx, fy) * 0.7f +
+                      Shell_WrappedNoiseN(&bg16[0][0], 16, fx, fy) * 0.3f;
+            float dith = (((x * 7 + y * 13) % 8) - 4) / 4.0f;
+            float r = 3.0f + 7.0f * n + 3.0f * fy + dith;
+            float g = 8.0f + 15.0f * n + 6.0f * fy + dith;
+            float b = 6.0f + 11.0f * n + 5.0f * fy + dith;
+            if (r < 0.0f) r = 0.0f;
+            if (g < 0.0f) g = 0.0f;
+            if (b < 0.0f) b = 0.0f;
+            px[y * SHELL_TW + x] = (Color){ (unsigned char)r,
+                                            (unsigned char)g,
+                                            (unsigned char)b, 255 };
+        }
+    }
     /* emerald nebula glow snaking across - a smooth gradient wash, not a
      * hard line (the old 3-row band read as a crooked circle overhead) */
     for (int x = 0; x < SHELL_TW; x++) {
