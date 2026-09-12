@@ -29,6 +29,7 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "blackhole.h"
+#include "ship.h"
 #include "settings.h"
 #include "postfx.h"
 #include "soundfx.h"
@@ -97,6 +98,7 @@ int main(void) {
     Bird_Init();
     Hunter_Init();
     Mobs_Init();
+    Ship_Init();   /* v62: sky traffic */
     I18n_SetLanguage(gameSettings.language);   /* v59: loads the UTF-8 font once */
     Player_LoadProgress();
     
@@ -126,6 +128,7 @@ int main(void) {
         BlackHole_Shutdown();
         Starfield_Shutdown();
         Bird_Shutdown();
+        Ship_Shutdown();
         MapView_Shutdown();
         SoundFx_Shutdown();
         Chat_Shutdown();
@@ -150,6 +153,7 @@ void Game_RunLoop(void) {
         Bird_Update(GetFrameTime());
         Hunter_Update(GetFrameTime());
         Mobs_Update(GetFrameTime());
+        Ship_Update((double)GetTime());   /* v62 */
         MapView_Update();
         SoundFx_Update();
     }
@@ -166,6 +170,7 @@ void Game_RunLoop(void) {
                 Starfield_Update(GetFrameTime());
                 Starfield_Draw(player.camera);
                 BlackHole_Draw(player.camera);
+                Ship_Draw((double)GetTime());   /* v62: the Void Runner */
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Hunter_Draw();

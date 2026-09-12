@@ -64,6 +64,9 @@ static Vector3 Mob_PlayerCenter(void) {
     return (Vector3){ player.position.x + 0.5f, player.position.y + 0.9f, player.position.z + 0.5f };
 }
 
+/* v62: small constructor used all over the fauna code */
+static Vector3 V3_(float x, float y, float z) { return (Vector3){ x, y, z }; }
+
 /* v61.1: the starter island is a SANCTUARY - no mob spawns, no cocoon
  * hatches (and no hunter materializations; see hunter.c) around the
  * cosmic spawn pad. New players get to learn walking before dying. */
@@ -815,9 +818,12 @@ static Texture2D Shell_MakeTopTexture(void) {
             seed = seed * 1664525u + 1013904223u;
             float dith = ((int)(seed >> 12) % 32) / 32.0f - 0.5f;
             r += dith * 3.0f; g += dith * 3.0f; b += dith * 3.0f;
-            if (r > 255.0f) r = 255.0f; if (r < 0.0f) r = 0.0f;
-            if (g > 255.0f) g = 255.0f; if (g < 0.0f) g = 0.0f;
-            if (b > 255.0f) b = 255.0f; if (b < 0.0f) b = 0.0f;
+            if (r > 255.0f) { r = 255.0f; }
+            if (r < 0.0f) { r = 0.0f; }
+            if (g > 255.0f) { g = 255.0f; }
+            if (g < 0.0f) { g = 0.0f; }
+            if (b > 255.0f) { b = 255.0f; }
+            if (b < 0.0f) { b = 0.0f; }
             px[y * SHELL_TW + x] = (Color){ (unsigned char)r, (unsigned char)g,
                                             (unsigned char)b, 255 };
         }
@@ -1245,6 +1251,260 @@ static void Moth_PollenDraw(double now) {
     }
 }
 
+
+/* ---------------------------------------------------------------- grazers */
+/* v62: meadow grazers - shy textured herbivores that eat flowers and
+ * replant them elsewhere (the meadow slowly rearranges itself around
+ * them). They are NOT wireframe: furred blob body, ears, legs, tail,
+ * dark beady eyes - all atlas-shaded. Flees the player, harmless. */
+#define GRAZER_MAX 3
+#define GRAZER_HP 2
+typedef struct Grazer {
+    bool active;
+    Vector3 pos;
+    float velY;
+    float phase;
+    float faceAng;
+    int state;             /* 0 wander, 1 seek flower, 2 eat, 3 flee */
+    float stateTimer;
+    Vector3 walkTarget;
+    Vector3 targetCell;    /* flower being eaten */
+    int eats;
+    float age;
+    bool grounded;
+    unsigned char tint;    /* per-instance fur tint */
+} Grazer;
+static Grazer grazers[GRAZER_MAX];
+static bool grazerAnnounced;
+
+int Mobs_GrazerCount(void) {
+    int n = 0;
+    for (int i = 0; i < GRAZER_MAX; i++) if (grazers[i].active) n++;
+    return n;
+}
+
+/* flowers a grazer will eat (visual flora, not plain grass) */
+static bool Grazer_IsDelicacy(int id) {
+    return id == 12 || id == 13 || id == 28 || id == 29 || id == 30 ||
+           id == 31 || id == 33 || id == 37 || id == 38 ||
+           id == 45 || id == 46 || id == 47 || id == 48 || id == 52;
+}
+
+/* scan the neighborhood for a flower cell */
+static bool Grazer_FindFlower(Vector3 center, Vector3 *out) {
+    int cx = (int)floorf(center.x), cy = (int)floorf(center.y), cz = (int)floorf(center.z);
+    for (int dy = 2; dy >= -1; dy--)
+        for (int dz = -6; dz <= 6; dz++)
+            for (int dx = -6; dx <= 6; dx++) {
+                Vector3 cell = { cx + dx, cy + dy, cz + dz };
+                if (Grazer_IsDelicacy(World_GetBlock(cell))) { *out = cell; return true; }
+            }
+    return false;
+}
+
+/* solid ground under a position (small drop probe) */
+static float Grazer_GroundY(Vector3 p) {
+    int px = (int)floorf(p.x), pz = (int)floorf(p.z);
+    for (int y = (int)floorf(p.y) + 1; y >= (int)floorf(p.y) - 3; y--) {
+        Vector3 probe = { px, y - 0.5f, pz };
+        if (World_GetBlock(probe) != 0) return (float)y;
+    }
+    return p.y - 10.0f;   /* no ground: caller treats as "keep flying"? never - grounded mob */
+}
+
+/* a fresh flower grown from seeds: any nearby cell with turf below */
+static void Grazer_PlantSeed(Vector3 at) {
+    for (int attempt = 0; attempt < 8; attempt++) {
+        float ang = GetRandomValue(0, 3599) * 0.001745f;
+        float dist = 1.5f + GetRandomValue(0, 250) / 100.0f;
+        int bx = (int)floorf(at.x + cosf(ang) * dist);
+        int bz = (int)floorf(at.z + sinf(ang) * dist);
+        for (int y = (int)floorf(at.y) + 2; y >= (int)floorf(at.y) - 4; y--) {
+            Vector3 below = { bx, y - 1, bz };
+            Vector3 cell = { bx, y, bz };
+            int ground = World_GetBlock(below);
+            if ((ground == 3 || ground == 57 || ground == 58) &&
+                World_GetBlock(cell) == 0) {
+                int species;
+                switch (GetRandomValue(0, 5)) {
+                    case 0: species = 29; break;
+                    case 1: species = 28; break;
+                    case 2: species = 45; break;
+                    case 3: species = 52; break;
+                    case 4: species = 30; break;
+                    default: species = 13; break;
+                }
+                World_SetBlock(cell, species, true);
+                return;
+            }
+            if (World_GetBlock(below) != 0) break;
+        }
+    }
+}
+
+static void Grazer_SpawnTry(void) {
+    if (Mobs_GrazerCount() >= 2) return;
+    Vector3 center = Mob_PlayerCenter();
+    Vector3 spot;
+    if (!Mob_FindSurfaceSpot(center, 9.0f, 20.0f, &spot)) return;
+    if (Mobs_InStarterSanctuary(spot)) return;
+    for (int i = 0; i < GRAZER_MAX; i++) {
+        Grazer *g = &grazers[i];
+        if (g->active) continue;
+        g->active = true;
+        g->pos = spot;
+        g->velY = 0.0f;
+        g->phase = GetRandomValue(0, 628) / 100.0f;
+        g->faceAng = GetRandomValue(0, 3599) * 0.001745f;
+        g->state = 0;
+        g->stateTimer = 1.0f + GetRandomValue(0, 200) / 100.0f;
+        g->targetCell = (Vector3){ 0 };
+        g->eats = 0;
+        g->age = 0.0f;
+        g->grounded = true;
+        g->tint = (unsigned char)(200 + GetRandomValue(0, 40));
+        if (!grazerAnnounced) {
+            grazerAnnounced = true;
+            Chat_AddLine(Tr("Something small is nibbling the meadow flowers."));
+        }
+        return;
+    }
+}
+
+static void Grazer_Update(float deltaTime, double now) {
+    Vector3 pc = Mob_PlayerCenter();
+    for (int i = 0; i < GRAZER_MAX; i++) {
+        Grazer *g = &grazers[i];
+        if (!g->active) continue;
+        g->age += deltaTime;
+        float pd = Vector3Distance(g->pos, pc);
+        if (g->age > 240.0f || pd > 48.0f) { g->active = false; continue; }
+
+        /* flee check overrides everything but eating's last bite */
+        if (pd < 3.4f && g->state != 3) {
+            g->state = 3;
+            g->stateTimer = 1.7f;
+        }
+
+        Vector3 move = { 0 };
+        if (g->state == 0) {                                   /* wander */
+            g->stateTimer -= deltaTime;
+            move = Vector3Subtract(g->walkTarget, g->pos);
+            move.y = 0;
+            if (g->stateTimer <= 0.0f || Vector3Length(move) < 0.4f) {
+                float ang = GetRandomValue(0, 3599) * 0.001745f;
+                float dist = 1.5f + GetRandomValue(0, 350) / 100.0f;
+                g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * dist, 0, sinf(ang) * dist));
+                g->stateTimer = 2.0f + GetRandomValue(0, 250) / 100.0f;
+            }
+            /* hungry? look for flowers */
+            Vector3 flower;
+            if (GetRandomValue(0, 100) < 3 && Grazer_FindFlower(g->pos, &flower)) {
+                g->targetCell = flower;
+                g->state = 1;
+            }
+        } else if (g->state == 1) {                            /* seek flower */
+            move = Vector3Subtract(g->targetCell, g->pos);
+            move.y = 0;
+            float d = Vector3Length(move);
+            if (d < 1.15f) {
+                g->state = 2;
+                g->stateTimer = 2.6f;
+            } else if (d > 9.0f) {
+                g->state = 0;   /* flower got eaten by someone else */
+            }
+        } else if (g->state == 2) {                            /* eat */
+            g->stateTimer -= deltaTime;
+            if (g->stateTimer <= 0.0f) {
+                Vector3 cell = g->targetCell;
+                int ate = World_GetBlock(cell);
+                if (Grazer_IsDelicacy(ate)) {
+                    World_SetBlock(cell, 0, true);
+                    Particle_SpawnImpact(Vector3Add(cell, V3_(0.5f, 0.4f, 0.5f)));
+                    g->eats++;
+                    if (g->eats % 2 == 0) Grazer_PlantSeed(g->pos);
+                }
+                g->state = 0;
+                g->stateTimer = 1.0f + GetRandomValue(0, 150) / 100.0f;
+            }
+        } else {                                               /* flee */
+            g->stateTimer -= deltaTime;
+            Vector3 away = Vector3Subtract(g->pos, pc);
+            away.y = 0;
+            float ad = Vector3Length(away);
+            if (ad > 0.05f) move = Vector3Scale(away, 1.0f / ad);
+            if (g->stateTimer <= 0.0f) g->state = 0;
+        }
+
+        /* walk + tiny hops over single blocks */
+        float speed = g->state == 3 ? 3.1f : (g->state == 1 ? 1.5f : 0.8f);
+        if (Vector3Length(move) > 0.05f) {
+            move = Vector3Scale(Vector3Normalize(move), speed);
+            g->faceAng = atan2f(move.z, move.x);
+            Vector3 step = Vector3Add(g->pos, Vector3Scale(move, deltaTime));
+            float groundY = Grazer_GroundY(step);
+            if (groundY - g->pos.y <= 1.05f) {
+                step.y = groundY + 0.36f;
+                g->pos = step;
+            }   /* else: blocked, keep walking in place this frame */
+        }
+        /* settle onto ground */
+        float groundHere = Grazer_GroundY(g->pos);
+        g->pos.y += (groundHere + 0.36f - g->pos.y) * (1.0f - powf(0.0001f, deltaTime));
+        /* never sink under the world */
+        if (isnan(g->pos.x) || isnan(g->pos.y) || isnan(g->pos.z)) g->active = false;
+    }
+}
+
+static void Mob_TexturedBlob(Vector3 c2, float rx, float ry, float rz, float faceAng,
+                             int tile, unsigned char r, unsigned char g, unsigned char b);
+
+/* textured grazer body - everything is shaded atlas blobs */
+static void Grazer_Draw(double now) {
+    for (int i = 0; i < GRAZER_MAX; i++) {
+        Grazer *g = &grazers[i];
+        if (!g->active) continue;
+        float bob = (g->state != 2) ? sinf(now * 9.0f + g->phase) * 0.02f : 0.0f;
+        float chew = (g->state == 2) ? sinf(now * 14.0f) * 0.05f : 0.0f;
+        Vector3 bodyC = { g->pos.x, g->pos.y + bob, g->pos.z };
+        float ca = cosf(g->faceAng), sa = sinf(g->faceAng);
+        unsigned char t = g->tint;
+        /* body + head */
+        Mob_TexturedBlob(bodyC, 0.40f, 0.30f, 0.36f, g->faceAng, 55, t, (unsigned char)(t * 92 / 100), (unsigned char)(t * 80 / 100));
+        Vector3 head = { bodyC.x + ca * 0.44f, bodyC.y + 0.20f + chew, bodyC.z + sa * 0.44f };
+        Mob_TexturedBlob(head, 0.20f, 0.18f, 0.19f, g->faceAng, 55,
+                         (unsigned char)(t * 106 / 100), (unsigned char)(t * 100 / 100), (unsigned char)(t * 88 / 100));
+        /* ears */
+        float earPh = sinf(now * 2.3f + g->phase) * 0.03f;
+        Vector3 e1 = { head.x + ca * 0.06f - sa * 0.14f, head.y + 0.26f + earPh, head.z + sa * 0.06f + ca * 0.14f };
+        Vector3 e2 = { head.x + ca * 0.06f + sa * 0.14f, head.y + 0.26f - earPh, head.z + sa * 0.06f - ca * 0.14f };
+        Mob_TexturedBlob(e1, 0.05f, 0.14f, 0.05f, g->faceAng, 55, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
+        Mob_TexturedBlob(e2, 0.05f, 0.14f, 0.05f, g->faceAng, 55, (unsigned char)(t * 84 / 100), (unsigned char)(t * 76 / 100), (unsigned char)(t * 70 / 100));
+        /* beady eyes: two tiny near-black blobs */
+        for (int eye = 0; eye < 2; eye++) {
+            float s = eye == 0 ? 1.0f : -1.0f;
+            Vector3 ep = { head.x + ca * 0.13f - sa * s * 0.12f,
+                           head.y + 0.05f,
+                           head.z + sa * 0.13f + ca * s * 0.12f };
+            Mob_TexturedBlob(ep, 0.035f, 0.035f, 0.035f, g->faceAng, 36, 16, 14, 20);
+        }
+        /* tail puff */
+        Vector3 tail = { bodyC.x - ca * 0.42f, bodyC.y + 0.06f, bodyC.z - sa * 0.42f };
+        Mob_TexturedBlob(tail, 0.10f, 0.10f, 0.10f, g->faceAng, 55,
+                         (unsigned char)(t * 112 / 100), (unsigned char)(t * 108 / 100), (unsigned char)(t * 100 / 100));
+        /* four little legs, gait shuffle */
+        for (int leg = 0; leg < 4; leg++) {
+            float s = (leg % 2 == 0) ? 1.0f : -1.0f;
+            float ph = sinf(now * 10.0f + g->phase + leg * 1.57f) * 0.035f;
+            Vector3 lp = { bodyC.x + ca * ((leg < 2) ? 0.22f : -0.22f) - sa * s * 0.22f,
+                           bodyC.y - 0.30f + ph,
+                           bodyC.z + sa * ((leg < 2) ? 0.22f : -0.22f) + ca * s * 0.22f };
+            Mob_TexturedBlob(lp, 0.06f, 0.10f, 0.06f, g->faceAng, 55,
+                             (unsigned char)(t * 74 / 100), (unsigned char)(t * 66 / 100), (unsigned char)(t * 60 / 100));
+        }
+    }
+}
+
 /* v59.6: one shared sprite batch for every flora/moth rendering. The
  * stock rlgl shader has no alpha cutout, so a sprite's TRANSPARENT
  * texels wrote depth and punched invisible holes in whatever was drawn
@@ -1503,6 +1763,8 @@ void Mobs_Init(void) {
      * clock (their pollen stream went silent), stale dust hung in the
      * void and event announcements never replayed. Wipe it all. */
     for (int i = 0; i < MOTH_MAX; i++) moths[i].active = false;
+    for (int i = 0; i < GRAZER_MAX; i++) grazers[i].active = false;
+    grazerAnnounced = false;
     for (int i = 0; i < POLLEN_MAX; i++) pollen[i].life = 0.0f;
     pollenNext = 0;
     crawlerAnnounced = false;
@@ -1546,6 +1808,13 @@ void Mobs_Update(float deltaTime) {
     Shell_Update(deltaTime, now);
     Mushrooms_Update(now);
     Moth_Update(deltaTime, now);   /* v59: glowmoths */
+    Grazer_Update(deltaTime, now);  /* v62: meadow grazers */
+    static float grazerTimer = 8.0f;
+    grazerTimer -= deltaTime;
+    if (grazerTimer <= 0.0f) {
+        grazerTimer = 6.0f;
+        Grazer_SpawnTry();
+    }
 
     /* v51: mobs set off volatile barrels under (or inside) them */
     for (int i = 0; i < CRAWLER_MAX; i++)
@@ -1858,6 +2127,7 @@ void Mobs_Draw(void) {
     if (atlasS.id != 0) {
         rlSetTexture(atlasS.id);
         rlBegin(RL_QUADS);
+        Grazer_Draw(now);   /* v62: textured grazers */
         for (int i = 0; i < SPIDER_MAX; i++) {
             Spider *s = &spiders[i];
             if (!s->active) continue;

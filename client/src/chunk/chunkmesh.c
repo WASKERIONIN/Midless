@@ -103,12 +103,16 @@ void ChunkMesh_PrepareDrawing(Material material) {
     float sunlightStrength = World_GetSunlightStrength();
     rlSetUniform(rlGetLocationUniform(material.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
 
-    float fogEnd = world.drawDistance * 16.0f + 28.0f;
-    float fogStart = fogEnd * 0.72f;
+    /* v62: the fog now swallows terrain BEFORE the chunk load edge -
+     * islands used to pop in fully visible, and the old bright-purple
+     * fog glowed against the near-black void making it worse. Distant
+     * islands now melt into the void itself. */
+    float fogEnd = world.drawDistance * 16.0f - 24.0f;
+    float fogStart = fogEnd * 0.58f;
     float fogColor[3] = {
-        0.38f + 0.08f * sunlightStrength,
-        0.10f + 0.03f * sunlightStrength,
-        0.52f + 0.08f * sunlightStrength
+        0.045f + 0.012f * sunlightStrength,
+        0.016f + 0.005f * sunlightStrength,
+        0.095f + 0.020f * sunlightStrength
     };
     Color liquidTint;
     if (Player_GetCameraLiquidTint(&liquidTint)) {

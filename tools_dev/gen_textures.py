@@ -1268,6 +1268,10 @@ def build_atlas():
         45: t_glassbell(45),
         51: t_crystal_stalk(51),
         52: t_void_puff(52),
+        55: t_grazer_hide(55),
+        56: t_ember_rock(56),
+        57: t_ember_turf(57),
+        58: t_frost_turf(58),
         46: t_embercup(46),
         47: t_voidorchid(47),
         48: t_frostfern(48),
@@ -1410,7 +1414,7 @@ def build_humanoid(path):
 # 110-230 pixels inside stone/ore/log tiles; the chunk shader discards
 # texels below a=0.5 and the GL blender always blends, so those pixels
 # punched visible holes and see-through specks into the cubes.
-CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26}
+CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26, 56, 57, 58}
 # (intentionally translucent/cutout tiles stay untouched: 10 leaves,
 # 14 water, 17 glass, 22 crystal, every SPRITE/flora tile)
 
@@ -1666,6 +1670,141 @@ def t_void_puff(index):
     px[5, 7] = T
     px[10, 8] = T
     px[7, 8] = F_L
+    return img
+
+
+def t_grazer_hide(index):
+    """v62: grazer hide - mottled warm-sand fur with soft teal rosettes
+    and a pale belly gradient. Creature-only tile (never a block)."""
+    img = blank_tile()
+    px = img.load()
+    F = (176, 158, 138)     # fur base
+    F_D = (128, 110, 96)    # fur shadow
+    F_L = (214, 200, 178)   # fur light
+    R = (88, 156, 142)      # teal rosette
+    R_D = (58, 118, 108)
+    # vertical soft gradient: light top -> shadow bottom
+    for y in range(16):
+        t = y / 15.0
+        base = tuple(int(F[i] * (1 - t) + F_D[i] * t) for i in range(3))
+        for x in range(16):
+            jitter = ((x * 7 + y * 13) % 5) - 2
+            px[x, y] = tuple(max(0, min(255, base[i] + jitter * 6)) for i in range(3)) + (255,)
+    # mottling: soft blobs of darker fur
+    for bx, by, br in ((3, 4, 2), (11, 3, 3), (7, 8, 3), (13, 10, 2), (2, 11, 2), (9, 13, 2)):
+        for y in range(16):
+            for x in range(16):
+                if (x - bx) ** 2 + (y - by) ** 2 <= br * br:
+                    r, g, b, a = px[x, y]
+                    px[x, y] = (r * 82 // 100, g * 82 // 100, b * 82 // 100, 255)
+    # teal rosettes with darker rims (two rings)
+    for cx, cy, cr in ((5, 5, 2), (12, 7, 2), (8, 12, 2), (2, 8, 1)):
+        for y in range(16):
+            for x in range(16):
+                d2 = (x - cx) ** 2 + (y - cy) ** 2
+                if d2 <= cr * cr:
+                    px[x, y] = R + (255,)
+                elif d2 <= (cr + 1) ** 2 and (x + y) % 2 == 0:
+                    px[x, y] = R_D + (255,)
+    # top highlight band (light from above)
+    for x in range(16):
+        r, g, b, a = px[x, 0]
+        px[x, 0] = (min(255, r + 30), min(255, g + 28), min(255, b + 24), 255)
+    return img
+
+
+def t_ember_rock(index):
+    """v62: ember biome stone - charcoal basalt with dim ember cracks."""
+    img = blank_tile()
+    px = img.load()
+    import random as _r
+    rnd = _r.Random(77)
+    B = (34, 30, 40)        # basalt
+    B_D = (24, 21, 30)
+    B_L = (52, 47, 62)
+    E = (196, 92, 40)       # ember glow
+    E_D = (120, 52, 30)
+    for y in range(16):
+        for x in range(16):
+            n = rnd.randint(-10, 10)
+            base = B if (x + y) % 7 else B_L
+            px[x, y] = (max(0, base[0] + n), max(0, base[1] + n), max(0, base[2] + n), 255)
+    # diagonal crack network with ember fill
+    for cx, cy in ((2, 2), (9, 5), (4, 10), (12, 12), (7, 14)):
+        x, y = cx, cy
+        for step in range(5):
+            if 0 <= x < 16 and 0 <= y < 16:
+                px[x, y] = E
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if 0 <= x + dx < 16 and 0 <= y + dy < 16 and (x + y) % 3 == 0:
+                        if px[x + dx, y + dy][0] < 60:
+                            px[x + dx, y + dy] = E_D
+            x += rnd.choice((0, 1, 1, -1))
+            y += rnd.choice((1, 0, 1))
+    return img
+
+
+def t_ember_turf(index):
+    """v62: ember biome surface - charred turf with smoldering veins."""
+    img = blank_tile()
+    px = img.load()
+    import random as _r
+    rnd = _r.Random(913)
+    T = (46, 36, 42)        # dark warm turf
+    T_L = (64, 50, 54)
+    T_D = (30, 24, 30)
+    E = (232, 126, 52)      # smolder
+    E_L = (255, 190, 110)
+    A = (110, 220, 200)     # rare teal lichen
+    for y in range(16):
+        for x in range(16):
+            n = rnd.randint(-9, 9)
+            base = T if (x * 3 + y) % 5 else T_L
+            if (x + y * 2) % 11 == 0:
+                base = T_D
+            px[x, y] = (max(0, base[0] + n), max(0, base[1] + n), max(0, base[2] + n), 255)
+    # smoldering veins
+    for _ in range(4):
+        x, y = rnd.randint(0, 15), rnd.randint(0, 15)
+        for step in range(4):
+            if 0 <= x < 16 and 0 <= y < 16:
+                px[x, y] = E_L if step == 0 else E
+            x += rnd.choice((1, -1, 0))
+            y += rnd.choice((0, 1))
+    # sparse teal lichen dots (keeps the palette linked)
+    for _ in range(3):
+        px[rnd.randint(0, 15), rnd.randint(0, 15)] = A
+    return img
+
+
+def t_frost_turf(index):
+    """v62: frost biome surface - pale silver-blue hoarfrost turf."""
+    img = blank_tile()
+    px = img.load()
+    import random as _r
+    rnd = _r.Random(4177)
+    F = (150, 176, 196)     # frost base
+    F_L = (198, 220, 236)   # frost light
+    F_D = (108, 130, 152)   # shadow
+    I = (240, 250, 255)     # ice sparkle
+    T = (88, 172, 160)      # frozen teal grass blades
+    for y in range(16):
+        for x in range(16):
+            n = rnd.randint(-10, 10)
+            base = F if (x + 2 * y) % 5 else F_D
+            if (x * 2 + y) % 9 == 0:
+                base = F_L
+            px[x, y] = (max(0, min(255, base[0] + n)), max(0, min(255, base[1] + n)),
+                        max(0, min(255, base[2] + n)), 255)
+    # tiny frost blades
+    for _ in range(6):
+        x, y = rnd.randint(0, 15), rnd.randint(2, 15)
+        px[x, y] = T
+        if rnd.random() < 0.5 and y > 0:
+            px[x, y - 1] = (118, 196, 182)
+    # sparkles
+    for _ in range(5):
+        px[rnd.randint(0, 15), rnd.randint(0, 15)] = I
     return img
 
 

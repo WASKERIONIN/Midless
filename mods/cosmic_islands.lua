@@ -208,6 +208,25 @@ midless.define_block(52, {
     collider = block.collider.NONE,
 })
 
+--------------------------------------------------------------- biomes -----
+-- v62: two new island biomes, sampled on a huge-scale noise so whole
+-- clusters of islands share a character. Ember: charcoal basalt with
+-- smoldering veins, warm flora. Frost: pale hoarfrost turf, ice flora.
+midless.define_block(56, {
+    name = "Ember Rock",
+    textures = { all = 56 },
+})
+
+midless.define_block(57, {
+    name = "Ember Turf",
+    textures = { all = 57 },
+})
+
+midless.define_block(58, {
+    name = "Frost Turf",
+    textures = { all = 58 },
+})
+
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -219,6 +238,18 @@ local function layer(seed, freq, thresh, base_y, amp, thick)
         type = "opensimplex2s", fractal = "fbm", frequency = freq * 2.3,
         octaves = 2, seed_offset = seed + 9,
     })
+    -- v62: in the ember biome the mid islands rise as stepped mesas -
+    -- quantized surface height gives the terrain a deliberate, terraced
+    -- silhouette instead of smooth cones
+    if seed == 1 then
+        local biome_n_t = f.noise2d({
+            type = "opensimplex2s", fractal = "fbm", frequency = 0.006,
+            octaves = 2, seed_offset = 4242,
+        })
+        local ember_b = f.lt(0.22, biome_n_t)
+        local terr = f.floor(h * 3.0) / 3.0 + 0.15
+        h = f.select(ember_b, terr, h)
+    end
     local surface = base_y + h * amp
     -- cones: thickness grows where the island mask is strongest, so islands
     -- taper into hanging points, like the reference art
@@ -260,12 +291,16 @@ end
 --------------------------------------------------------------- islands ----
 -- three belts of drifting islands
 -- v52: frequencies up / thresholds down - a denser archipelago
-local MID_F, MID_T   = 0.0112, 0.34
-local HIGH_F, HIGH_T = 0.0144, 0.47
-local LOW_F, LOW_T   = 0.0130, 0.43
+-- v62: thresholds loosened a touch (more islands), plus a rare DEEP
+-- layer far below the others - lonely rocks drifting in the black
+local MID_F, MID_T   = 0.0112, 0.32
+local HIGH_F, HIGH_T = 0.0144, 0.45
+local LOW_F, LOW_T   = 0.0130, 0.41
+local DEEP_F, DEEP_T = 0.0090, 0.52
 local mid  = layer(1,  MID_F,  MID_T,  74,  8, 46)
 local high = layer(40, HIGH_F, HIGH_T, 116, 7, 28)
 local low  = layer(90, LOW_F,  LOW_T,  38,  6, 24)
+local deep = layer(777, DEEP_F, DEEP_T, 20, 6, 18)
 
 -- the guaranteed starter island: a rounded cone slab centred on (8, 8)
 local sd = f.max(f.abs(x - 8), f.abs(z - 8))
@@ -277,14 +312,20 @@ local starter_bottom = 66 + sd * 0.9 + wobble * 1.2
 local starter = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                 f.lt(y, 76) * f.lt(starter_bottom, y)
 
-local inside = f.max(f.max(mid, high), f.max(low, starter))
+-- v62: biome noise - huge scale, so island CLUSTERS share a biome
+local biome_n = f.noise2d({
+    type = "opensimplex2s", fractal = "fbm", frequency = 0.006,
+    octaves = 2, seed_offset = 4242,
+})
+local inside = f.max(f.max(f.max(mid, high), f.max(low, deep)), starter)
 
 local mid1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y + 1)
 local high1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y + 1)
 local low1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y + 1)
+local deep1 = layer_at(777, DEEP_F, DEEP_T, 20, 6, 18, y + 1)
 local starter1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                  f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
-local inside1 = f.max(f.max(mid1, high1), f.max(low1, starter1))
+local inside1 = f.max(f.max(f.max(mid1, high1), f.max(low1, deep1)), starter1)
 local surface = inside * (1 - inside1)
 
 -- v52: island flora - cosmic roses (12) and crystal dandelions (13) patch
@@ -293,17 +334,19 @@ local surface = inside * (1 - inside1)
 local mid_m1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y - 1)
 local high_m1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y - 1)
 local low_m1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y - 1)
+local deep_m1 = layer_at(777, DEEP_F, DEEP_T, 20, 6, 18, y - 1)
 local starter_m1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                    f.lt(y - 1, 76) * f.lt(starter_bottom, y - 1)
-local solid_below = f.max(f.max(mid_m1, high_m1), f.max(low_m1, starter_m1))
+local solid_below = f.max(f.max(f.max(mid_m1, high_m1), f.max(low_m1, deep_m1)), starter_m1)
 -- v57: the cell above must ALSO be open - on slopes the old rule stacked
 -- flower blocks two or three high (and cocoons ended up under a flower)
 local mid_a1  = layer_at(1,  MID_F,  MID_T,  74,  8, 46, y + 1)
 local high_a1 = layer_at(40, HIGH_F, HIGH_T, 116, 7, 28, y + 1)
 local low_a1  = layer_at(90, LOW_F,  LOW_T,  38,  6, 24, y + 1)
+local deep_a1 = layer_at(777, DEEP_F, DEEP_T, 20, 6, 18, y + 1)
 local starter_a1 = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                    f.lt(y + 1, 76) * f.lt(starter_bottom, y + 1)
-local open_above = 1 - f.max(f.max(mid_a1, high_a1), f.max(low_a1, starter_a1))
+local open_above = 1 - f.max(f.max(f.max(mid_a1, high_a1), f.max(low_a1, deep_a1)), starter_a1)
 local patch_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.045,
     octaves = 2, seed_offset = 313,
@@ -354,9 +397,32 @@ flower_id = f.select(f.lt(0.70, fine_n) * f.lt(fine_n, 0.80), 38, flower_id)
 flower_id = f.select(f.lt(0.80, fine_n) * f.lt(fine_n, 0.90), 37, flower_id)
 flower_id = f.select(f.lt(0.90, fine_n) * f.lt(fine_n, 0.965), 51, flower_id)
 flower_id = f.select(f.lt(0.965, fine_n), 49, flower_id)
+-- v62: biome flora - the ember isles grow warm species, the frost
+-- isles grow pale ones; lantern groves prefer ember, void trees frost
+local ember_f = f.lt(0.22, biome_n)
+local frost_f = f.lt(biome_n, -0.22)
+flower_id = f.select(ember_f * f.lt(0.00, fine_n) * f.lt(fine_n, 0.35), 46, flower_id)
+flower_id = f.select(ember_f * f.lt(0.35, fine_n) * f.lt(fine_n, 0.60), 31, flower_id)
+flower_id = f.select(ember_f * f.lt(0.60, fine_n) * f.lt(fine_n, 0.75), 33, flower_id)
+flower_id = f.select(frost_f * f.lt(0.00, fine_n) * f.lt(fine_n, 0.35), 48, flower_id)
+flower_id = f.select(frost_f * f.lt(0.35, fine_n) * f.lt(fine_n, 0.60), 45, flower_id)
+flower_id = f.select(frost_f * f.lt(0.60, fine_n) * f.lt(fine_n, 0.75), 52, flower_id)
+flower_id = f.select(ember_f * f.lt(0.80, which_n), 50, flower_id)
+flower_id = f.select(frost_f * f.lt(0.80, which_n), 49, flower_id)
 
--- stratified bodies: crystal turf over dirt over void rock over stone
-local body = f.select(surface, 3, f.select(f.lt(y, 46), 1, 19))
+-- stratified bodies: crystal turf over dirt over void rock over stone.
+-- v62: the biome picks the skin - ember turf over ember rock, frost
+-- turf over void rock; the starter island keeps the classic look.
+local starter_zone = f.lt(f.abs(x - 8), 13) * f.lt(f.abs(z - 8), 13)
+local ember_b = f.lt(0.22, biome_n)
+local frost_b = f.lt(biome_n, -0.22)
+local top_block = f.select(ember_b, 57, 3)
+top_block = f.select(frost_b, 58, top_block)
+top_block = f.select(starter_zone, 3, top_block)
+local mid_body = f.select(ember_b, 56, 2)
+mid_body = f.select(frost_b, 19, mid_body)
+mid_body = f.select(starter_zone, 2, mid_body)
+local body = f.select(surface, top_block, f.select(f.lt(y, 46), 1, mid_body))
 local material = f.select(inside, body, 0)
 material = f.select(flora_cell, flower_id, material)
 

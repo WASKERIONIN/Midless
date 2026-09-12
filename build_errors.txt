@@ -1,0 +1,9 @@
+=== ./server/src/world/world.c ===
+./server/src/world/world.c: In function 'CreateWorldDirectory':
+./server/src/world/world.c:48:5: error: too few arguments to function 'mkdir'
+   48 |     mkdir("./world");
+      |     ^~~~~
+In file included from ./server/src/world/world.c:16:
+/usr/include/x86_64-linux-gnu/sys/stat.h:389:12: note: declared here
+  389 | extern int mkdir (const char *__path, __mode_t __mode)
+      |            ^~~~~
