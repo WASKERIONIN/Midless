@@ -774,7 +774,7 @@ static void Shell_EnsureTextures(void) {
 
 /* ---------------------------- v59: glowmoths ---------------------------- */
 #define MOTH_MAX 10
-#define POLLEN_MAX 200
+#define POLLEN_MAX 288
 typedef struct Moth {
     bool active;
     Vector3 pos;
@@ -783,6 +783,8 @@ typedef struct Moth {
     double targetAt;
     float phase;
     double pollenAt;
+    Vector3 lastDrop;      /* v60: where the previous mote was laid */
+    bool hasLastDrop;
 } Moth;
 typedef struct Pollen {
     Vector3 pos;
@@ -853,6 +855,7 @@ static void Moth_Update(float deltaTime, double now) {
                     m->vel = (Vector3){ 0 };
                     m->phase = GetRandomValue(0, 628) / 100.0f;
                     m->pollenAt = 0.0;
+                    m->hasLastDrop = false;
                     Moth_PickTarget(m);
                     if (!mothAnnounced) {
                         mothAnnounced = true;
@@ -893,12 +896,18 @@ static void Moth_Update(float deltaTime, double now) {
             m->pos = np;
         }
 
-        /* glowing pollen trails behind the flight */
-        if (now >= m->pollenAt) {
-            /* v59.8: the dust must READ - fat unhurried sparks that hang
-             * and twinkle behind the flight (the stream bug is long dead,
-             * density is safe) */
+        /* glowing pollen trails behind the flight.
+         * v60: the stream is fed by TWO clocks - time AND distance - so
+         * it reads as one continuous line: a hovering moth keeps dropping
+         * motes and a fast glide never leaves gaps (the time-only gate
+         * thinned the trail whenever the wobble cancelled the chase). */
+        bool timeDue = now >= m->pollenAt;
+        bool distDue = !m->hasLastDrop ||
+                       Vector3Distance(m->pos, m->lastDrop) >= 0.22f;
+        if (timeDue || distDue) {
             m->pollenAt = now + 0.10 + GetRandomValue(0, 6) / 100.0;
+            m->lastDrop = m->pos;
+            m->hasLastDrop = true;
             Pollen *p = &pollen[pollenNext];
             pollenNext = (pollenNext + 1) % POLLEN_MAX;
             p->pos = (Vector3){ m->pos.x + GetRandomValue(-8, 8) / 100.0f,
@@ -907,8 +916,8 @@ static void Moth_Update(float deltaTime, double now) {
             p->vel = (Vector3){ GetRandomValue(-16, 16) / 100.0f,
                                 -(14 + GetRandomValue(0, 12)) / 100.0f,
                                 GetRandomValue(-16, 16) / 100.0f };
-            p->life = 1.6f + GetRandomValue(0, 70) / 100.0f;
-            p->size = 0.062f + GetRandomValue(0, 35) / 1000.0f;
+            p->life = 1.8f + GetRandomValue(0, 80) / 100.0f;
+            p->size = 0.082f + GetRandomValue(0, 40) / 1000.0f;
             p->shift = GetRandomValue(0, 628) / 100.0f;
         }
     }
@@ -1006,9 +1015,16 @@ static void Moth_PollenDraw(double now) {
     for (int i = 0; i < POLLEN_MAX; i++) {
         Pollen *p = &pollen[i];
         if (p->life <= 0.0f) continue;
+        /* v60: a mote stays ITSELF until it dies. v59.8 faded alpha
+         * linearly from the first second, so over half of every mote's
+         * life was below 50% brightness and the trail read as gone.
+         * Now: hold a bright core, ease out only at the very end, and
+         * keep most of the size while dying. */
         float k = Clamp(p->life, 0.0f, 1.0f);
-        float s = p->size * (0.6f + 0.4f * k);
-        unsigned char alpha = (unsigned char)(205.0f * k);   /* v59.8: unmistakable */
+        float ease = k * k * (3.0f - 2.0f * k);
+        float twinkle = 0.92f + 0.08f * sinf(now * 3.4f + p->shift * 3.0f);
+        unsigned char alpha = (unsigned char)(240.0f * (0.55f + 0.45f * ease) * twinkle);
+        float s = p->size * (0.80f + 0.30f * ease);
         for (int ch = 0; ch < 3; ch++) {
             float ph = p->shift + ch * 2.094f;
             unsigned char r = (unsigned char)(127.0f + 127.0f * sinf(now * 2.6f + ph));
@@ -1279,9 +1295,20 @@ void Mobs_Init(void) {
     for (int i = 0; i < WISP_MAX; i++) wisps[i].active = false;
     for (int i = 0; i < SPIDER_MAX; i++) spiders[i].active = false;
     for (int i = 0; i < MUSH_MAX; i++) mushrooms[i].active = false;
+    /* v60: the glowmoth/pollen state used to survive a world reset -
+     * moths kept flying with timers anchored to the previous session's
+     * clock (their pollen stream went silent), stale dust hung in the
+     * void and event announcements never replayed. Wipe it all. */
+    for (int i = 0; i < MOTH_MAX; i++) moths[i].active = false;
+    for (int i = 0; i < POLLEN_MAX; i++) pollen[i].life = 0.0f;
+    pollenNext = 0;
     crawlerAnnounced = false;
     spiderAnnounced = false;
+    mothAnnounced = false;
+    shellAnnounced = false;
+    mushHintShown = false;
     shellActive = false;
+    shellUntil = 0.0;
     shellEventAt = 0.0;
     mushroomsStored = 0;
 }
