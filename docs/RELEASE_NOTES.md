@@ -1,6 +1,15 @@
-# Midless: Cosmic Edition v61.3
+# Midless: Cosmic Edition v62
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v62 - further horizons: the Void Runner, meadow grazers, ember & frost isles
+
+- **Islands no longer pop out of nowhere**: draw distance raised 20 -> 26 chunks (~416 m) and the distance fog rebuilt - distant isles now dissolve into the void *before* the load edge instead of snapping into view.
+- **The Void Runner**: a real starship occasionally warps past in the deep background. Not blocks, not wireframes - proper faceted hull with panel seams, a self-lit glass canopy, swept wings with red/green navigation lights, twin glowing nacelles, a warp flash on entry/exit and a soft ion trail. Pure scenery: it cruises far beyond reach.
+- **Grazers**: small rosette-furred meadow creatures. They wander, seek out flowers, actually *eat* them (the flower block disappears in a puff of petals), plant a fresh flower now and then, and scamper off if you approach. Fully textured and animated - walk gait, chewing bob, ear flicks.
+- **Ember & Frost biomes**: huge-scale climate noise sorts the archipelago into coherent clusters in **all directions**. *Ember isles* - charcoal basalt with smoldering cracks, stepped mesa silhouettes, warm flora (embercups, twin tulips, lanternberries, lantern groves). *Frost isles* - pale hoarfrost turf with ice sparkle, frost flora (frostferns, glassbells, void puffs, void trees). Three new ground textures; the palette stays soft on the eyes.
+- **More islands**: spawn thresholds loosened and a rare *deep layer* added - lonely rocks drifting far below the main roads.
+- The worldgen fingerprint changed, so old chunk saves are re-generated automatically on first launch of this version.
 
 ## v61.3 - grounded stems, real trees, clean cocoons
 
@@ -8,11 +17,6 @@ Floating islands drifting through a starlit void. The sun is a black hole wearin
 - **Real trees**: 5.2 / 4.4 blocks tall (from 3.4/2.9), drawn as detailed 32x32 sprites - lobed canopies with dithered depth bands, carved silhouette gaps, forked trunks with flaring roots, aerial glow-root strands on the void tree, embedded + hanging lanterns on the lantern tree.
 - **No cocoons on the starter island** (server-side, 34 m around the pad) and **no cocoons on or next to flowers**: placement probes the material field and skips any flora-adjacent cell. On the starter island any leftover egg opens into shard loot with nothing hostile waking.
 - Instance size variation widened for trees (0.75x..1.35x).
-
-## v61.2 - a cloud worth looking at, and a living meadow
-
-- Plateau-cumulus shell top (lavender lobes, moonlit crests, indigo valleys), smooth under-sky.
-- Void trees, lantern trees, crystal stalks, void puffs; varied grass.
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
