@@ -115,30 +115,11 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       shell: bash
       run: |
+        set -ex
         TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
         gh release create "$TAG" \
           --target "$GITHUB_SHA" \
           --title "Midless: Cosmic Edition v60.1" \
-          --notes "## Midless: Cosmic Edition v60.1
-
-Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
-
-### v60 - the glowmoth pollen reads again
-- pollen motes keep a bright core all their life and only ease out at the very end (v59.8 faded them to invisibility within a second)
-- bigger, longer-lived motes; the trail is fed by time AND distance so it never gaps, even when a moth hovers in place
-- the RGB split is a slow spinning ring (radial chromatic aberration) instead of a flat horizontal fringe
-- New World / Regenerate World / disconnect now reset the whole fauna session - no more moths flying on stale timers or dust from the old world
-- web builds render the trail at half particle cost
-
-### Earlier Cosmic Edition features
-- Black hole with rotating accretion disk, photon ring and gravity lensing
-- Galaxy band, nebulae and shooting stars
-- Cosmic texture set: void rock, crystal turf, glowing water, new ores
-- Explorer hands with animated fingers
-- Island fauna: crawlers, wisps, cocoon spiders, glowmoths, void mushrooms, the violet shell event
-- New worldgen: cone islands, starter island with launch pad, obelisks and crystal arch
-
-Extract, run game.exe, click Singleplayer.
-Delete the old \`world\` folder if you played a previous version." \
+          --notes-file docs/RELEASE_NOTES.md \
           release/Midless-Cosmic-Windows-x64.zip \
           release/SHA256SUMS

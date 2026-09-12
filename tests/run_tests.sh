@@ -13,10 +13,15 @@ set -u
 cd "$(dirname "$0")"
 
 RAYLIB_SRC="${RAYLIB_SRC:-/tmp/raylib45/src}"
+# fallback: vendored 4.5.0 headers (tests/vendor) make the suite self-contained
+if [ ! -f "$RAYLIB_SRC/raylib.h" ]; then
+    RAYLIB_SRC="$PWD/vendor"
+fi
 if [ ! -f "$RAYLIB_SRC/raylib.h" ]; then
     echo "raylib headers not found at '$RAYLIB_SRC'."
-    echo "Clone raylib 4.5.0 and point RAYLIB_SRC at its src/ directory:"
+    echo "Either clone raylib 4.5.0 and point RAYLIB_SRC at its src/ directory:"
     echo "  git clone --depth 1 --branch 4.5.0 https://github.com/raysan5/raylib.git /tmp/raylib45"
+    echo "or keep the vendored copies in tests/vendor/ (raylib.h + raymath.h)."
     exit 2
 fi
 
