@@ -11,7 +11,6 @@
 #include "raylib.h"
 #include "blockdefinition.h"
 #include "textureprotocol.h"
-#define SERVER_PLAYER_MAX_PENDING_CHUNKS 8
 
 typedef struct Player {
     unsigned char id;
@@ -27,10 +26,8 @@ typedef struct Player {
     bool isWeb;
     bool disconnected;
     int pendingPackets;
-    /* v63: several chunk requests may be in flight at once so the
-     * parallel chunk loaders stay busy while the world fills in */
-    int pendingRequestCount;
-    Vector3 pendingRequests[SERVER_PLAYER_MAX_PENDING_CHUNKS];
+    bool chunkRequestPending;
+    Vector3 pendingChunkPosition;
 } Player;
 
 Player *ServerPlayer_Create(void *peer, bool isWeb);

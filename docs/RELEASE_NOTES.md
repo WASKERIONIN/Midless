@@ -1,6 +1,12 @@
-# Midless: Cosmic Edition v63.1
+# Midless: Cosmic Edition v63.2
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.2 - world loading fully reverted to the proven v62 system + sprite editor
+
+- **World loading reverted to exactly the v62 system** (single generator thread, one chunk request in flight, chunks delivered the moment they are generated - no neighbor waiting, no deferral). The v63/v63.1 experiments made loading stall until you moved; that whole experiment is gone. If islands still pop in at the fog edge, that is the v62 behavior you had before - tell me and we tune the fog, not the loader.
+- **Sprite Editor** ships in the release: open `sprite_editor/sprite_editor.html` in any browser (double-click). Draw plants/creatures on a 16/32/48 grid with pencil, fill, line, rect, symmetry mirror, game palettes (cosmic/ember/frost/fur), undo/redo; open an existing PNG to repaint it; save as PNG (1x exact-size or 8x preview). Send me the saved PNG and I will wire it into the game atlas.
+- Grazer sleep, leg-rooting, biome lawns, terraced ember isles, unstacked flora, calmed frost/ember textures, muted trees and the world guide poster from v63/v63.1 are all still in.
 
 ## v63.1 - world-loading hotfix, clean flora, calmer palette, world guide
 
