@@ -1,6 +1,24 @@
-# Midless: Cosmic Edition v65.1
+# Midless: Cosmic Edition v65.2
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.2 - the height rule: no plant stands in grass as tall as itself, mushrooms get the lowest lawn
+
+- **New world rule: every bloom and mushroom now rises above the grass growing under it.** The
+  grass skirt ringed around each stem base used to grow independently of the plant - blades up to
+  0.44 blocks and a sedge strand up to 0.60 - while a frost puffball at its smallest instance
+  stands 0.40 tall: the grass literally swallowed the mushroom whole, which is why mushrooms
+  stayed "invisible" even after the v65.1 repaint. Skirt blades now clamp to the plant's own
+  height: blooms keep their grass at <= 60% of themselves, and **mushrooms get the lowest lawn
+  level - 35%** - a short fuzz at the base with the cap fully in view. The cap travels with the
+  per-instance size, so a dwarf plant gets dwarf grass.
+- **Sedge strands skip** when the clamp would bring them down to the tuft line (no doubled quads
+  at the cap height).
+- **New static gate** `tools_dev/flora_heights.py`: parses the billboard heights, the per-instance
+  variation span, the lawn carpet top and both grass caps straight out of `world.c` and proves for
+  every species that (a) its smallest instance clears the tallest lawn blade of any biome,
+  (b) its skirt ceiling sits strictly below its own top, and (c) the mushroom cap is below the
+  flower cap. Exits non-zero when any species drowns in grass.
 
 ## v65.1 - the readability pass: mushrooms grow stems, flowers get their own colours per biome
 

@@ -1,8 +1,16 @@
-=== Midless: Cosmic Edition v65.1 ===
+=== Midless: Cosmic Edition v65.2 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.2
+  - Height rule: no plant or mushroom stands in grass as tall as itself.
+    Skirt grass clamps to 60% of a bloom's height; mushrooms get the
+    lowest lawn level (35%) so their caps always clear the carpet.
+  - New tools_dev/flora_heights.py gate: parses world.c and proves the
+    rule for every species (min instance vs lawn top, skirt vs own top,
+    mushroom cap below flower cap).
 
 WHAT'S NEW IN v65.1
   - Readability pass: ember + frost mushrooms repainted with real stems and

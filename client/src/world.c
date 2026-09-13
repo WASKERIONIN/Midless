@@ -705,9 +705,12 @@ static float World_PosHash(float x, float z) {
  * v61.2: every clump rolls its own dice - blade count, heights and widths
  * come from a stable per-position hash, so the lawn reads as grown, not
  * stamped from one cookie cutter. */
+/* v65.2: grassCap is the hard ceiling for every blade this skirt grows -
+ * the plant it rings must always stand ABOVE its own grass (see the rule
+ * at the call site), so blades clamp instead of swallowing the bloom. */
 static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
                              float t, float gust, float phase,
-                             int tuftTile, int sedgeTile) {
+                             int tuftTile, int sedgeTile, float grassCap) {
     float h0 = World_PosHash(base.x, base.z);
     const float offs[5][2] = { { 0, 0 }, { 0.16f, 0.13f }, { -0.15f, 0.14f },
                                { 0.14f, -0.16f }, { -0.13f, -0.15f } };
@@ -721,11 +724,18 @@ static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
         float amp = 0.075f * gust;
         float lean = amp * sinf(t * 2.1f + phase + i * 1.7f);
         float bw = 0.24f * scale * (0.85f + 0.3f * hp);
-        Mobs_DrawBillboard(at, bw, 0.21f * scale * hMul, tuftTile, bright, lean);
-        /* the taller sedge layers over the tuft on most ring blades */
+        float th = 0.21f * scale * hMul;
+        if (th > grassCap) th = grassCap;      /* v65.2: never outgrow the plant */
+        Mobs_DrawBillboard(at, bw, th, tuftTile, bright, lean);
+        /* the taller sedge layers over the tuft on most ring blades -
+         * v65.2: and only while the cap leaves headroom above the tuft
+         * (a sedge clamped to the tuft line would just double the quad) */
         if (i > 0 && hp > 0.30f) {
             float sh = 0.30f * scale * (0.70f + 0.55f * hp);
-            Mobs_DrawBillboard(at, 0.22f * scale, sh, sedgeTile, bright, lean * 1.15f);
+            if (sh > grassCap) sh = grassCap;
+            if (sh > th + 0.001f) {
+                Mobs_DrawBillboard(at, 0.22f * scale, sh, sedgeTile, bright, lean * 1.15f);
+            }
         }
     }
 }
@@ -816,7 +826,16 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
      * The lawn draws just itself; only real plants keep their skirt. */
     int isLawnId = (id == 39 || id == 41 || id == 32 || id == 59 || id == 60);
     if (!isLawnId) {
-        World_GrassSkirt(base, skirt, bright, t, gust, phase, tuftT, sedgeT);
+        /* v65.2 RULE: no plant or mushroom may stand IN grass as tall as
+         * itself - every blade of its skirt caps below the plant's own
+         * top. Blooms cap their grass at 60% of their height; mushrooms
+         * get the LOWEST lawn level (35%) because their caps sit low and
+         * full-length grass swallowed them whole ("mushrooms are
+         * invisible"). The cap travels with the per-instance height, so
+         * a dwarf plant gets dwarf grass. */
+        int isShroom = (id == 73 || id == 74 || id == 75);
+        float grassCap = h * (isShroom ? 0.35f : 0.60f);
+        World_GrassSkirt(base, skirt, bright, t, gust, phase, tuftT, sedgeT, grassCap);
     }
     if (id == 39) {
         /* v59: a taller sedge strand beside every tuft, its own phase */
