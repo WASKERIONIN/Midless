@@ -202,6 +202,11 @@ void Colonnade_Draw(float pocketFactor) {
         TraceLog(LOG_INFO, "COLONNADE: first draw at factor %.2f", pocketFactor);
         loggedFirst = true;
     }
+    /* v65.19: the builder's winding is not uniform, and rlgl culls
+     * backfaces by default - up close the eaten fronts read as
+     * "inverted sails". The shading is two-sided anyway, so draw the
+     * marble double-sided. */
+    rlDisableBackfaceCulling();
     rlBegin(RL_TRIANGLES);
         for (int i = 0; i < iCount; i++) {
             unsigned short vi = vidx[i];
@@ -209,4 +214,5 @@ void Colonnade_Draw(float pocketFactor) {
             rlVertex3f(vpos[3 * vi] + POCKETFX_CX, vpos[3 * vi + 1], vpos[3 * vi + 2] + POCKETFX_CZ);
         }
     rlEnd();
+    rlEnableBackfaceCulling();
 }

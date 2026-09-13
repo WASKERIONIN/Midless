@@ -1,6 +1,23 @@
-# Midless: Cosmic Edition v65.18
+# Midless: Cosmic Edition v65.19
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.19 - solid marble and an invisible fence
+
+Close up, the arches read as inverted sails: rlgl culls backfaces by
+default and the merged builder's winding is not uniform, so front
+faces vanished at grazing angles. And nothing but marble style
+stopped a walker from stepping between the columns into the void.
+
+- **Double-sided marble.** Backface culling is switched off for the
+  colonnade draw only (the baked shading was two-sided from the
+  start), so every face renders from every angle - no more holes or
+  inverted caps up close.
+- **The invisible barrier.** A server-side cylinder of radius 60,
+  just inside the colonnade, clamps every player position each tick
+  from the lawn up to +200 blocks (fly mode included). Enforced in
+  the mod's step hook, so it holds for LAN guests too. The warp gate
+  at the centre is far inside the ring - crossing is unaffected.
 
 ## v65.18 - the peristyle leaves the DrawMesh path entirely
 

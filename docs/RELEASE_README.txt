@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.18 ===
+=== Midless: Cosmic Edition v65.19 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.19
+  - The marble now renders double-sided (no more inverted/see-through
+    arches up close), and an invisible server-side cylinder just
+    inside the colonnade stops anyone from leaving the meadow - on
+    foot or in fly mode, up to +200 blocks.
 
 WHAT'S NEW IN v65.18
   - The crossing crash, attempt two: the colonnade no longer uses

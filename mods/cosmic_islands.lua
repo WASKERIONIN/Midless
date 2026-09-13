@@ -898,6 +898,29 @@ midless.register_on_block_update(function(pos, newId, oldId)
     end
 end)
 
+-- v65.19: the peristyle is a fence in marble only - nothing stopped
+-- a walker (or a flyer) from stepping between the columns and off the
+-- island. An invisible cylinder just inside the colonnade clamps the
+-- position every tick, from the lawn up to fly-mode heights.
+local BARRIER_R = 60.0
+local BARRIER_TOP = POCKET_TOP + 200
+midless.register_on_step(function(dt)
+    local players = midless.get_players()
+    for i = 1, #players do
+        local p = players[i]
+        local pos = p:get_position()
+        if pos.y > POCKET_TOP - 4 and pos.y < BARRIER_TOP then
+            local dx = pos.x - (POCKET_CX + 0.5)
+            local dz = pos.z - (POCKET_CZ + 0.5)
+            local r = math.sqrt(dx * dx + dz * dz)
+            if r > BARRIER_R then
+                local k = BARRIER_R / r
+                p:teleport({ x = POCKET_CX + 0.5 + dx * k, y = pos.y, z = POCKET_CZ + 0.5 + dz * k })
+            end
+        end
+    end
+end)
+
 midless.register_on_step(function(dt)
     pocket_clock = pocket_clock + dt
     local players = midless.get_players()
