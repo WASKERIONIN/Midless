@@ -367,7 +367,7 @@ void Packet_HandleDefineBlock(void) {
     for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
     for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
     if (!Block_ApplyDefinition(id, &definition)) {
-        TraceLog(LOG_WARNING, "Rejected invalid block definition");
+        TraceLog(LOG_WARNING, "Rejected invalid block definition id=%d", id);
     }
 }
 

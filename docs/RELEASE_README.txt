@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.9 ===
+=== Midless: Cosmic Edition v65.10 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.10
+  - DIAGNOSTICS: the client writes midless_client.log next to the exe
+    (block rejections, pocket sky transitions, positions) and shows a
+    red banner if textures/terrain.png is older than the pocket
+    universe. If anything still misbehaves, send that log.
 
 WHAT'S NEW IN v65.9
   - WARP GATE HOTFIX: stepping on the gate now really teleports you

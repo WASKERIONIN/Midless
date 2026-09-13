@@ -4,6 +4,7 @@
  */
 #include "pocketfx.h"
 #include <math.h>
+#include "raylib.h"
 
 static float pocketFactor;
 
@@ -17,8 +18,16 @@ void PocketFx_Update(Vector3 playerPosition) {
     float target = 1.0f - fminf(fmaxf((distance - (POCKETFX_ZONE_HALF - 16.0f)) / 16.0f, 0.0f), 1.0f);
     /* exponential smoothing, frame-rate independent (rate ~6/s) */
     float rate = 1.0f - expf(-6.0f * GetFrameTime());
+    if (!isfinite(rate) || rate < 0.0f || rate > 1.0f) rate = 1.0f;  /* v65.9.1 */
+    float previous = pocketFactor;
     pocketFactor += (target - pocketFactor) * rate;
     if (fabsf(pocketFactor - target) < 0.001f) pocketFactor = target;
+    if (!isfinite(pocketFactor)) pocketFactor = target;             /* v65.9.1 */
+    /* v65.9.1: log the crossing so remote debugging knows where we are */
+    if ((previous < 0.5f) != (pocketFactor < 0.5f)) {
+        TraceLog(LOG_INFO, "pocketfx: factor crossed %.2f at pos %.1f %.1f %.1f",
+                 pocketFactor, playerPosition.x, playerPosition.y, playerPosition.z);
+    }
 }
 
 float PocketFx_Factor(void) {

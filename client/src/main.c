@@ -29,6 +29,7 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "pocketfx.h"   /* v65.8: pocket universe sky swap */
+#include "clientlog.h"   /* v65.9.1 */
 #include "blackhole.h"
 #include "ship.h"
 #include "settings.h"
@@ -48,6 +49,8 @@ int main(void) {
     Settings_Load();
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_ALWAYS_RUN | FLAG_MSAA_4X_HINT |
                    (gameSettings.vsync ? FLAG_VSYNC_HINT : 0));   /* v56 */
+    ClientLog_Init();   /* v65.9.1: midless_client.log beside the exe */
+
     InitWindow(gameSettings.width, gameSettings.height, "Midless: Cosmic Edition");
     Settings_ApplyWindow();
     SetExitKey(0);
@@ -135,6 +138,7 @@ int main(void) {
         Chat_Shutdown();
 
         CloseWindow();
+    ClientLog_Shutdown();
     #endif
 
     return 0;
@@ -166,6 +170,14 @@ void Game_RunLoop(void) {
 
     BeginDrawing();
         ClearBackground(PocketFx_SkyColor());   /* v65.8: day sky in the pocket */
+
+        /* v65.9.1: never let an outdated atlas look like "invisible blocks" */
+        if (!Block_PocketTilesPresent()) {
+            const char *warn = "OUTDATED textures/terrain.png - extract the WHOLE release zip over the game folder, then restart";
+            int width = MeasureText(warn, 20);
+            DrawRectangle(0, 0, GetScreenWidth(), 30, (Color){ 120, 20, 20, 220 });
+            DrawText(warn, (GetScreenWidth() - width) / 2, 6, 20, (Color){ 255, 230, 230, 255 });
+        }
 
         if (inWorld) {
             PostFx_BeginScene();

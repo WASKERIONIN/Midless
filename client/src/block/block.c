@@ -42,10 +42,20 @@ static unsigned char Block_GetLightPassFaces(const Block *block) {
     return faces;
 }
 
+/* v65.9.1: the pocket-universe tiles (78/79/80) live in terrain.png. If a
+ * stale atlas from an older install is loaded, those tiles are blank and
+ * every pocket block renders invisible - say so loudly instead. */
+static bool pocketTilesPresent;
+
+bool Block_PocketTilesPresent(void) {
+    return pocketTilesPresent;
+}
+
 static void Block_LoadLiquidTints(void) {
     Image atlas = Resource_LoadImage("terrain.png");
     if (!atlas.data) return;
 
+    pocketTilesPresent = true;
     for (int i = 0; i < 256; i++) {
         textureAvailable[i] = (i % 16) * 16 + 16 <= atlas.width &&
                               (i / 16) * 16 + 16 <= atlas.height;
@@ -61,7 +71,14 @@ static void Block_LoadLiquidTints(void) {
         block->liquidTint.a = 105;
     }
 
-    UnloadImage(atlas);
+        for (int t = 78; t <= 80; t++) {
+        Color probe = GetImageColor(atlas, (t % 16) * 16 + 8, (t / 16) * 16 + 8);
+        if (probe.a == 0) pocketTilesPresent = false;
+    }
+    if (!pocketTilesPresent)
+        TraceLog(LOG_ERROR, "terrain.png is OUTDATED: pocket-universe tiles 78-80 are blank - extract the whole release zip over the game folder");
+
+UnloadImage(atlas);
 }
 
 void Block_BuildDefinition(void) {

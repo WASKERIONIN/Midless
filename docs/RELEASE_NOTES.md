@@ -1,6 +1,22 @@
-# Midless: Cosmic Edition v65.9
+# Midless: Cosmic Edition v65.10
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.10 - diagnostics release: the client finally leaves a paper trail
+
+The pocket-gate reports ("invisible cube", "white sky") only reproduce on
+a real Windows box, so this build instruments the client:
+
+- **midless_client.log** is written next to the executable on every run:
+  block-definition rejections (with the block id), pocket-atmosphere
+  transitions (with the player position), world/chunk warnings - exactly
+  what remote debugging needs.
+- **Outdated-atlas banner**: if textures/terrain.png predates the pocket
+  universe (tiles 78-80 blank - the classic "invisible blocks" cause when
+  a zip is unpacked over an old folder without overwrite), a red banner
+  says so on screen instead of leaving you with ghost blocks.
+- pocketfx guards its smoothing against NaN frame times and logs every
+  crossing into / out of the pocket mood.
 
 ## v65.9 - the warp gate actually carries you (pocket-universe hotfix)
 
