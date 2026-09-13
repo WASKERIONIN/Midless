@@ -37,6 +37,7 @@
 #include "bird.h"
 #include "hunter.h"
 #include "mobs.h"
+#include "raincloud.h"   /* v63.7: rain clouds grow mushrooms */
 
 
 void Game_RunLoop(void);
@@ -153,6 +154,7 @@ void Game_RunLoop(void) {
         Bird_Update(GetFrameTime());
         Hunter_Update(GetFrameTime());
         Mobs_Update(GetFrameTime());
+        RainCloud_Update(GetFrameTime());   /* v63.7: rain + mushrooms */
         Ship_Update((double)GetTime());   /* v62 */
         MapView_Update();
         SoundFx_Update();
@@ -175,6 +177,7 @@ void Game_RunLoop(void) {
                 World_DrawWireAuras();
                 Hunter_Draw();
                 Mobs_Draw();
+                RainCloud_Draw();   /* v63.7 */
                 /* v46.1: web anchor indicator under the crosshair */
                 {
                     Vector3 webCell;

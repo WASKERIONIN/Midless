@@ -12,23 +12,26 @@ void LuaBindings_Init(void);
 void LuaBindings_Shutdown(void);
 
 static const char *BlockName(unsigned short id) {
-    static const char *names[] = {
-        "air", "stone", "dirt", "grass", "wood", "water", "sand", "gravel",
-        "gold", "gem", "root", "beam", "lantern", "basalt", "glass", "torch",
-        "ice", "mossy", "loam", "voidrock", "shard", "bloom", "petal",
-        "bell", "wick", "fern", "cap", "stem", "web", "cocoon", "eggs",
-        "twinpetal", "glimmer", "lanternberry", "glowshroom", "snowtulip",
-        "cobalt", "tree_lantern", "tree_void", "vine", "orb", "grass_tuft",
-        "crystal_sprout", "starbloom", "hanging_vine", "glassbell",
-        "embrcup(46)", "orchid(47)", "frostfern(48)", "tree_big_a", "cane",
-        "tree_big_b", "void_puff", "ember_rock", "ember_turf",
-        "frost_turf", "ember_tuft", "frost_tuft",
-        "fur_a", "fur_b", "fur_c", "unknown63", "void_glowcap",
-        "ember_cap", "frost_cap", "smolderhead", "cinder_cluster",
-        "ember_lens", "frost_star", "glacier_bulb", "ringbloom",
+    /* v63.7: sparse map of REAL block ids (the old dense list was
+     * shifted by several entries and mislabeled every histogram) */
+    static const char *names[76] = {
+        [1] = "stone", [2] = "dirt", [3] = "turf", [19] = "voidrock",
+        [12] = "rose", [13] = "dandelion",
+        [28] = "bellflower", [29] = "starbloom", [30] = "spiral_fern",
+        [31] = "twin_tulip", [32] = "glow_grass", [33] = "lanternberry",
+        [37] = "star_reed", [38] = "moon_bell", [39] = "void_tuft",
+        [41] = "void_sedge", [45] = "glassbell", [46] = "embercup",
+        [47] = "void_orchid", [48] = "frostfern", [49] = "void_tree",
+        [50] = "lantern_tree", [51] = "crystal_stalk", [52] = "void_puff",
+        [56] = "ember_rock", [57] = "ember_turf", [58] = "frost_turf",
+        [59] = "ember_tuft", [60] = "frost_tuft",
+        [67] = "smolderhead", [68] = "cinder_cluster", [69] = "ember_lens",
+        [70] = "frost_star", [71] = "glacier_bulb", [72] = "ringbloom",
+        [73] = "glowcap_cluster", [74] = "cinder_trumpet",
+        [75] = "frost_puffball",
     };
     static char buf[32];
-    if (id < sizeof(names) / sizeof(names[0])) return names[id];
+    if (id < sizeof(names) / sizeof(names[0]) && names[id]) return names[id];
     snprintf(buf, sizeof(buf), "id%d", id);
     return buf;
 }
@@ -167,6 +170,12 @@ int main(void) {
                 if (b == 56 || b == 57 || b == 58) bad++;
             }
         }
+    {
+        long mush = counts[64] + counts[65] + counts[66] + counts[73] +
+                    counts[74] + counts[75];
+        printf("PROBE: worldgen mushrooms 64-66/73-75 (must be 0): %ld\n", mush);
+        if (mush != 0) { printf("PROBE: FAIL mushrooms in worldgen\n"); return 1; }
+    }
     printf("PROBE: starter-island biome-block cells (must be 0): %d\n", bad);
     printf("PROBE: OK\n");
     return 0;

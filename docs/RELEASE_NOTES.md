@@ -1,6 +1,16 @@
-# Midless: Cosmic Edition v63.6
+# Midless: Cosmic Edition v63.7
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.7 - rain clouds grow the mushrooms, three real mushroom body plans, zero recolors
+
+- **Rain clouds are here**: every so often a small slate cloud drifts in near you, hovers and rains - you can see the drops fall under it. Where the drops land on living ground, **mushrooms sprout** - and only that biome's own species. A world starts mushroom-free: no rain, no mushrooms.
+- **Three completely different mushrooms** (drawn from real fungal body plans, not recolors - the old dome-cap twins are gone for good):
+  - **Void Glowcaps** (classic turf) - a gregarious *cluster* of three small teal umbrellas with lavender spots, like real agarics that sprout in groups;
+  - **Cinder Trumpet** (ember turf) - a hollow *chanterelle-style funnel* rising from the ground with a smoldering glow deep in the cup;
+  - **Frost Puffball** (frost turf) - a stemless *lycoperdon-style ball* sitting right on the turf, with a cold spore pore cracking open on its crown.
+- The stretched/duplicated mushroom look is fixed: the old cap twins (64-66) no longer exist in generation at all, and old worlds regenerate fresh.
+- Grazers snack on all the new blooms and mushrooms too. World guide poster (in the zip) updated with the rain mushrooms.
 
 ## v63.6 - unique biome flora (no recolors), the twin-flower fix, world guide in the zip
 

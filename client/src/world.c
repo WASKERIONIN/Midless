@@ -767,9 +767,10 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 70: halfW = 0.44f; h = 0.40f; swayAmp = 0.030f; break; /* frost star */
         case 71: halfW = 0.28f; h = 0.55f; swayAmp = 0.030f; break; /* glacier bulb */
         case 72: halfW = 0.40f; h = 0.32f; swayAmp = 0.030f; break; /* ringbloom */
-        case 64: halfW = 0.42f; h = 0.85f; swayAmp = 0.040f; break; /* void glowcap */
-        case 65: halfW = 0.40f; h = 0.80f; swayAmp = 0.040f; break; /* ember cap */
-        case 66: halfW = 0.40f; h = 0.80f; swayAmp = 0.040f; break; /* frost cap */
+        /* v63.7: rain-grown mushrooms, three different body plans */
+        case 73: halfW = 0.44f; h = 0.80f; swayAmp = 0.030f; break; /* glowcap cluster */
+        case 74: halfW = 0.34f; h = 0.85f; swayAmp = 0.030f; break; /* cinder trumpet */
+        case 75: halfW = 0.44f; h = 0.55f; swayAmp = 0.020f; break; /* frost puffball */
         default: return;
     }
     /* v61.2: stable per-instance variation - plants of one species are

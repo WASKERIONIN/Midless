@@ -1274,15 +1274,15 @@ def build_atlas():
         58: t_frost_turf(58),
         59: t_ember_tuft(59),
         60: t_frost_tuft(60),
-        64: t_void_glowcap(64),
-        65: t_ember_cap(65),
-        66: t_frost_cap(66),
         67: t_smolderhead(67),
         68: t_cinder_cluster(68),
         69: t_ember_lens(69),
         70: t_frost_star(70),
         71: t_glacier_bulb(71),
         72: t_ringbloom(72),
+        73: t_glowcap_cluster(73),
+        74: t_cinder_trumpet(74),
+        75: t_frost_puffball(75),
         61: t_grazer_fur(61),
         46: t_embercup(46),
         47: t_voidorchid(47),
@@ -1799,112 +1799,151 @@ def t_frost_tuft(index):
     return img
 
 
-def t_void_glowcap(index):
-    """v63.5: classic-biome mushroom - pale stem, wide glowing teal cap
-    with a bright rim and lavender spots. Grows on turf (3)."""
+def t_glowcap_cluster(index):
+    """v63.7: void glowcaps - a GREGARIOUS CLUSTER of three small
+    umbrella mushrooms (real agarics sprout in groups). Teal caps with
+    lavender spots, pale stems, one tiny button in front."""
     img = blank_tile()
     px = img.load()
-    ST = (214, 206, 190)    # pale stem
+    ST = (214, 206, 190)
     ST_D = (168, 158, 142)
-    CAP_D = (28, 108, 96)   # teal cap deep
-    CAP = (56, 196, 172)    # teal cap
-    CAP_L = (130, 240, 220) # cap rim light
-    SPOT = (198, 188, 232)  # lavender spots
+    CAP_D = (28, 108, 96)
+    CAP = (56, 196, 172)
+    CAP_L = (130, 240, 220)
+    SPOT = (198, 188, 232)
     OUT = (20, 48, 44)
-    # stem x=7..8, y=8..14
-    for y in range(9, 15):
-        px[7, y] = ST
-        px[8, y] = ST_D
-    px[6, 14] = ST_D
-    px[9, 14] = ST_D
-    # cap: dome rows y=3..7, gill row y=8
-    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
-            6: (2, 13), 7: (3, 12), 8: (4, 11)}
+    # big umbrella (left): cap rows 4-8, x2-9
+    dome = {4: (4, 7), 5: (3, 8), 6: (2, 9), 7: (2, 9), 8: (3, 8)}
     for y, (x0, x1) in dome.items():
         for x in range(x0, x1 + 1):
-            if y == 2 or x == x0 or x == x1:
+            if y == 4 or x in (x0, x1):
                 px[x, y] = CAP_L
-            elif y >= 5:
+            elif y == 6:
                 px[x, y] = CAP_D
             else:
                 px[x, y] = CAP
-    for x in range(4, 12):
-        px[x, 9] = OUT           # gill shadow line
-    px[5, 4] = SPOT
-    px[10, 4] = SPOT
-    px[11, 6] = SPOT
-    px[3, 6] = CAP_L
+    for x in range(3, 9):
+        px[x, 9] = OUT                       # gill shadow
+    for y in range(10, 15):
+        px[5, y] = ST
+        px[6, y] = ST_D
+    px[5, 5] = SPOT
+    px[3, 7] = SPOT
+    px[7, 6] = SPOT
+    # second umbrella (right): cap rows 7-10, x10-14
+    dome2 = {7: (11, 13), 8: (10, 14), 9: (10, 14), 10: (11, 14)}
+    for y, (x0, x1) in dome2.items():
+        for x in range(x0, x1 + 1):
+            if y == 7 or x in (x0, x1):
+                px[x, y] = CAP_L
+            elif y == 9:
+                px[x, y] = CAP_D
+            else:
+                px[x, y] = CAP
+    px[12, 10] = OUT
+    for y in range(11, 15):
+        px[11, y] = ST
+        px[12, y] = ST_D
+    px[12, 8] = SPOT
+    # baby button (front-left)
+    px[2, 12] = CAP_L
+    px[3, 12] = CAP
+    px[2, 13] = CAP_D
+    px[3, 13] = CAP_D
+    px[3, 14] = ST
     return img
 
 
-def t_ember_cap(index):
-    """v63.5: ember-biome mushroom - charcoal stem, smoldering orange
-    cap with glowing rim and ember motes. Grows on ember turf (57)."""
+def t_cinder_trumpet(index):
+    """v63.7: cinder trumpet - a hollow CHANTERELLE-STYLE funnel rising
+    from the ember turf, smoldering glow deep inside the cup. Vase
+    silhouette; nothing in the game shares this shape."""
     img = blank_tile()
     px = img.load()
-    ST = (74, 58, 52)       # charcoal stem
-    ST_D = (52, 40, 38)
-    CAP_D = (120, 44, 30)   # cap deep
-    CAP = (196, 60, 40)     # ember cap
-    CAP_L = (255, 160, 60)  # glow rim
-    MOTE = (255, 210, 120)
-    OUT = (40, 18, 24)
-    for y in range(9, 15):
-        px[7, y] = ST
-        px[8, y] = ST_D
-    px[6, 14] = ST_D
-    px[9, 14] = ST_D
-    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
-            6: (2, 13), 7: (3, 12), 8: (4, 11)}
-    for y, (x0, x1) in dome.items():
+    W_D = (38, 28, 34)      # charred outer
+    W = (86, 36, 32)        # maroon wall
+    W_L = (128, 58, 38)     # warm rim light
+    CAV = (26, 16, 18)      # cavity dark
+    GLOW = (255, 160, 60)
+    HOT = (255, 200, 96)
+    rim = {2: (3, 12), 3: (3, 12), 4: (4, 11), 5: (5, 10),
+           6: (5, 10), 7: (5, 10), 8: (6, 9), 9: (6, 9), 10: (6, 9),
+           11: (6, 9), 12: (6, 9)}
+    for y, (x0, x1) in rim.items():
         for x in range(x0, x1 + 1):
-            if y == 2 or x == x0 or x == x1:
-                px[x, y] = CAP_L
-            elif y >= 5:
-                px[x, y] = CAP_D
+            if x in (x0, x1):
+                px[x, y] = W_L if y <= 3 else W
+            elif y == 3:
+                px[x, y] = W_D              # cup hollow (mouth)
+            elif y in (4, 5, 6):
+                px[x, y] = GLOW             # ember glow inside
+            elif y == 7:
+                px[x, y] = CAV              # shading under the glow
             else:
-                px[x, y] = CAP
-    for x in range(4, 12):
-        px[x, 9] = OUT
-    px[5, 4] = MOTE
-    px[10, 4] = MOTE
-    px[7, 6] = MOTE
-    px[4, 6] = MOTE
+                px[x, y] = W
+    px[5, 5] = HOT
+    px[10, 6] = HOT
+    px[3, 2] = HOT
+    px[12, 2] = HOT
+    # decurrent ridge glints down the stem
+    px[6, 9] = W_L
+    px[9, 11] = W_L
+    # flared base
+    for x in range(5, 11):
+        px[x, 13] = W if x not in (5, 10) else W_D
+    for x in range(3, 13):
+        px[x, 14] = W_D
+    px[3, 15] = (30, 20, 24)
+    px[12, 15] = (30, 20, 24)
     return img
 
 
-def t_frost_cap(index):
-    """v63.5: frost-biome mushroom - icy stem, pale blue cap with a
-    white frost rim and cold glints. Grows on frost turf (58)."""
+def t_frost_puffball(index):
+    """v63.7: frost puffball - a LYCOPERDON-style ball sitting right on
+    the turf (no stem at all): pale frosty skin, warts, and a cold-glow
+    spore pore cracking open on top. One tiny baby beside it."""
     img = blank_tile()
     px = img.load()
-    ST = (210, 224, 236)    # icy stem
-    ST_D = (168, 186, 202)
-    CAP_D = (110, 136, 160)
-    CAP = (150, 176, 196)   # pale blue cap
-    CAP_L = (240, 250, 255) # frost rim
-    GLINT = (198, 244, 255)
-    OUT = (60, 76, 92)
-    for y in range(9, 15):
-        px[7, y] = ST
-        px[8, y] = ST_D
-    px[6, 14] = ST_D
-    px[9, 14] = ST_D
-    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
-            6: (2, 13), 7: (3, 12), 8: (4, 11)}
+    TOP = (240, 250, 255)
+    SKIN = (214, 234, 246)
+    SKIN_D = (168, 190, 208)
+    BASE = (120, 144, 166)
+    PORE = (170, 230, 255)
+    WART = (198, 220, 236)
+    dome = {6: (7, 8), 7: (6, 9), 8: (5, 10), 9: (4, 11), 10: (3, 12),
+            11: (3, 12), 12: (4, 11), 13: (4, 11), 14: (5, 10), 15: (6, 9)}
     for y, (x0, x1) in dome.items():
         for x in range(x0, x1 + 1):
-            if y == 2 or x == x0 or x == x1:
-                px[x, y] = CAP_L
-            elif y >= 5:
-                px[x, y] = CAP_D
+            if y <= 8:
+                px[x, y] = TOP
+            elif y <= 11:
+                px[x, y] = SKIN if x not in (x0, x1) else SKIN_D
+            elif y <= 13:
+                px[x, y] = SKIN_D if x not in (x0, x1) else BASE
             else:
-                px[x, y] = CAP
-    for x in range(4, 12):
-        px[x, 9] = OUT
-    px[5, 4] = GLINT
-    px[9, 5] = GLINT
-    px[11, 6] = CAP_L
+                px[x, y] = BASE
+    # spore pore cracking open on the crown
+    px[6, 7] = PORE
+    px[7, 7] = PORE
+    px[8, 6] = PORE
+    px[9, 8] = (130, 190, 230)
+    px[5, 8] = (130, 190, 230)
+    # jagged crack down the side
+    px[10, 9] = (120, 150, 180)
+    px[10, 10] = (120, 150, 180)
+    px[9, 11] = (120, 150, 180)
+    px[9, 12] = (120, 150, 180)
+    # warts
+    px[4, 10] = WART
+    px[5, 12] = WART
+    px[11, 11] = WART
+    px[6, 14] = BASE
+    # baby puffball, clearly separate (bottom-right)
+    for y, (x0, x1) in {12: (13, 14), 13: (13, 14), 14: (13, 14)}.items():
+        for x in range(x0, x1 + 1):
+            px[x, y] = SKIN if y == 12 else SKIN_D
+    px[13, 12] = TOP
+    px[13, 15] = BASE
     return img
 
 
