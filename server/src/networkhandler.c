@@ -13,12 +13,67 @@
 #include "raylib.h"
 #include "player.h"
 #include "networkhandler.h"
+
 #include "packet.h"
 #include "server.h"
 #include "serverwss.h"
 #include "world/world.h"
 #include "logger.h"
 #include "world/textures.h"
+
+/* v65.7: server.ini config lives HERE (not server.c) because the client
+ * build compiles networkhandler.c but not server.c - the in-game host
+ * (localserver.c) and the dedicated server.exe share these functions. */
+#define MAX_CLIENTS MIDLESS_MAX_CLIENTS
+
+/* v65.7: server.ini config - port / max players / name, shared by the
+ * dedicated server.exe and the in-game host (localserver.c loads the
+ * same file before spawning the embedded server thread). */
+static ServerConfig serverConfig = { 25565, 8, "Midless Cosmic Server" };
+
+const ServerConfig *ServerConfig_Get(void) { return &serverConfig; }
+
+void ServerConfig_WriteTemplate(const char *path) {
+    FILE *probe = fopen(path, "r");
+    if (probe) { fclose(probe); return; }
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fprintf(f,
+        "# Midless Cosmic Edition server config\n"
+        "# Friends type  <your address>:%d  into the Login screen to join.\n"
+        "# LAN: the address shown in the host panel (F6 in game).\n"
+        "# Internet: forward this port on your router to this PC.\n"
+        "port=%d\n"
+        "# 1..%d\n"
+        "max_players=%d\n"
+        "name=%s\n",
+        serverConfig.port, serverConfig.port, MAX_CLIENTS,
+        serverConfig.maxPlayers, serverConfig.name);
+    fclose(f);
+}
+
+void ServerConfig_Load(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (!f) return;
+    char line[128];
+    while (fgets(line, sizeof(line), f)) {
+        int v = 0;
+        if (sscanf(line, "port=%d", &v) == 1) {
+            if (v >= 1 && v <= 65535) serverConfig.port = v;
+        } else if (sscanf(line, "max_players=%d", &v) == 1) {
+            if (v >= 1 && v <= MAX_CLIENTS) serverConfig.maxPlayers = v;
+        } else if (strncmp(line, "name=", 5) == 0) {
+            char *nl = line + 5;
+            size_t n = strcspn(nl, "\r\n");
+            if (n > 0 && n < sizeof(serverConfig.name)) {
+                memcpy(serverConfig.name, nl, n);
+                serverConfig.name[n] = 0;
+            }
+        }
+    }
+    fclose(f);
+}
+
 
 PacketHandlerEntry serverPacketHandlers[256];
 int serverPacketHandlerCount = 0;

@@ -20,55 +20,8 @@
 struct Player;
 struct Player *ServerPlayer_Create(void *peer, bool isWeb);
 
-#define MAX_CLIENTS 64
+#define MAX_CLIENTS MIDLESS_MAX_CLIENTS
 
-/* v65.7: server.ini config - port / max players / name, shared by the
- * dedicated server.exe and the in-game host (localserver.c loads the
- * same file before spawning the embedded server thread). */
-static ServerConfig serverConfig = { 25565, 8, "Midless Cosmic Server" };
-
-const ServerConfig *ServerConfig_Get(void) { return &serverConfig; }
-
-void ServerConfig_WriteTemplate(const char *path) {
-    FILE *probe = fopen(path, "r");
-    if (probe) { fclose(probe); return; }
-    FILE *f = fopen(path, "w");
-    if (!f) return;
-    fprintf(f,
-        "# Midless Cosmic Edition server config\n"
-        "# Friends type  <your address>:%d  into the Login screen to join.\n"
-        "# LAN: the address shown in the host panel (F6 in game).\n"
-        "# Internet: forward this port on your router to this PC.\n"
-        "port=%d\n"
-        "# 1..%d\n"
-        "max_players=%d\n"
-        "name=%s\n",
-        serverConfig.port, serverConfig.port, MAX_CLIENTS,
-        serverConfig.maxPlayers, serverConfig.name);
-    fclose(f);
-}
-
-void ServerConfig_Load(const char *path) {
-    FILE *f = fopen(path, "r");
-    if (!f) return;
-    char line[128];
-    while (fgets(line, sizeof(line), f)) {
-        int v = 0;
-        if (sscanf(line, "port=%d", &v) == 1) {
-            if (v >= 1 && v <= 65535) serverConfig.port = v;
-        } else if (sscanf(line, "max_players=%d", &v) == 1) {
-            if (v >= 1 && v <= MAX_CLIENTS) serverConfig.maxPlayers = v;
-        } else if (strncmp(line, "name=", 5) == 0) {
-            char *nl = line + 5;
-            size_t n = strcspn(nl, "\r\n");
-            if (n > 0 && n < sizeof(serverConfig.name)) {
-                memcpy(serverConfig.name, nl, n);
-                serverConfig.name[n] = 0;
-            }
-        }
-    }
-    fclose(f);
-}
 
 typedef struct ServerOutgoingPacket {
     ENetPeer *peer;
@@ -121,16 +74,17 @@ void *Server_Init(void *state) {
 void Server_Do(int *state) {
     
     enet_initialize();
+    const ServerConfig *cfg = ServerConfig_Get();   /* v65.7: server.ini */
     ENetAddress address = {0};
     address.host = ENET_HOST_ANY;
-    address.port = (unsigned short)serverConfig.port;
+    address.port = (unsigned short)cfg->port;
 
     /* v65.7: honour max_players from server.ini */
-    ENetHost * server = enet_host_create(&address, serverConfig.maxPlayers, 1, 0, 0);
+    ENetHost * server = enet_host_create(&address, cfg->maxPlayers, 1, 0, 0);
     char bindLog[160];
     snprintf(bindLog, sizeof(bindLog),
              "Listening on 0.0.0.0:%d as '%s' (max %d players). Give friends <your ip>:%d",
-             serverConfig.port, serverConfig.name, serverConfig.maxPlayers, serverConfig.port);
+             cfg->port, cfg->name, cfg->maxPlayers, cfg->port);
     ServerLogger_Log(bindLog);
     ENetEvent event;
     

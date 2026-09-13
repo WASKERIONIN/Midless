@@ -12,6 +12,9 @@ void *Server_Init(void *state);
 void Server_Do(int *state);
 void Server_Send(void *peer, unsigned char* packet, int length);
 
+/* v65.7: hard peer ceiling (enet host size); server.ini caps below it */
+#define MIDLESS_MAX_CLIENTS 64
+
 /* v65.7: server config (server.ini next to the executable). The same
  * file configures the dedicated server.exe AND the in-game host, so a
  * player who edits it once gets the same server either way. */
