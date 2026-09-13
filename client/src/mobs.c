@@ -731,6 +731,7 @@ typedef struct Mushroom {
     Vector3 pos;
     double expireAt;   /* 10 real minutes */
     float scale;
+    float baseScale;   /* v65.5: spawn scale - the wither shrinks from it */
     int tile;          /* v65: which biome species art (73/74/75) */
 } Mushroom;
 
@@ -753,8 +754,18 @@ static int Mushroom_SpeciesForGround(int ground) {
     return 0;
 }
 static Mushroom mushrooms[MUSH_MAX];
-static int mushroomsStored = 0;   /* inventory count */
+/* v65.5: the satchel keeps the three species APART - collected glowcaps
+ * never fold into the puffball stack (and nothing pre-exists: a species
+ * row appears only once you carry one). Index: 0=73 1=74 2=75. */
+static int mushroomsStoredBySpecies[3] = { 0, 0, 0 };
 static bool mushHintShown;
+
+static int Mushroom_SpeciesIndex(int tile) {
+    if (tile == 73) return 0;
+    if (tile == 74) return 1;
+    if (tile == 75) return 2;
+    return -1;
+}
 
 /* ------------------- v59.3: shell textures (runtime) --------------------
  * v61.1: the atlas tiles were never going to read over a 9 m dome, so the
@@ -1752,11 +1763,28 @@ static double shellEventAt = 0.0;
 static double mushGrowTimer;
 static bool shellAnnounced;
 
-int Mobs_GetMushrooms(void) { return mushroomsStored; }
+int Mobs_GetMushrooms(void) {
+    return mushroomsStoredBySpecies[0] + mushroomsStoredBySpecies[1] +
+           mushroomsStoredBySpecies[2];
+}
+
+int Mobs_GetMushroomSpecies(int tile) {
+    int i = Mushroom_SpeciesIndex(tile);
+    return (i < 0) ? 0 : mushroomsStoredBySpecies[i];
+}
 
 /* v53: restore the stored count from cosmic_progress.ini */
 void Mobs_SetMushrooms(int n) {
-    mushroomsStored = (n < 0) ? 0 : n;
+    /* legacy single-key restore: everything lands in the glowcap stack */
+    mushroomsStoredBySpecies[0] = (n < 0) ? 0 : n;
+    mushroomsStoredBySpecies[1] = 0;
+    mushroomsStoredBySpecies[2] = 0;
+}
+
+void Mobs_SetMushroomSpecies(int tile, int n) {
+    int i = Mushroom_SpeciesIndex(tile);
+    if (i < 0) return;
+    mushroomsStoredBySpecies[i] = (n < 0) ? 0 : n;
 }
 
 int Mobs_SpiderCount(void) {
@@ -1766,11 +1794,16 @@ int Mobs_SpiderCount(void) {
 }
 
 bool Mobs_EatMushroom(void) {
-    if (mushroomsStored <= 0 || player.hp >= 10) return false;
-    mushroomsStored--;
+    if (Mobs_GetMushrooms() <= 0 || player.hp >= 10) return false;
+    /* eat from the fullest stack */
+    int best = 0;
+    for (int i = 1; i < 3; i++)
+        if (mushroomsStoredBySpecies[i] > mushroomsStoredBySpecies[best]) best = i;
+    mushroomsStoredBySpecies[best]--;
     Player_Heal(3);
     SoundFx_PlayWebAttach();
-    Chat_AddLine(TextFormat("The mushroom hums warmly. HP %d/10. Left: %d.", player.hp, mushroomsStored));
+    Chat_AddLine(TextFormat("The mushroom hums warmly. HP %d/10. Left: %d.",
+                            player.hp, Mobs_GetMushrooms()));
     return true;
 }
 
@@ -1781,14 +1814,15 @@ bool Mobs_TryCollectMushroom(void) {
         if (!m->active) continue;
         if (Vector3Distance(m->pos, pc) < 1.7f) {
             m->active = false;
-            mushroomsStored++;
+            int si = Mushroom_SpeciesIndex(m->tile);
+            if (si >= 0) mushroomsStoredBySpecies[si]++;
             Player_HotbarAutoAdd(27);   /* v58: quick slot picks it up */
             SoundFx_PlayPlace();
             if (!mushHintShown) {
                 mushHintShown = true;
                 Chat_AddLine(Tr("Void mushroom stored. Press G to eat it (+3 HP)."));
             } else {
-                Chat_AddLine(TextFormat("Void mushroom stored (%d).", mushroomsStored));
+                Chat_AddLine(TextFormat("Void mushroom stored (%d).", Mobs_GetMushrooms()));
             }
             return true;
         }
@@ -1836,7 +1870,8 @@ static void Mushroom_SpawnTry(Vector3 shellC) {
                 m->active = true;
                 m->pos = (Vector3){ bx + 0.5f, groundY + 1.0f, bz + 0.5f };
                 m->expireAt = (double)GetTime() + 600.0;
-                m->scale = 0.8f + (float)GetRandomValue(0, 50) / 100.0f;
+                m->baseScale = 0.8f + (float)GetRandomValue(0, 50) / 100.0f;
+                m->scale = m->baseScale;
                 m->tile = species;
                 return;
             }
@@ -1889,7 +1924,15 @@ static void Shell_Update(float deltaTime, double now) {
 static void Mushrooms_Update(double now) {
     for (int i = 0; i < MUSH_MAX; i++) {
         Mushroom *m = &mushrooms[i];
-        if (m->active && now > m->expireAt) m->active = false;
+        if (!m->active) continue;
+        double left = m->expireAt - now;
+        if (left <= 0.0) { m->active = false; continue; }
+        /* v65.5: the ten-minute life ends with a visible wither - the cap
+         * shrinks into the lawn over the last 12 s instead of popping out */
+        if (left < 12.0)
+            m->scale = m->baseScale * (0.15f + 0.85f * (float)(left / 12.0));
+        else
+            m->scale = m->baseScale;
     }
 }
 
@@ -1958,7 +2001,9 @@ void Mobs_Init(void) {
     shellActive = false;
     shellUntil = 0.0;
     shellEventAt = 0.0;
-    mushroomsStored = 0;
+    mushroomsStoredBySpecies[0] = 0;
+    mushroomsStoredBySpecies[1] = 0;
+    mushroomsStoredBySpecies[2] = 0;
 }
 
 void Mobs_Shutdown(void) {

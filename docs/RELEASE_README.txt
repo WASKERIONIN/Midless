@@ -1,8 +1,16 @@
-=== Midless: Cosmic Edition v65.4 ===
+=== Midless: Cosmic Edition v65.5 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.5
+  - Mushroom scheme: rain cloud -> mushrooms grow -> live 10 minutes ->
+    wither away. Worldgen plants none; the probe forbids it.
+  - Satchel: only carried items show; mushroom species keep separate
+    stacks; 12 slots; shards moved to a CURRENCY section.
+  - UI type 25% larger everywhere; satchel panel roomier.
+  - Emitters dimmed (warp core 8, fire 10, lava 9) - no more bleaching.
 
 WHAT'S NEW IN v65.4
   - Emission reverted to the v65.2 look: up close the glowing flora

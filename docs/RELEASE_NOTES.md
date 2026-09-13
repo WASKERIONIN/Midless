@@ -1,6 +1,27 @@
-# Midless: Cosmic Edition v65.4
+# Midless: Cosmic Edition v65.5
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.5 - the mushroom scheme, an honest satchel, a currency section, bigger type, dimmer lights
+
+- **Mushrooms follow the scheme and nothing else.** A rain cloud drifts in, its rain grows the
+  biome's own mushrooms, they live ten minutes - and now they end visibly, withering over the last
+  12 seconds (the cap shrinks into the lawn) instead of popping out of existence. Worldgen plants
+  NO mushrooms at all anymore: the old p99+ lawn band is gone, and modprobe now FAILS the build if
+  worldgen ever plants one again. Rain is the only source, exactly as intended.
+- **The satchel shows only what you actually carry.** The grid used to pre-display shard, mushroom
+  and scroll icons with zero counts - now a row appears only once you hold one. Collected mushroom
+  species keep SEPARATE stacks (glowcaps / cinder trumpets / puffballs, own icon and count each -
+  nothing folds into one generic mushroom), and the grid grew from 8 slots to 12.
+- **Shards are currency, not luggage.** They left the item grid for a dedicated CURRENCY section at
+  the top of the satchel (the HUD counter stays where it was).
+- **UI type is 25% larger everywhere** - one scale in the I18n layer, so every panel, HUD line and
+  hint grows together and centered text stays centered. The satchel panel is taller, with a
+  roomier footer.
+- **Every emitter dimmed**: warp core 15 -> 8, fire 15 -> 10, lava 15 -> 9. Full-strength emission
+  was bleaching the launch pad and whatever stood near it.
+- Progress saves keep the per-species mushroom stacks (`shrooms73/74/75` keys; the legacy single
+  key still restores old saves).
 
 ## v65.4 - emission reverted: the v65.2 look returns, light_level stays dormant
 

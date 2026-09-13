@@ -548,9 +548,10 @@ void Screen_DrawGame(void) {
             inventoryOpen = false;
         } else {
             int mx = screenWidth / 2 - 352;
-            int my = screenHeight / 2 - 186;
+            int my = screenHeight / 2 - 220;
             DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 165 });
-            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 736, 404 });
+            /* v65.5: taller panel - 12 slots, currency section, roomier type */
+            DrawPanel((Rectangle){ (float)mx - 16, (float)my - 16, 736, 470 });
 
             const char *title = "VOID SATCHEL";
             I18n_DrawText(title, mx + 2, my + 3, 26, BLACK);
@@ -558,16 +559,45 @@ void Screen_DrawGame(void) {
 
             Texture2D atlas = World_GetTerrainTexture();
 
-            /* ---- item grid (left) ---- */
+            /* ---- v65.5: currency section (top right) - shards are money,
+             * they never occupy a satchel slot ---- */
+            {
+                int curX = mx + 520;
+                I18n_DrawText("CURRENCY", curX + 2, my + 5, 16, BLACK);
+                I18n_DrawText("CURRENCY", curX, my + 3, 16, (Color){ 120, 190, 175, 255 });
+                CosmicTileIcon(atlas, 35, curX + 100, my + 1, 26);
+                const char *curCnt = TextFormat("x %d", Player_GetShards());
+                I18n_DrawText(curCnt, curX + 132, my + 4, 20, (Color){ 200, 160, 255, 255 });
+                DrawLineEx((Vector2){ (float)(mx + 500), (float)(my + 34) },
+                           (Vector2){ (float)(mx + 716), (float)(my + 34) }, 1,
+                           (Color){ 94, 231, 255, 45 });
+            }
+
+            /* ---- item grid (left): ONLY what the player actually carries.
+             * v65.5: mushroom species keep their own stacks (glowcaps never
+             * fold into puffballs); nothing pre-exists with a zero count ---- */
             int gx = mx + 24, gy = my + 52;
             int cell = 72, gap = 12;
-            struct { int tile; int count; } items[8] = {
-                { 35, Player_GetShards() },
-                { 27, Mobs_GetMushrooms() },
-                { 40, Player_GetScrollCount() },
-                { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 }, { -1, 0 },
-            };
-            for (int i = 0; i < 8; i++) {
+            struct { int tile; int count; int pin; } items[12];
+            int nItems = 0;
+            const int spTiles[3] = { 73, 74, 75 };
+            for (int k = 0; k < 3; k++) {
+                int c = Mobs_GetMushroomSpecies(spTiles[k]);
+                if (c > 0 && nItems < 12) {
+                    items[nItems].tile = spTiles[k];
+                    items[nItems].count = c;
+                    items[nItems].pin = 27;      /* pins as the edible item */
+                    nItems++;
+                }
+            }
+            if (Player_GetScrollCount() > 0 && nItems < 12) {
+                items[nItems].tile = 40;
+                items[nItems].count = Player_GetScrollCount();
+                items[nItems].pin = 40;
+                nItems++;
+            }
+            for (int i = nItems; i < 12; i++) { items[i].tile = -1; items[i].count = 0; items[i].pin = -1; }
+            for (int i = 0; i < 12; i++) {
                 int cx = gx + (i % 4) * (cell + gap);
                 int cy = gy + (i / 4) * (cell + gap);
                 CosmicCell(cx, cy, cell, items[i].tile >= 0);
@@ -578,17 +608,18 @@ void Screen_DrawGame(void) {
                     I18n_DrawText(cnt, cx + cell - w - 6 + 1, cy + cell - 22 + 1, 18, BLACK);
                     I18n_DrawText(cnt, cx + cell - w - 6, cy + cell - 22, 18, (Color){ 255, 240, 200, 255 });
                     /* v58: click an item to pin it to a quick slot */
-                    if (satchelPick == items[i].tile)
+                    if (satchelPick == items[i].pin)
                         DrawRectangleLinesEx((Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell }, 2,
                                              (Color){ 120, 255, 214, 255 });
                     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
                         CheckCollisionPointRec(GetMousePosition(), (Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell })) {
-                        satchelPick = items[i].tile;
+                        satchelPick = items[i].pin;
                         SoundFx_PlayClick();
                     }
                 }
             }
-            I18n_DrawText("carried", gx + 2, gy + 2 * cell + gap + 8, 14, (Color){ 130, 130, 160, 255 });
+            I18n_DrawText("only what you carry shows here", gx + 2, gy + 3 * cell + 2 * gap + 8,
+                          14, (Color){ 130, 130, 160, 255 });
 
             /* ---- details (right side) ---- */
             int sx = gx + 4 * (cell + gap) + 26;
@@ -624,12 +655,14 @@ void Screen_DrawGame(void) {
             I18n_DrawText(log2, sx, gy + 270, 16, (Color){ 255, 140, 160, 255 });
 
             /* footer */
-            int fy = my + 352;
+            int fy = my + 398;
             I18n_DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
                      mx + 24, fy, 15, (Color){ 170, 170, 195, 255 });
+            I18n_DrawText("Shards are currency: they live in the CURRENCY section, not the grid.",
+                     mx + 24, fy + 22, 14, (Color){ 170, 200, 190, 255 });
             I18n_DrawText("Click an item, then a slot below to pin it to 1-4.",
-                     mx + 24, fy + 20, 14, (Color){ 170, 200, 190, 255 });
-            I18n_DrawText("I / ESC - close", mx + 24, fy + 38, 14, (Color){ 140, 140, 165, 255 });
+                     mx + 24, fy + 40, 14, (Color){ 170, 200, 190, 255 });
+            I18n_DrawText("I / ESC - close", mx + 560, fy + 40, 14, (Color){ 140, 140, 165, 255 });
         }
     }
 

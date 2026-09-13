@@ -197,19 +197,18 @@ int main(void) {
             }
         }
     {
-        /* v64.0: mushrooms are lawn residents now - each species must be
-         * present, the old twin ids must never come back, and the total
-         * must stay modest (a sprinkle, not a carpet) */
+        /* v65.5: MUSHROOMS ARE RAIN-ONLY - worldgen must plant NONE of
+         * them (the cloud event in mobs.c grows them for ten minutes).
+         * The old twin ids must never come back either. */
         long mush = counts[73] + counts[74] + counts[75];
         long oldTwins = counts[64] + counts[65] + counts[66];
-        printf("PROBE: lawn mushrooms 73/74/75 = %ld/%ld/%ld, old twins = %ld\n",
+        printf("PROBE: worldgen mushrooms 73/74/75 = %ld/%ld/%ld (must be 0), old twins = %ld\n",
                counts[73], counts[74], counts[75], oldTwins);
         if (oldTwins != 0) { printf("PROBE: FAIL old mushroom twins returned\n"); return 1; }
-        if (counts[73] == 0 || counts[74] == 0 || counts[75] == 0) {
-            printf("PROBE: FAIL a mushroom species is missing\n");
+        if (mush != 0) {
+            printf("PROBE: FAIL worldgen plants mushrooms - they are rain-only\n");
             return 1;
         }
-        if (mush > 200) { printf("PROBE: FAIL mushroom carpet\n"); return 1; }
     }
     /* v63.9: every non-default id the worldgen places MUST have a block
      * definition - undefined ids slip past Worldgen_Freeze (the material

@@ -26,7 +26,9 @@ void Mobs_SpriteBatchBegin(Texture2D atlas);   /* v59.6: alpha-cutout sprite bat
 void Mobs_SpriteBatchEnd(void);
 int Mobs_MothCount(void);                /* v59: glowmoths on the wing */
 int Mobs_GetMushrooms(void);
+int Mobs_GetMushroomSpecies(int tile);        /* v65.5: per-species satchel count */
 void Mobs_SetMushrooms(int n);               /* progress restore */
+void Mobs_SetMushroomSpecies(int tile, int n); /* v65.5 progress restore */
 int Mobs_SpiderCount(void);                  /* satchel fauna line */
 bool Mobs_EatMushroom(void);                 /* +3 HP if any */
 bool Mobs_TryCollectMushroom(void);          /* E near one */

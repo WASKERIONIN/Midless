@@ -53,6 +53,9 @@ static const I18nEntry table[] = {
     { "B / ESC - close      falling or dying burns out one upgrade", "B / ESC - закрыть      падение или смерть сжигает одну прокачку", "B / ESC - 关闭      坠落或死亡会烧毁一项升级", "B / ESC - 閉じる      落下や死ぬとアップグレードを1つ失う", "B / ESC - 닫기      추락이나 사망 시 업그레이드 1개 소실" },
     /* ---- satchel ---- */
     { "VOID SATCHEL", "ПУСТОТНАЯ СУМКА", "虚空行囊", "ヴォイド袋", "공허 가방" },
+    { "CURRENCY", "ВАЛЮТА", "货币", "通貨", "통화" },
+    { "only what you carry shows here", "здесь только то, что вы несёте", "这里只显示你携带的物品", "持ち物だけが表示されます", "소지품만 표시됩니다" },
+    { "Shards are currency: they live in the CURRENCY section, not the grid.", "Осколки - это валюта: они в секции ВАЛЮТА, а не в сетке.", "碎片是货币:位于货币区,不在格子中。", "破片は通貨:グリッドでなく通貨欄にあります。", "파편은 통화입니다: 격자가 아닌 통화 섹션에 있습니다." },
     { "carried", "при себе", "携带中", "所持品", "소지품" },
     { "LASER FORGE", "ЛАЗЕР", "激光锻造", "レーザー鍛冶", "레이저 대장간" },
     { "forge at warp cores - B, 5 shards each", "ковка у ядер - B, по 5 осколков", "在核心处锻造 - B, 每个5碎片", "ワープコアで鍛造 - B, 5シャード", "워프 코어에서 제련 - B, 5 파편" },
@@ -230,8 +233,16 @@ const char *Tr(const char *s) {
 
 Font I18n_Font(void) { return fontLoaded ? langFont : GetFontDefault(); }
 
+/* v65.5: the UI type was too small to read at arm's length - every I18n
+ * draw/measure goes through this scale, so ALL panels, HUD and hints grow
+ * together and stay mutually aligned (centered text measures the same). */
+static int UiFontScale(int size) {
+    return (int)((float)size * 1.25f + 0.5f);
+}
+
 static Vector2 DrawImpl(const char *text, Vector2 pos, int size, Color tint) {
     Font f = I18n_Font();
+    size = UiFontScale(size);
     float sz = (float)size;
     Vector2 bounds = MeasureTextEx(f, text, sz, 0.0f);
     if (f.texture.id != GetFontDefault().texture.id) {
@@ -249,12 +260,14 @@ void I18n_DrawText(const char *text, int x, int y, int size, Color tint) {
 
 float I18n_MeasureText(const char *text, int size) {
     Font f = I18n_Font();
+    size = UiFontScale(size);
     if (f.texture.id == GetFontDefault().texture.id) return (float)MeasureText(text, size);
     return MeasureTextEx(f, Tr(text), (float)size, 0.0f).x;
 }
 
 Vector2 I18n_MeasureEx(const char *text, int size) {
     Font f = I18n_Font();
+    size = UiFontScale(size);
     if (f.texture.id == GetFontDefault().texture.id)
         return (Vector2){ (float)MeasureText(text, size), (float)size };
     return MeasureTextEx(f, Tr(text), (float)size, 0.0f);

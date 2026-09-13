@@ -33,6 +33,9 @@ midless.define_block(22, {
     name = "Warp Core",
     textures = { all = 20 },
     light = block.light.EMIT,
+    -- v65.5: full-15 emission bleached everything near the pad obelisks;
+    -- the core hums at 8 now - visible, not a floodlight
+    light_level = 8,
 })
 
 -- 23 chrome: mirror-bright white plate, pure Y2K
@@ -585,11 +588,9 @@ local bloom3 = f.select(lawn_ember, 76, f.select(lawn_frost, 72, 33))
 material = f.select(lawn_open * f.lt(0.460, fine_n) * f.lt(fine_n, 0.495), bloom1, material)
 material = f.select(lawn_open * f.lt(0.495, fine_n) * f.lt(fine_n, 0.530), bloom2, material)
 material = f.select(lawn_open * f.lt(0.530, fine_n) * f.lt(fine_n, 0.577), bloom3, material)
--- mushrooms: glowcap cluster (classic) / cinder trumpet (ember) /
--- frost puffball (frost) - rare lawn residents beyond the p99+ line
-local mush_id = f.select(lawn_ember, 74,
-              f.select(frost_b * (1 - starter_flora), 75, 73))
-material = f.select(lawn_open * f.lt(0.640, fine_n), mush_id, material)
+-- v65.5: MUSHROOMS ARE RAIN-ONLY. The cloud event in mobs.c grows them,
+-- they live ten minutes and wither; worldgen plants NONE by design
+-- (the old p99+ lawn band made them default flora, which broke the scheme).
 material = f.select(flora_cell, flower_id, material)
 
 ------------------------------------------- starter island decorations ----

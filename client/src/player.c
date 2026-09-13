@@ -209,6 +209,10 @@ void Player_SaveProgress(void) {
     fprintf(f, "shards=%d\nbounty=%d\nlaserRange=%d\nlaserRate=%d\nburst=%d\ncool=%d\nshrooms=%d\narmor=%d\nscroll=%d\n",
             voidShards, Hunter_GetBounty(), laserRangeLvl, laserRateLvl, burstLvl,
             coolLvl, Mobs_GetMushrooms(), armorLvl, scrollCount);
+    /* v65.5: per-species mushroom stacks (the satchel keeps them apart) */
+    fprintf(f, "shrooms73=%d\nshrooms74=%d\nshrooms75=%d\n",
+            Mobs_GetMushroomSpecies(73), Mobs_GetMushroomSpecies(74),
+            Mobs_GetMushroomSpecies(75));
     fclose(f);
 }
 
@@ -217,6 +221,7 @@ void Player_LoadProgress(void) {
     FILE *f = fopen(path, "r");
     if (!f) return;
     int s = 3, b = 0;
+    int legacyShrooms = -1, sp73 = 0, sp74 = 0, sp75 = 0;
     char line[128];
     while (fgets(line, sizeof(line), f)) {
         if (sscanf(line, "shards=%d", &s) == 1) voidShards = s;
@@ -227,9 +232,20 @@ void Player_LoadProgress(void) {
         else if (sscanf(line, "cool=%d", &s) == 1) coolLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "armor=%d", &s) == 1) armorLvl = (s >= 0 && s <= 3) ? s : 0;
         else if (sscanf(line, "scroll=%d", &s) == 1) scrollCount = (s > 0 && s < 10) ? s : 0;
-        else if (sscanf(line, "shrooms=%d", &s) == 1) Mobs_SetMushrooms((s > 0 && s < 500) ? s : 0);
+        else if (sscanf(line, "shrooms73=%d", &s) == 1) sp73 = (s > 0 && s < 500) ? s : 0;
+        else if (sscanf(line, "shrooms74=%d", &s) == 1) sp74 = (s > 0 && s < 500) ? s : 0;
+        else if (sscanf(line, "shrooms75=%d", &s) == 1) sp75 = (s > 0 && s < 500) ? s : 0;
+        else if (sscanf(line, "shrooms=%d", &s) == 1) legacyShrooms = (s > 0 && s < 500) ? s : 0;
     }
     fclose(f);
+    /* v65.5: species keys win; the legacy single key only restores old saves */
+    if (sp73 || sp74 || sp75) {
+        Mobs_SetMushroomSpecies(73, sp73);
+        Mobs_SetMushroomSpecies(74, sp74);
+        Mobs_SetMushroomSpecies(75, sp75);
+    } else if (legacyShrooms > 0) {
+        Mobs_SetMushrooms(legacyShrooms);
+    }
     if (voidShards < 0) voidShards = 0;
     Hotbar_InitDefaults();   /* v58: default quick slots = carried items */
 }

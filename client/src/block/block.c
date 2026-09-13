@@ -267,10 +267,12 @@ void Block_BuildDefinition(void) {
     blockDefinitions[15].modelType = BLOCK_MODEL_SPRITE;
     blockDefinitions[15].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[15].lightType = BLOCK_LIGHT_EMIT;
+    blockDefinitions[15].lightLevel = 10;   /* v65.5: was full 15 - bleached */
 
     Block_Define(16, "lava", 15, 15, 15);
     blockDefinitions[16].colliderType = BLOCK_COLLIDER_LIQUID;
     blockDefinitions[16].lightType = BLOCK_LIGHT_EMIT;
+    blockDefinitions[16].lightLevel = 9;    /* v65.5: hot, not a floodlight */
 
     Block_Define(17, "stone_slab", 1, 1, 1);
     blockDefinitions[17].maxBB = (Vector3) {16, 8, 16};
