@@ -20,18 +20,12 @@ midless.define_block(20, {
     textures = { all = 22 },
     render = block.render.TRANSPARENT,
     collider = block.collider.SOLID,
-    -- v65.3: faint inner glow - crystal reads as living glass
-    light = block.light.EMIT,
-    light_level = 3,
 })
 
 -- 21 launch_pad: dark star-forged pad with a glowing teal sigil
 midless.define_block(21, {
     name = "Launch Pad",
     textures = { top = 19, sides = 23, bottom = 21 },
-    -- v65.3: the sigil glows - the pad is a night landmark
-    light = block.light.EMIT,
-    light_level = 4,
 })
 
 -- 22 warp_core: humming gold/violet core that emits light
@@ -68,10 +62,6 @@ midless.define_block(25, {
 midless.define_block(26, {
     name = "Volatile Barrel",
     textures = { all = 26 },
-    -- v65.3: HAZARD ANNOUNCES ITSELF (grimorium rule): a barrel
-    -- glows dull orange so nobody steps on it in the dark
-    light = block.light.EMIT,
-    light_level = 7,
 })
 
 -- v54: island flora species - each has its own silhouette art
@@ -116,9 +106,6 @@ midless.define_block(33, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: berry lanterns actually lantern
-    light = block.light.EMIT,
-    light_level = 4,
 })
 
 -- v57: tall flora - one block footprint, the client draws the billboard
@@ -457,9 +444,6 @@ midless.define_block(73, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 6,
 })
 midless.define_block(74, {
     name = "Cinder Trumpet",
@@ -467,9 +451,6 @@ midless.define_block(74, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 6,
 })
 midless.define_block(75, {
     name = "Frost Puffball",
@@ -477,9 +458,6 @@ midless.define_block(75, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 6,
 })
 
 -- v63.9: stemmed biome blooms, one silhouette each, varied heights.
@@ -495,9 +473,6 @@ midless.define_block(67, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 midless.define_block(68, {
     name = "Cinder Buds",
@@ -505,9 +480,6 @@ midless.define_block(68, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 midless.define_block(71, {
     name = "Glacier Dewdrop",
@@ -515,9 +487,6 @@ midless.define_block(71, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 midless.define_block(72, {
     name = "Ringbloom",
@@ -525,9 +494,6 @@ midless.define_block(72, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 midless.define_block(76, {
     name = "Ember Lantern",
@@ -535,9 +501,6 @@ midless.define_block(76, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 midless.define_block(77, {
     name = "Frost Burst",
@@ -545,9 +508,6 @@ midless.define_block(77, {
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
-    -- v65.3: soft bioluminescence - flora stays findable at night
-    light = block.light.EMIT,
-    light_level = 4,
 })
 -- v61.2 giant ladder (classic biome only) - puffs, moon bells, star
 -- reeds, crystal stalks and (the rarest) void trees

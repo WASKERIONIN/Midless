@@ -123,7 +123,7 @@ jobs:
         TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
         gh release create "$TAG" \
           --target "$GITHUB_SHA" \
-          --title "Midless: Cosmic Edition v65.3" \
+          --title "Midless: Cosmic Edition v65.4" \
           --notes-file docs/RELEASE_NOTES.md \
           release/Midless-Cosmic-Windows-x64.zip \
           release/SHA256SUMS

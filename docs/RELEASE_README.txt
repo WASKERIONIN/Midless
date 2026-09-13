@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.3 ===
+=== Midless: Cosmic Edition v65.4 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.4
+  - Emission reverted to the v65.2 look: up close the glowing flora
+    overexposed the turf and the ice, so only warp cores, fire and lava
+    emit again. The light_level mechanism stays dormant for a future,
+    better-tuned hazard-glow pass.
+  - F4 work view and the F3 flora-work line remain (debug, off by default).
 
 WHAT'S NEW IN v65.3
   - F4 flora work view: ground patches tinted by chunk flora load

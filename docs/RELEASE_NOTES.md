@@ -1,6 +1,20 @@
-# Midless: Cosmic Edition v65.3
+# Midless: Cosmic Edition v65.4
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.4 - emission reverted: the v65.2 look returns, light_level stays dormant
+
+- **The v65.3 glow pass is reverted by player verdict.** From afar the bioluminescent meadows read
+  fine, but up close the flood light from glowing flora added onto the sunlit turf and overexposed
+  it - green dirt grass looked bleached, and the pale frost ground clipped straight to white
+  ("the ice cuts the eyes"). No block except the warp core, fire and lava emits light again -
+  exactly the v65.2 picture.
+- **The mechanism stays, dormant.** The graded `light_level` (1..15) in the block definition, the
+  flood fill that honours it and the mod field all remain in place, compile-checked and
+  probe-verified, with zero blocks using them: a future hazard-glow pass can bring selective glows
+  back at tuned strengths without rebuilding the plumbing.
+- **The F4 work view and the F3 flora-work HUD line stay** - debug-only, off by default, they never
+  touched the picture.
 
 ## v65.3 - Grimorium ideas landed: the flora work view (F4) and graded emission
 
