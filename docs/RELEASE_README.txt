@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.8 ===
+=== Midless: Cosmic Edition v65.9 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.9
+  - WARP GATE HOTFIX: stepping on the gate now really teleports you
+    (the hook used to die on a fractional coordinate probe), the gate
+    appears exactly where you placed the fourth core, and mod block
+    glow levels reach the client properly.
 
 WHAT'S NEW IN v65.8
   - THE POCKET UNIVERSE. Place four Warp Core blocks (mine them from

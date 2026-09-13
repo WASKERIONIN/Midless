@@ -7,7 +7,8 @@
 #define GAME_PROTOCOL_VERSION 7
 #define PACKET_DEFINE_BLOCK 12
 #define PACKET_REMOVE_BLOCK_DEFINITION 13
-#define DEFINE_BLOCK_PACKET_SIZE 82
+/* v65.8.1: +1 byte for lightLevel (graded emission was server-only) */
+#define DEFINE_BLOCK_PACKET_SIZE 83
 #define BLOCK_DEFAULT_LAST_ID 18
 
 typedef enum BlockModelType {

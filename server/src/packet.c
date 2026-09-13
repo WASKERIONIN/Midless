@@ -450,6 +450,7 @@ unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *def
     ServerPacket_WriteByte(packet, definition->renderType);
     ServerPacket_WriteByte(packet, definition->colliderType);
     ServerPacket_WriteByte(packet, definition->lightType);
+    ServerPacket_WriteByte(packet, definition->lightLevel);   /* v65.8.1 */
     for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->min[i]);
     for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->max[i]);
     return packet;

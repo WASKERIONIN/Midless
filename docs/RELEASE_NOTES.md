@@ -1,6 +1,26 @@
-# Midless: Cosmic Edition v65.8
+# Midless: Cosmic Edition v65.9
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.9 - the warp gate actually carries you (pocket-universe hotfix)
+
+- **Teleport fixed at the root.** The step-on-gate hook probed the block
+  under your feet with a FRACTIONAL coordinate; the get_block binding
+  coerces coordinates to integers and errored out on every tick, so the
+  hook died silently and nothing ever happened. The hook now floors the
+  probe itself. Verified end to end by a new headless harness
+  (tools_dev/pocketplay_harness.c) that drives the real server stack
+  with a synthetic player: four cores fuse, standing on the gate lands
+  you at the pocket spawn, the centre gate brings you back beside your
+  home gate.
+- **The gate rises where you finish the square.** It used to appear at
+  the low corner of the 2x2, which read as "the cores vanished into an
+  invisible cube". Now the cell you placed fourth becomes the gate -
+  finish the square while standing on it and you cross over immediately.
+- **Mod block glow travels over the wire.** The define-block packet never
+  carried lightLevel, so the client ran every emissive mod block at the
+  legacy full blast. The packet grew by one byte (83) and the client
+  reads the graded level now.
 
 ## v65.8 - the pocket universe: four cores, one gate, another world
 

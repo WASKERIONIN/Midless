@@ -881,11 +881,16 @@ midless.register_on_block_update(function(pos, newId, oldId)
             end
         end
         if square then
+            -- the gate rises WHERE THE PLAYER COMPLETED THE SQUARE (the
+            -- cell they just placed); the other three cores are consumed
             morphing_gate = true
-            midless.set_block({ x = ax,     y = gy, z = az     }, WARP_GATE_ID)
-            midless.set_block({ x = ax + 1, y = gy, z = az     }, 0)
-            midless.set_block({ x = ax,     y = gy, z = az + 1 }, 0)
-            midless.set_block({ x = ax + 1, y = gy, z = az + 1 }, 0)
+            for dx = 0, 1 do
+                for dz = 0, 1 do
+                    local cx, cz = ax + dx, az + dz
+                    local id = (cx == gx and cz == gz) and WARP_GATE_ID or 0
+                    midless.set_block({ x = cx, y = gy, z = cz }, id)
+                end
+            end
             morphing_gate = false
             midless.broadcast("The warp cores fuse into a Warp Gate! Step onto it to cross over.")
             return
@@ -902,7 +907,9 @@ midless.register_on_step(function(dt)
         local last = pocket_cooldown[id]
         if not last or pocket_clock - last > 2.5 then
             local pos = p:get_position()
-            local below = midless.get_block({ x = pos.x, y = pos.y - 0.5, z = pos.z })
+            -- NOTE: get_block coerces coords to integers, so floor here -
+            -- a fractional y made the binding error out (v65.8 fix)
+            local below = midless.get_block({ x = math.floor(pos.x), y = math.floor(pos.y - 0.5), z = math.floor(pos.z) })
             if below == WARP_GATE_ID then
                 pocket_cooldown[id] = pocket_clock
                 local fx, fz = math.floor(pos.x), math.floor(pos.z)
