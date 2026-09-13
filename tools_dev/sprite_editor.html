@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Midless Sprite Editor</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; user-select: none; }
+  body { margin: 0; background: #14141e; color: #ddd; font: 14px system-ui, sans-serif; display: flex; height: 100vh; }
+  #side { width: 250px; padding: 12px; background: #1b1b28; overflow-y: auto; flex-shrink: 0; }
+  #main { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: #101018; }
+  h1 { font-size: 16px; color: #ffe282; margin: 0 0 10px; }
+  h2 { font-size: 12px; color: #9a9ab5; text-transform: uppercase; margin: 14px 0 6px; letter-spacing: .06em; }
+  button { background: #2a2a3d; color: #ddd; border: 1px solid #44445e; border-radius: 5px;
+           padding: 5px 9px; cursor: pointer; font-size: 13px; }
+  button:hover { background: #383850; }
+  button.on { background: #4a5a7a; border-color: #7a8ab0; }
+  button.warn { border-color: #7a4a4a; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  #pal { display: grid; grid-template-columns: repeat(8, 26px); gap: 3px; }
+  #pal div { width: 26px; height: 26px; border: 1px solid #000; border-radius: 3px; cursor: pointer; }
+  #pal div.sel { outline: 2px solid #ffe282; }
+  #cur { width: 34px; height: 34px; border: 1px solid #555; border-radius: 4px; vertical-align: middle; background: #000; }
+  canvas#board { image-rendering: pixelated; background:
+    repeating-conic-gradient(#20202e 0% 25%, #181822 0% 50%) 0 0 / 24px 24px; cursor: crosshair; }
+  input[type=color] { width: 34px; height: 34px; padding: 0; border: none; background: none; cursor: pointer; }
+  input[type=range] { vertical-align: middle; }
+  .hint { color: #8888a0; font-size: 12px; line-height: 1.5; }
+  #toast { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+           background: #2a2a3d; border: 1px solid #55556e; padding: 6px 14px; border-radius: 6px; display: none; }
+</style>
+</head>
+<body>
+<div id="side">
+  <h1>Midless Sprite Editor</h1>
+
+  <h2>Холст</h2>
+  <div class="row" id="sizes">
+    <button data-s="16">16×16</button>
+    <button data-s="32" class="on">32×32</button>
+    <button data-s="48">48×48</button>
+  </div>
+  <div class="row">
+    <button id="grid" class="on">Сетка</button>
+    <button id="mirror" class="on">Симметрия ⇔</button>
+    <button id="clear" class="warn">Очистить</button>
+  </div>
+
+  <h2>Инструменты</h2>
+  <div class="row">
+    <button data-t="pen" class="on" title="Карандаш (B)">✏️</button>
+    <button data-t="era" title="Ластик (E)">🧽</button>
+    <button data-t="fill" title="Заливка (G)">🪣</button>
+    <button data-t="line" title="Линия (L)">╲</button>
+    <button data-t="rect" title="Прямоугольник (R)">▭</button>
+    <button data-t="pip" title="Пипетка (I)">💧</button>
+  </div>
+  <div class="row">Кисть <input type="range" id="brush" min="1" max="4" value="1"> <span id="bval">1</span></div>
+  <div class="row">
+    <button id="undo" title="Ctrl+Z">↶ Отмена</button>
+    <button id="redo" title="Ctrl+Y">↷ Вернуть</button>
+  </div>
+
+  <h2>Цвет</h2>
+  <div class="row"><span id="cur"></span><input type="color" id="pick" value="#7ed6b4"></div>
+  <div id="pal"></div>
+
+  <h2>Готовые палитры</h2>
+  <div class="row">
+    <button id="palCosmic">Космос</button>
+    <button id="palEmber">Уголь</button>
+    <button id="palFrost">Мороз</button>
+    <button id="palFur">Шерсть</button>
+  </div>
+
+  <h2>Файл</h2>
+  <div class="row">
+    <label><button>📂 Открыть PNG</button><input type="file" id="load" accept=".png" hidden></label>
+    <button id="save1">💾 Сохранить 1×</button>
+    <button id="save8">💾 Сохранить 8×</button>
+  </div>
+  <p class="hint">Нарисуйте спрайт, сохраните PNG (лучше 1× — точный размер)
+  и пришлите файл в чат — я вставлю его в игру (в атлас terrain.png) и настрою блок.<br><br>
+  Горячие клавиши: B карандаш, E ластик, G заливка, L линия, R прямоугольник, I пипетка, Ctrl+Z/Y отмена/возврат.</p>
+</div>
+<div id="main"><canvas id="board" width="32" height="32" style="width:640px;height:640px;"></canvas><div id="toast"></div></div>
+
+<script>
+"use strict";
+const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+let S = 32, gridOn = true, mirrorOn = true, tool = 'pen', brush = 1;
+let color = '#7ed6b4', drawing = false, startPt = null, snap = null;
+let undoStack = [], redoStack = [];
+
+const PALETTES = {
+  cosmic: ["#0e0e18","#241f38","#3a2f55","#54406e","#7a5a8e","#a67ab0","#c9a0d0","#eeeaff",
+           "#18a088","#000000","#7ed6b4","#40b29c","#228a78","#14605e","#0a3e42","#ffd66a",
+           "#e8a044","#c05a32","#8a3a30","#e07ab0","#b0487a","#6848a0","#a8d8e8","#ffffff"],
+  ember:  ["#1c1a22","#2e262e","#463635","#5e4636","#7a5836","#966c3c","#b28242","#cf9a4c",
+           "#e8b458","#f6d478","#c85a2c","#a03e26","#782a22","#50201e","#301818","#ffb066",
+           "#ff8a3c","#e05a24","#b03818","#7a2414","#4a160e","#6ec8c0","#3c948c","#f2e6c8"],
+  frost:  ["#0e1420","#1a2434","#28384c","#384e66","#486480","#5c7c96","#7296ac","#8cb0c2",
+           "#a8c8d8","#c8e2ec","#e2f0f6","#ffffff","#66a8a0","#48887e","#316860","#1e4a44",
+           "#88b8d8","#6898bc","#4c7898","#345874","#203c54","#b0d8b8","#78a888","#487058"],
+  fur:    ["#2a2028","#3c2f33","#503e3c","#664e44","#7c5e4c","#927054","#a8825e","#be946a",
+           "#d2a878","#e4bc88","#f0d0a0","#f8e4c0","#c8b8a8","#a89888","#888078","#686060",
+           "#7a8e74","#5c7048","#405434","#8aa890","#b8c8b0","#e878a0","#c85078","#903858"]
+};
+function toast(msg){ const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  clearTimeout(t._h); t._h = setTimeout(()=> t.style.display='none', 1800); }
+
+function buildPal(name){
+  const el = document.getElementById('pal'); el.innerHTML = '';
+  PALETTES[name].forEach(c => {
+    if (!/^#[0-9a-f]{6}$/i.test(c)) return;
+    const d = document.createElement('div');
+    d.style.background = c; d.title = c;
+    d.onclick = () => setColor(c);
+    el.appendChild(d);
+  });
+}
+function setColor(c){ color = c;
+  document.getElementById('cur').style.background = c;
+  document.getElementById('pick').value = c;
+  document.querySelectorAll('#pal div').forEach(d =>
+    d.classList.toggle('sel', d.title.toLowerCase() === c.toLowerCase())); }
+
+function pushUndo(){ undoStack.push(ctx.getImageData(0,0,S,S));
+  if (undoStack.length > 60) undoStack.shift(); redoStack.length = 0; }
+function undo(){ if (!undoStack.length) return;
+  redoStack.push(ctx.getImageData(0,0,S,S));
+  ctx.putImageData(undoStack.pop(),0,0); }
+function redo(){ if (!redoStack.length) return;
+  undoStack.push(ctx.getImageData(0,0,S,S));
+  ctx.putImageData(redoStack.pop(),0,0); }
+
+function stamp(x, y, c, erase){
+  const b = +brush;
+  const half = Math.floor((b-1)/2);
+  for (let dy = 0; dy < b; dy++) for (let dx = 0; dx < b; dx++){
+    const xx = x - half + dx, yy = y - half + dy;
+    if (xx < 0 || yy < 0 || xx >= S || yy >= S) continue;
+    ctx.fillStyle = erase ? 'rgba(0,0,0,0)' : c;
+    if (erase) ctx.clearRect(xx, yy, 1, 1); else ctx.fillRect(xx, yy, 1, 1);
+    if (mirrorOn){
+      const mx = S - 1 - xx;
+      if (erase) ctx.clearRect(mx, yy, 1, 1); else ctx.fillRect(mx, yy, 1, 1);
+    }
+  }
+}
+function getPixel(x, y){
+  const d = ctx.getImageData(x, y, 1, 1).data;
+  return d[3] === 0 ? null : '#' + [d[0],d[1],d[2]].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+function fill(x, y, c){
+  const target = getPixel(x, y);
+  if (target === c.toLowerCase()) return;
+  const st = [[x, y]];
+  while (st.length){
+    const [cx, cy] = st.pop();
+    if (cx < 0 || cy < 0 || cx >= S || cy >= S) continue;
+    if (getPixel(cx, cy) !== target) continue;
+    stamp(cx, cy, c, false);
+    st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+  }
+}
+function line(x0, y0, x1, y1, c, erase){
+  const dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy;
+  for(;;){
+    stamp(x0, y0, c, erase);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2*err;
+    if (e2 > -dy){ err -= dy; x0 += sx; }
+    if (e2 < dx){ err += dx; y0 += sy; }
+  }
+}
+function rectPts(x0, y0, x1, y1){
+  const pts = [];
+  const [a, b] = [Math.min(x0,x1), Math.max(x0,x1)];
+  const [c2, d2] = [Math.min(y0,y1), Math.max(y0,y1)];
+  for (let x = a; x <= b; x++){ pts.push([x, c2]); pts.push([x, d2]); }
+  for (let y = c2; y <= d2; y++){ pts.push([a, y]); pts.push([b, y]); }
+  return pts;
+}
+
+function evPos(e){
+  const r = cv.getBoundingClientRect();
+  return [Math.floor((e.clientX - r.left) / r.width * S),
+          Math.floor((e.clientY - r.top) / r.height * S)];
+}
+function snapshot(){ snap = ctx.getImageData(0,0,S,S); }
+function restore(){ if (snap) ctx.putImageData(snap, 0, 0); }
+
+cv.addEventListener('pointerdown', e => {
+  const [x, y] = evPos(e);
+  if (tool === 'pip'){ const c = getPixel(x, y); if (c) setColor(c); return; }
+  pushUndo();
+  if (tool === 'fill'){ fill(x, y, color); return; }
+  drawing = true; startPt = [x, y];
+  if (tool === 'line' || tool === 'rect') snapshot();
+  else stamp(x, y, color, tool === 'era');
+});
+cv.addEventListener('pointermove', e => {
+  if (!drawing) return;
+  const [x, y] = evPos(e);
+  if (tool === 'line'){ restore(); line(startPt[0], startPt[1], x, y, color, false); }
+  else if (tool === 'rect'){ restore(); rectPts(startPt[0], startPt[1], x, y).forEach(p => stamp(p[0], p[1], color, false)); }
+  else stamp(x, y, color, tool === 'era');
+});
+window.addEventListener('pointerup', () => { drawing = false; snap = null; });
+
+function setSize(n){
+  S = n; cv.width = n; cv.height = n;
+  const disp = n * 20;
+  cv.style.width = disp + 'px'; cv.style.height = disp + 'px';
+  undoStack.length = 0; redoStack.length = 0;
+  ctx.clearRect(0, 0, n, n);
+  toast('Холст ' + n + '×' + n + ' очищен');
+}
+document.querySelectorAll('#sizes button').forEach(b =>
+  b.onclick = () => {
+    document.querySelectorAll('#sizes button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); setSize(+b.dataset.s);
+  });
+document.querySelectorAll('[data-t]').forEach(b =>
+  b.onclick = () => {
+    document.querySelectorAll('[data-t]').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); tool = b.dataset.t;
+  });
+document.getElementById('brush').oninput = e => {
+  brush = +e.target.value; document.getElementById('bval').textContent = brush; };
+document.getElementById('grid').onclick = e => {
+  gridOn = !gridOn; e.target.classList.toggle('on', gridOn);
+  cv.style.background = gridOn
+    ? 'repeating-conic-gradient(#20202e 0% 25%, #181822 0% 50%) 0 0 / 24px 24px' : '#181822';
+};
+document.getElementById('mirror').onclick = e => {
+  mirrorOn = !mirrorOn; e.target.classList.toggle('on', mirrorOn); };
+document.getElementById('clear').onclick = () => { pushUndo(); ctx.clearRect(0,0,S,S); };
+document.getElementById('undo').onclick = undo;
+document.getElementById('redo').onclick = redo;
+document.getElementById('pick').oninput = e => setColor(e.target.value);
+document.getElementById('palCosmic').onclick = () => buildPal('cosmic');
+document.getElementById('palEmber').onclick = () => buildPal('ember');
+document.getElementById('palFrost').onclick = () => buildPal('frost');
+document.getElementById('palFur').onclick = () => buildPal('fur');
+
+document.getElementById('load').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    pushUndo();
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, S, S);
+    ctx.drawImage(img, 0, 0, S, S);
+    toast('PNG загружен на холст');
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f);
+};
+function save(scale){
+  const out = document.createElement('canvas');
+  out.width = S * scale; out.height = S * scale;
+  const o = out.getContext('2d');
+  o.imageSmoothingEnabled = false;
+  o.drawImage(cv, 0, 0, out.width, out.height);
+  const a = document.createElement('a');
+  a.download = 'midless_sprite_' + S + 'x' + S + (scale > 1 ? '_x' + scale : '') + '.png';
+  a.href = out.toDataURL('image/png');
+  a.click();
+  toast('Сохранено: ' + a.download);
+}
+document.getElementById('save1').onclick = () => save(1);
+document.getElementById('save8').onclick = () => save(8);
+
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'y'){ e.preventDefault(); redo(); }
+  else {
+    const k = e.key.toLowerCase();
+    if (k === 'b') tool = 'pen'; else if (k === 'e') tool = 'era';
+    else if (k === 'g') tool = 'fill'; else if (k === 'l') tool = 'line';
+    else if (k === 'r') tool = 'rect'; else if (k === 'i') tool = 'pip';
+    else return;
+    document.querySelectorAll('[data-t]').forEach(x =>
+      x.classList.toggle('on', x.dataset.t === tool));
+  }
+});
+
+buildPal('cosmic'); setColor('#7ed6b4'); setSize(32);
+document.querySelector('[data-s="32"]').classList.add('on');
+</script>
+</body>
+</html>
