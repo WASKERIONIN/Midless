@@ -22,6 +22,7 @@ float SoundFx_GetVolume(void);
 void SoundFx_SetMusicEnabled(bool on);   /* v59: dungeon-synth radio */
 const char *SoundFx_TrackName(void);     /* v59.7: station label for the HUD */
 void SoundFx_NextTrack(void);            /* v59.7: N skips to the next station */
+void SoundFx_PocketUpdate(float factor); /* v65.13: pocket zone -> own station */
 void SoundFx_PlayCocoonOpen(void);       /* v59.2: soft hatch bloom */
 
 #endif

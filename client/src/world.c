@@ -133,7 +133,7 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
-    Asteroid_Update(deltaTime);
+    if (PocketFx_Factor() < 0.5f) Asteroid_Update(deltaTime);   /* v65.13: no wireframe rock inside the pocket */
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         Entity *entity = &world.entities[i];
@@ -446,7 +446,7 @@ void World_Draw(Vector3 camPosition) {
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
     DropShadow_DrawAll();
-    Asteroid_Draw(camPosition, World_GetSunlightStrength());
+    if (PocketFx_Factor() < 0.5f) Asteroid_Draw(camPosition, World_GetSunlightStrength());   /* v65.13 */
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
 

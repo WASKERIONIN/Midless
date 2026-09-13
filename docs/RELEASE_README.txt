@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.12 ===
+=== Midless: Cosmic Edition v65.13 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.13
+  - The pocket universe now DREAMS: a pink-lavender dreamcore sky, a
+    pastel cloud sea ringing the meadow, and its own music station
+    ("Pocket of Clouds", a music-box lullaby) that swaps in when you
+    cross the gate and out when you come home. Moths, wireframe rocks
+    and the VOID TIDE do not exist inside the pocket.
 
 WHAT'S NEW IN v65.12
   - The pocket universe is now properly pocketed: from inside it the

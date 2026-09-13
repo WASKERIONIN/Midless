@@ -39,8 +39,9 @@ Color PocketFx_SkyColor(void) {
     const float cosmic[3] = { 14.0f, 4.0f, 28.0f };
     /* pocket: a bright, calm day sky - pale azure with a warm lift.
      * Nothing in the void looks like this, which is the point. */
-    /* v65.12: calmer - the paper-white sky read as blinding glare */
-    const float pocket[3] = { 124.0f, 178.0f, 214.0f };
+    /* v65.13: dreamcore - dusty pink-lavender over the cloud sea
+     * (palette sampled from liminal-space references) */
+    const float pocket[3] = { 216.0f, 186.0f, 206.0f };
     Color sky;
     sky.r = (unsigned char)(cosmic[0] + (pocket[0] - cosmic[0]) * pocketFactor);
     sky.g = (unsigned char)(cosmic[1] + (pocket[1] - cosmic[1]) * pocketFactor);

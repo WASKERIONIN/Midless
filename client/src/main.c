@@ -28,7 +28,8 @@
 #include "localserver.h"
 #include "runtimepaths.h"
 #include "starfield.h"
-#include "pocketfx.h"   /* v65.8: pocket universe sky swap */
+#include "pocketfx.h"
+#include "pocketdreams.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
 #include "atlasheal.h"   /* v65.11 */
 #include "blackhole.h"
@@ -103,6 +104,7 @@ int main(void) {
     SoundFx_SetVolume(gameSettings.volume / 100.0f);
     MapView_Init();
     Bird_Init();
+    PocketDreams_Init();   /* v65.13: dreamcore cloud sea */
     Hunter_Init();
     Mobs_Init();
     Ship_Init();   /* v62: sky traffic */
@@ -158,9 +160,14 @@ void Game_RunLoop(void) {
         Player_Update();
         World_Update();
         BlackHole_Update(GetFrameTime());
-        Bird_Update(GetFrameTime());
-        Hunter_Update(GetFrameTime());
-        Mobs_Update(GetFrameTime());
+        /* v65.13: the pocket universe keeps its own calm - the moths,
+         * the void-tide and its mob waves do not exist inside it. */
+        if (PocketFx_Factor() < 0.5f) {
+            Bird_Update(GetFrameTime());
+            Hunter_Update(GetFrameTime());
+            Mobs_Update(GetFrameTime());
+        }
+        SoundFx_PocketUpdate(PocketFx_Factor());
         Ship_Update((double)GetTime());   /* v62 */
         MapView_Update();
         SoundFx_Update();
@@ -196,8 +203,12 @@ void Game_RunLoop(void) {
                 }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
-                Hunter_Draw();
-                Mobs_Draw();
+                PocketDreams_Draw(player.camera, PocketFx_Factor());
+                /* v65.13: no overworld threats or auras bleed into the pocket */
+                if (PocketFx_Factor() < 0.5f) {
+                    Hunter_Draw();
+                    Mobs_Draw();
+                }
                 /* v46.1: web anchor indicator under the crosshair */
                 {
                     Vector3 webCell;

@@ -376,6 +376,16 @@ static const float motifChapel[] = {
     NOTE_C5, NOTE_B4, NOTE_A4, NOTE_G4, NOTE_A4, 0, NOTE_E4, 0
 };
 
+/* v65.13: F - Am - C - G, the pocket dream drift */
+static const float chordsDream[] = {
+    NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_A3, NOTE_C4, NOTE_E4,
+    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_G3, NOTE_B3, NOTE_D4,
+};
+/* v65.13: slow music-box lullaby for the cloud sea */
+static const float motifDream[] = {
+    NOTE_A4, NOTE_C5, NOTE_B4, NOTE_G4, NOTE_A4, NOTE_E4, NOTE_F4, 0,
+    NOTE_A4, NOTE_C5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, 0
+};
 /* Track 1: Am - G - F - G (Aeolian shuttle) */
 static const float chordsAm[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_G3, NOTE_B3, NOTE_D4,
@@ -402,7 +412,7 @@ static const float chordsGhost[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_E3, NOTE_GS4, NOTE_B3,
 };
 
-#define MUS_NTRACKS 6
+#define MUS_NTRACKS 7
 
 static const MusTrack tracks[MUS_NTRACKS] = {
     /* 0: dorian stride, SOFT LUTE lead, warm pad. L'homme arme (15th c.). */
@@ -419,6 +429,10 @@ static const MusTrack tracks[MUS_NTRACKS] = {
     /* 5: v59.8 re-voiced: a slow choir carries Greensleeves over soft
      * strings (the bare music-box sine read as cheap synthesis) */
     { "Ghost of the Green", chordsGhost, motifGreen, 16, NOTE_A2, 1, 4.4f, 0.0f, 0.38f, 0.0f, 0.26f, 0.20f, 0.15f, 1.0f, 0.15f, 0, 880.0f, 0, 3, 3 },
+    /* 6: v65.13 "Pocket of Clouds" - dreamcore: slow bar, airy breath pad,
+     * a music-box lullaby, dark lowpass, a far bell. Never on the
+     * overworld radio - the pocket claims it through SoundFx_PocketUpdate. */
+    { "Pocket of Clouds",  chordsDream,  motifDream,  16, 87.31f,  0, 7.6f, 0.0f, 0.30f, 0.0f, 0.34f, 0.45f, 0.20f, 1.0f, 0.10f, 4, 1320.0f, 0, 5, 2 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -433,7 +447,9 @@ static unsigned int Mus_NextRand(void) {
 static int musTrack = 0;
 
 static int Mus_PickDifferent(void) {
-    int pick = (int)(Mus_NextRand() % (MUS_NTRACKS - 1u));
+    /* v65.13: station 6 belongs to the pocket - the overworld radio
+     * cycles 0..5 only */
+    int pick = (int)(Mus_NextRand() % 5u);
     if (pick >= musTrack) pick++;     /* 0..5 minus current */
     return pick;
 }
@@ -525,7 +541,8 @@ static float Mus_NextSample(void) {
     if (cycle > 0 && cycle != musLastCycle) {
         /* v63.5: auto switching is a setting now (default OFF) - the
          * radio stays on the chosen station unless you press N */
-        if (gameSettings.autoTrack) {
+        /* v65.13: the pocket dream is never swept away by the radio */
+        if (gameSettings.autoTrack && musTrack != MUS_NTRACKS - 1) {
             musTrack = Mus_PickDifferent();
             T = &tracks[musTrack];
             BAR = (float)MUS_SR * T->barSec;
@@ -673,6 +690,20 @@ const char *SoundFx_TrackName(void) {
  * audio thread re-reads the state each sample. */
 void SoundFx_NextTrack(void) {
     musTrack = Mus_PickDifferent();
+    musSample = 0;
+    musLastCycle = 0;
+}
+
+/* v65.13: crossing into/out of the pocket swaps the station. The
+ * overworld pick is remembered and restored on the way home. */
+static bool musInPocket = false;
+static int musPocketPrev = 0;
+void SoundFx_PocketUpdate(float factor) {
+    bool inPocket = factor > 0.5f;
+    if (inPocket == musInPocket) return;
+    musInPocket = inPocket;
+    if (inPocket) { musPocketPrev = musTrack; musTrack = MUS_NTRACKS - 1; }
+    else { musTrack = musPocketPrev; }
     musSample = 0;
     musLastCycle = 0;
 }

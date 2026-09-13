@@ -1,6 +1,28 @@
-# Midless: Cosmic Edition v65.12
+# Midless: Cosmic Edition v65.13
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.13 - the pocket dreams: dreamcore sky, cloud sea, its own music
+
+The meadow is no longer "the overworld, quieted down" - it is somewhere
+else entirely, and nothing from home follows you in:
+
+- **Purity.** Glowmoths, wireframe asteroids, the VOID TIDE and its
+  crawler/wisp waves are all client-side systems, and every one of them
+  now checks the pocket factor: inside the pocket they neither update
+  nor draw. No hunt can start there, no threat HUD glows there.
+- **Dreamcore.** Reference-hunting paid off: the pocket sky is now a
+  dusty pink-lavender (sampled from liminal-space photography), and a
+  slow sea of pastel clouds - pink, lavender, peach - rings the meadow
+  at lawn level, swallowing its rim. A few pale drifters ride higher.
+  The platform dissolves into cloud: an empty field floating in a soft
+  nowhere, exactly the liminal feeling.
+- **Its own station.** The generative radio learned a seventh track,
+  "Pocket of Clouds": a slow F-Am-C-G drift, an airy breath pad, a
+  music-box lullaby and a far bell under a dark filter. Crossing the
+  gate swaps to it automatically; crossing home restores whatever you
+  had. The overworld radio never plays it, and auto-switch never
+  sweeps it away.
 
 ## v65.12 - the pocket becomes a POCKET: veiled, calm, gate-only
 
