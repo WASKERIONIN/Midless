@@ -367,7 +367,11 @@ void Packet_HandleDefineBlock(void) {
     for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
     for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
     if (!Block_ApplyDefinition(id, &definition)) {
-        TraceLog(LOG_WARNING, "Rejected invalid block definition id=%d", id);
+        int badTile = -1;
+        for (int i = 0; i < 6; i++) {
+            if (!Block_TextureAvailable(definition.textures[i])) { badTile = definition.textures[i]; break; }
+        }
+        TraceLog(LOG_WARNING, "Rejected invalid block definition id=%d (missing tile %d)", id, badTile);
     }
 }
 

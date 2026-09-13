@@ -51,6 +51,10 @@ bool Block_PocketTilesPresent(void) {
     return pocketTilesPresent;
 }
 
+bool Block_TextureAvailable(int tile) {
+    return tile >= 0 && tile < 256 && textureAvailable[tile];
+}
+
 static void Block_LoadLiquidTints(void) {
     Image atlas = Resource_LoadImage("terrain.png");
     if (!atlas.data) return;

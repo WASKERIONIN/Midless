@@ -1,6 +1,22 @@
-# Midless: Cosmic Edition v65.10
+# Midless: Cosmic Edition v65.11
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.11 - the client heals an outdated terrain atlas by itself
+
+The client log from a real run showed the truth: definitions for blocks
+78/79/80 were REJECTED because the terrain.png on disk predated the
+pocket universe - every pocket block (the gate included) meshed as
+nothing, while the teleport itself worked fine and switched the sky to
+the pocket palette (the "white world, islands remain" sight).
+
+- **Atlas self-heal**: at startup the client probes tiles 78-80 of
+  terrain.png; blank tiles get synthesized placeholder pixels patched
+  straight into the GPU atlas, so the gate and the meadow render even
+  from an old install. The real art arrives with a proper zip extract
+  (the red banner keeps saying so).
+- Rejected block definitions now log the offending tile; the atlas
+  dimensions on disk are logged at startup.
 
 ## v65.10 - diagnostics release: the client finally leaves a paper trail
 

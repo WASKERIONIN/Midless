@@ -42,6 +42,7 @@ const Block *Block_GetDefinition(int id);
 
 bool Block_IsDefined(int id);
 bool Block_PocketTilesPresent(void);   /* v65.9.1: atlas carries tiles 78-80 */
+bool Block_TextureAvailable(int tile);  /* v65.11: rejection diagnostics */
 bool Block_IsSelectable(int id);
 bool Block_IsPlant(int id);                 /* v59.7: sprite-model flora */
 bool Block_IsOverridden(int id);

@@ -30,6 +30,7 @@
 #include "starfield.h"
 #include "pocketfx.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
+#include "atlasheal.h"   /* v65.11 */
 #include "blackhole.h"
 #include "ship.h"
 #include "settings.h"
@@ -86,7 +87,9 @@ int main(void) {
 
     
     Shader shader = LoadShaderFromMemory(chunkShaderVs, chunkShaderFs);
-    Texture2D texture = Resource_LoadTexture("terrain.png"); 
+    Texture2D texture = Resource_LoadTexture("terrain.png");
+    AtlasHeal_Terrain(&texture);   /* v65.11: patch blank pocket tiles if the
+                                    * png predates the pocket universe */
     
     World_ApplyTexture(texture);
     World_ApplyShader(shader);

@@ -1,8 +1,13 @@
-=== Midless: Cosmic Edition v65.10 ===
+=== Midless: Cosmic Edition v65.11 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.11
+  - The client now SELF-HEALS an outdated terrain.png: missing pocket
+    tiles 78-80 get placeholder pixels patched into the GPU atlas, so
+    the warp gate and the meadow are visible even from an old install.
 
 WHAT'S NEW IN v65.10
   - DIAGNOSTICS: the client writes midless_client.log next to the exe
