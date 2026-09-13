@@ -130,6 +130,7 @@ void Screens_InventoryToggle(void) {
 
 bool Screens_InventoryIsOpen(void) { return inventoryOpen; }
 bool screenShowDebug = false;
+bool screenShowWorkView = false;      /* v65.3: F4 flora work view */
 static bool loadingStarted = false;
 static bool loadingFailed = false;
 int screenHeight;
@@ -313,6 +314,16 @@ void Screen_DrawGame(void) {
         const char *birdText = TextFormat("Finches: %i fly:%i sit:%i peck:%i", birds, fly, sit, peck);
         I18n_DrawText(birdText, 9, 69, 20, BLACK);
         I18n_DrawText(birdText, 8, 68, 20, (Color){168, 216, 255, 255});
+
+        /* v65.3: flora work stats - what the billboard pass cost this frame
+         * and how loaded the heaviest chunk list is against the 1024 cap */
+        int wp = 0, wq = 0, wm = 0;
+        World_GetWorkStats(&wp, &wq, &wm);
+        const char *workText = TextFormat(
+            "Flora work: %i plants %i quads, worst chunk %i/1024  [F4 work view: %s]",
+            wp, wq, wm, screenShowWorkView ? "ON" : "off");
+        I18n_DrawText(workText, 9, 89, 20, BLACK);
+        I18n_DrawText(workText, 8, 88, 20, (Color){255, 214, 120, 255});
     }
 
     if (player.flying) {

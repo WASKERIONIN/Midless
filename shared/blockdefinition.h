@@ -27,6 +27,11 @@ typedef struct BlockDefinition {
     char name[65];
     uint8_t textures[6];
     uint8_t modelType, renderType, colliderType, lightType;
+    /* v65.3: graded emission strength (1..15) for lightType EMIT blocks.
+     * 0 on an EMIT block means "full 15" (legacy fire/lava/warp core);
+     * soft glows (mushrooms, blooms, crystal) use 3..7 so a whole meadow
+     * of them reads as bioluminescence instead of a field of torches. */
+    uint8_t lightLevel;
     uint8_t min[3], max[3];
 } BlockDefinition;
 

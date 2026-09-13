@@ -1,8 +1,17 @@
-=== Midless: Cosmic Edition v65.2 ===
+=== Midless: Cosmic Edition v65.3 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.3
+  - F4 flora work view: ground patches tinted by chunk flora load
+    (green/yellow/orange/red against the 1024 cap) + F3 HUD line with
+    plants, submitted quads and the heaviest chunk in view.
+  - Graded emission: blocks glow at their own strength (light_level
+    1..15). Barrels warn dull orange, mushrooms bioluminesce, blooms
+    and lanternberries glimmer, warp cores/fire/lava stay full blaze.
+  - Mod API: optional light_level field on define_block.
 
 WHAT'S NEW IN v65.2
   - Height rule: no plant or mushroom stands in grass as tall as itself.

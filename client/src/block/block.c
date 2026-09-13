@@ -280,6 +280,12 @@ void Block_BuildDefinition(void) {
 
     for (int i = 0; i < 256; i++) {
         Block *block = &blockDefinitions[i];
+        /* v65.3: EMIT without an explicit level keeps the legacy full-15
+         * glow; a level on a non-emitter is ignored */
+        if (block->lightType == BLOCK_LIGHT_EMIT && block->lightLevel == 0)
+            block->lightLevel = 15;
+        if (block->lightType != BLOCK_LIGHT_EMIT)
+            block->lightLevel = 0;
         Block_Finalize(block);
         block->lightPassFaces = Block_GetLightPassFaces(block);
     }
@@ -309,6 +315,7 @@ Block* Block_Define(int id, char name[], int topTexture, int bottomTexture, int 
     block->renderType = BLOCK_RENDER_OPAQUE;
     block->colliderType = BLOCK_COLLIDER_SOLID;
     block->lightType = BLOCK_LIGHT_NONE;
+    block->lightLevel = 0;               /* v65.3: graded emission */
     block->liquidTint = BLANK;
     block->minBB = (Vector3) {0, 0, 0};
     block->maxBB = (Vector3) {16, 16, 16};
@@ -366,6 +373,7 @@ int Block_NextSelectable(int id, int direction) {
 static void Block_Replace(int id, Block block) {
     const Block *old = &blockDefinitions[id];
     lightingChanged |= old->renderType != block.renderType || old->lightType != block.lightType ||
+                       old->lightLevel != block.lightLevel ||
                        old->fullCube != block.fullCube || old->lightPassFaces != block.lightPassFaces;
     blockDefinitions[id] = block;
     BlockMesh_BuildTemplate(id);
@@ -382,6 +390,10 @@ bool Block_ApplyDefinition(int id, const BlockDefinition *d) {
     block.renderType = d->renderType;
     block.colliderType = d->colliderType;
     block.lightType = d->lightType;
+    /* v65.3: graded emission - EMIT without an explicit level keeps the
+     * legacy full-15 glow; levels on non-emitters are dropped */
+    block.lightLevel = (d->lightType == BLOCK_LIGHT_EMIT)
+                       ? (d->lightLevel ? d->lightLevel : 15) : 0;
     block.minBB = (Vector3){d->min[0], d->min[1], d->min[2]};
     block.maxBB = (Vector3){d->max[0], d->max[1], d->max[2]};
     Block_Finalize(&block);

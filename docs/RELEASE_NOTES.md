@@ -1,6 +1,24 @@
-# Midless: Cosmic Edition v65.2
+# Midless: Cosmic Edition v65.3
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.3 - Grimorium ideas landed: the flora work view (F4) and graded emission
+
+- **Flora work view (F4)** - a debug pass in the spirit of Grimorium's "colour every pixel by the
+  work the ray did there". Every flora cell wears a tinted ground patch by how loaded its chunk's
+  flora list is against the 1024 cap (green < 256, yellow < 512, orange < 768, red above), and the
+  F3 HUD gains a line: plants drawn, billboard quads submitted this frame (a bloom costs its own
+  quad plus its grass skirt), and the heaviest chunk in view. The whole bug class v65 fixed - a
+  silent cap eating half the lawn - now shows up on screen at a glance instead of in a probe log.
+- **Graded emission (`light_level`)** - emission used to be binary: EMIT flooded at full 15, so
+  nothing could glow softly. Blocks now carry a 1..15 strength and the flood fill honours it.
+  Applied by Grimorium's readability rule ("hazards and living light announce themselves"):
+  volatile barrels glow dull orange (7) so nobody steps on one in the dark; mushrooms glow soft
+  bioluminescence (6); biome blooms and lanternberries (4); launch pad sigils (4); cosmic crystal
+  hums at (3). Warp cores, fire and lava keep the legacy full-strength 15.
+- **Mod API**: new optional `light_level` field on `midless.define_block` (validated 0..15, and
+  rejected on a block that does not set `light = block.light.EMIT`); the client Block carries the
+  level and re-triggers chunk lighting when it changes.
 
 ## v65.2 - the height rule: no plant stands in grass as tall as itself, mushrooms get the lowest lawn
 

@@ -705,6 +705,40 @@ static float World_PosHash(float x, float z) {
  * v61.2: every clump rolls its own dice - blade count, heights and widths
  * come from a stable per-position hash, so the lawn reads as grown, not
  * stamped from one cookie cutter. */
+/* v65.3 flora work view (the Grimorium idea: a debug pass that colours the
+ * world by the work done there). Counters of what the flora pass actually
+ * submitted this frame: plants drawn, billboard quads submitted (a bloom
+ * costs 1 quad + its grass skirt, a lawn tuft 1-2), and the heaviest chunk
+ * flora list seen - the number that hit the old 80-cap bug in v65. */
+static int s_workPlants, s_workQuads, s_workMaxChunk;
+
+void World_GetWorkStats(int *plants, int *quads, int *maxChunkFlora) {
+    if (plants) *plants = s_workPlants;
+    if (quads) *quads = s_workQuads;
+    if (maxChunkFlora) *maxChunkFlora = s_workMaxChunk;
+}
+
+/* v65.3: flat tinted patch under every flora cell, coloured by how loaded
+ * that chunk's flora list is against CHUNK_FLORA_MAX (1024): green < 256,
+ * yellow < 512, orange < 768, red beyond. Hot chunks jump out at a glance. */
+static void World_DrawWorkPatch(Vector3 base, int chunkFlora) {
+    unsigned char r, g;
+    if (chunkFlora < 256)      { r = 70;  g = 220; }
+    else if (chunkFlora < 512) { r = 225; g = 225; }
+    else if (chunkFlora < 768) { r = 245; g = 150; }
+    else                       { r = 245; g = 60;  }
+    float y = base.y + 0.06f;
+    BeginBlendMode(BLEND_ALPHA);         /* raylib 4.5 blend API */
+    rlBegin(RL_QUADS);
+    rlColor4ub(r, g, 40, 110);
+    rlVertex3f(base.x - 0.5f, y, base.z - 0.5f);
+    rlVertex3f(base.x + 0.5f, y, base.z - 0.5f);
+    rlVertex3f(base.x + 0.5f, y, base.z + 0.5f);
+    rlVertex3f(base.x - 0.5f, y, base.z + 0.5f);
+    rlEnd();
+    EndBlendMode();
+}
+
 /* v65.2: grassCap is the hard ceiling for every blade this skirt grows -
  * the plant it rings must always stand ABOVE its own grass (see the rule
  * at the call site), so blades clamp instead of swallowing the bloom. */
@@ -727,6 +761,7 @@ static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
         float th = 0.21f * scale * hMul;
         if (th > grassCap) th = grassCap;      /* v65.2: never outgrow the plant */
         Mobs_DrawBillboard(at, bw, th, tuftTile, bright, lean);
+        s_workQuads++;
         /* the taller sedge layers over the tuft on most ring blades -
          * v65.2: and only while the cap leaves headroom above the tuft
          * (a sedge clamped to the tuft line would just double the quad) */
@@ -735,12 +770,14 @@ static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
             if (sh > grassCap) sh = grassCap;
             if (sh > th + 0.001f) {
                 Mobs_DrawBillboard(at, 0.22f * scale, sh, sedgeTile, bright, lean * 1.15f);
+                s_workQuads++;
             }
         }
     }
 }
 
 static void World_FloraBillboardAt(Vector3 base, int id) {
+    s_workPlants++;
     float halfW = 0.30f, h = 0.60f, swayAmp = 0.045f;
     switch (id) {
         case 12: halfW = 0.30f; h = 0.60f; swayAmp = 0.05f; break;   /* rose */
@@ -814,6 +851,7 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     } else {
         Mobs_DrawBillboard(base, halfW, h, tile, bright, lean);
     }
+    s_workQuads++;
     /* v63.5: the skirt MATCHES the biome lawn - ember turf grows ember
      * grass at every stem base, frost turf grows frost grass */
     int groundId = World_GetBlock((Vector3){ base.x, base.y - 0.5f, base.z });
@@ -842,6 +880,7 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         Vector3 at = { base.x + 0.14f, base.y, base.z - 0.11f };
         Mobs_DrawBillboard(at, 0.20f, 0.32f, 41, bright,
                            0.085f * gust * sinf(t * 2.3f + phase + 1.3f));
+        s_workQuads++;
     }
 
 }
@@ -849,6 +888,9 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
 void World_DrawWireAuras(void) {
     Matrix view = rlGetMatrixModelview();
     Matrix projection = rlGetMatrixProjection();
+    s_workPlants = 0;                 /* v65.3: work-view counters per frame */
+    s_workQuads = 0;
+    s_workMaxChunk = 0;
     for (int i = 0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
         if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0 &&
@@ -860,6 +902,18 @@ void World_DrawWireAuras(void) {
         /* v57: island flora - view-facing billboards, depth write off so the
          * transparent corners never clip what is drawn after them */
         if (chunk->floraCount > 0) {
+            if (chunk->floraCount > s_workMaxChunk)
+                s_workMaxChunk = chunk->floraCount;
+            /* v65.3: F4 work view - tint every flora cell by the load of its
+             * chunk's flora list BEFORE the sprites paint over the ground */
+            if (screenShowWorkView) {
+                for (int s = 0; s < chunk->floraCount; s++) {
+                    Vector3 pb = { chunk->blockPosition.x + chunk->floraLX[s] + 0.5f,
+                                   chunk->blockPosition.y + chunk->floraLY[s],
+                                   chunk->blockPosition.z + chunk->floraLZ[s] + 0.5f };
+                    World_DrawWorkPatch(pb, chunk->floraCount);
+                }
+            }
             Texture2D atlas = World_GetTerrainTexture();
             if (atlas.id != 0) {
                 /* v59.6: shared sprite batch - the alpha-cutout shader

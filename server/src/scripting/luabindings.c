@@ -228,6 +228,8 @@ static void LuaBindings_ReadBlockTable(BlockDefinition *d) {
     d->renderType = LuaBindings_IntField(2, "render", BLOCK_RENDER_OPAQUE, BLOCK_RENDER_OPAQUE, BLOCK_RENDER_TRANSLUCENT);
     d->colliderType = LuaBindings_IntField(2, "collider", BLOCK_COLLIDER_SOLID, BLOCK_COLLIDER_NONE, BLOCK_COLLIDER_LIQUID);
     d->lightType = LuaBindings_IntField(2, "light", BLOCK_LIGHT_NONE, BLOCK_LIGHT_NONE, BLOCK_LIGHT_EMIT);
+    /* v65.3: graded emission strength; mods omit it for the legacy 15 */
+    d->lightLevel = (uint8_t)LuaBindings_IntField(2, "light_level", 0, 0, 15);
     for (int i = 0; i < 3; i++) d->max[i] = 16;
     if (Lua_PushField(2, "bounds")) {
         Lua_CheckTable(-1);

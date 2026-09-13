@@ -556,6 +556,8 @@ void Player_CheckInputs() {
     if (!chatOpen) {
         if (IsKeyPressed(KEY_SPACE)) jumpPressedTime = GetTime();
         if (IsKeyPressed(KEY_F3)) screenShowDebug = !screenShowDebug;
+        /* v65.3: F4 - flora work view (chunk load patches on the ground) */
+        if (IsKeyPressed(KEY_F4)) screenShowWorkView = !screenShowWorkView;
         if (IsKeyPressed(KEY_F5))
             player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
         if (IsKeyPressed(KEY_M) && currentScreen == SCREEN_GAME) MapView_Toggle();

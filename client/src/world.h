@@ -80,6 +80,9 @@ int World_GetBlock(Vector3 blockPos);
 //Get strength of sunlight based on time.
 float World_GetSunlightStrength(void);
 float World_GetBrightness(Vector3 position);
+/* v65.3 flora work view stats (plants drawn, billboard quads submitted,
+ * heaviest chunk flora list in the frustum) */
+void World_GetWorkStats(int *plants, int *quads, int *maxChunkFlora);
 //Get a Chunk at a given position.
 Chunk* World_GetChunkAt(Vector3 pos);
 //Teleport an Entity in the world

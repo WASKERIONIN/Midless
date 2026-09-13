@@ -27,6 +27,7 @@ typedef struct Block {
     int renderType;
     int colliderType;
     int lightType;
+    int lightLevel;   /* v65.3: graded emission strength (0 on EMIT = 15) */
     Vector3 minBB; //0-16
     Vector3 maxBB; //0-16
     bool fullCube;

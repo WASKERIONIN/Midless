@@ -133,7 +133,8 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
         Chunk_RemoveSunlight(chunk, pos);
 
         if (blockDef->lightType == BLOCK_LIGHT_EMIT) {
-            Chunk_AddLightSource(chunk,pos, 15, false);
+            /* v65.3: graded emission - soft glows flood at their own level */
+            Chunk_AddLightSource(chunk, pos, blockDef->lightLevel ? blockDef->lightLevel : 15, false);
         } else {
             Chunk_RemoveLightSource(chunk,pos);
         }

@@ -27,6 +27,8 @@ void Screens_InventoryToggle(void);    /* v53: the satchel */
 bool Screens_InventoryIsOpen(void);
 bool Screens_HotbarConsumeClick(void);  /* v58: LMB on a quick slot does not mine */
 extern bool screenShowDebug;
+/* v65.3: F4 - the flora work view (ground patches tinted by chunk load) */
+extern bool screenShowWorkView;
 
 void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Shutdown(void);

@@ -98,8 +98,10 @@ void Chunk_DoLightSources(Chunk *sourceChunk) {
         const Block *blockDefinition = Block_GetDefinition(sourceChunk->data[i]);
         if (blockDefinition->lightType != BLOCK_LIGHT_EMIT) continue;
 
-        
-        Chunk_SetLightLevel(sourceChunk, i, 15, false);
+        /* v65.3: graded emission (0 on EMIT = legacy full strength) */
+        Chunk_SetLightLevel(sourceChunk, i,
+                            blockDefinition->lightLevel ? blockDefinition->lightLevel : 15,
+                            false);
         Chunk_LightQueueAdd(&queue, i, sourceChunk);
     }
 
