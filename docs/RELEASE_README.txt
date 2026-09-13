@@ -1,8 +1,19 @@
-=== Midless: Cosmic Edition v65 ===
+=== Midless: Cosmic Edition v65.1 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.1
+  - Readability pass: ember + frost mushrooms repainted with real stems and
+    caps that contrast their ground (gold funnels on bone stems; magenta
+    domes on violet stems). Starter-meadow glowcaps untouched.
+  - Biome flowers repainted per biome: ember blooms glow gold/amber on
+    charcoal turf, frost blooms burn magenta/orchid on pale snow - six
+    distinct silhouettes instead of one camouflaged colour per biome.
+  - New tools_dev/flora_contrast.py gate: measures ink, height, ground
+    contrast and stem presence per species; fails the build-style check if
+    any plant camouflages into its biome ground.
 
 WHAT'S NEW IN v65
   - Biome audit: every island cube grows its own grass and its own plants;

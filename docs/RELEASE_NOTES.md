@@ -1,6 +1,28 @@
-# Midless: Cosmic Edition v65.0
+# Midless: Cosmic Edition v65.1
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.1 - the readability pass: mushrooms grow stems, flowers get their own colours per biome
+
+- **Biome mushrooms repainted (ember + frost).** The old caps were a few stemless pixels tinted
+  the same hue as the ground they stood on - frost puffballs were pale-on-pale snow, cinder
+  trumpets soot-on-soot, both effectively invisible at play distance. Now: cinder trumpets are
+  molten-gold funnel caps with a glowing rim and gill underside on a bone stem; frost puffballs
+  are deep-magenta domes with pale spots on a violet stem. Both stand ~14 px tall with a real
+  2-3 px leg, and both contrast hard against their turf (luminance delta 63-123 across the
+  repainted set, was 15-25).
+  The classic glowcap clusters of the starter meadow are untouched by design.
+- **Biome flowers repainted so every biome reads at a glance.** Each set used to be painted in a
+  single ground-tone colour ("everything in one colour"), so ember blooms vanished into charcoal
+  turf and frost blooms into pale snow. Now the ember set glows bright gold/amber on bone stems
+  (smolderhead dome, triple cinder buds, ember lantern spike with teal sparks) and the frost set
+  burns deep magenta/orchid on violet stems (frost burst star, drooping glacier dewdrop,
+  ringbloom wreath) - six distinct silhouettes, none of them the colour of its ground.
+- **New automated readability gate** `tools_dev/flora_contrast.py`: per species it measures ink
+  coverage, silhouette height, luminance contrast against that biome's own ground tile and
+  demands a stem (narrow "leg") in the bottom rows of the sprite; it exits non-zero when any
+  species camouflages. All eight repainted species pass; the gate runs standalone in tools_dev
+  and joins the probe family.
 
 ## v65.0 - the biome audit: every cube grows its own, the mushroom cloud rains again, flat clouds deleted
 
