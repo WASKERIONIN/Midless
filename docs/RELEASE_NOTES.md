@@ -1,6 +1,14 @@
-# Midless: Cosmic Edition v63.9
+# Midless: Cosmic Edition v64.0
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v64.0 - mushrooms back on the lawns, blooms pepper every island, clouds removed, menu polish
+
+- **The experimental rain clouds are gone** (they never worked right). Mushrooms are simply lawn residents again: each biome grows only its own species right on its turf - glowcap clusters on classic turf, cinder trumpets on ember turf, frost puffballs on frost turf. Every biome lawn now has them scattered around, always.
+- **The biome blooms are now impossible to miss**: instead of rare patches they are peppered cell-by-cell across the whole lawn (the spawn bands were re-tuned to the MEASURED noise percentiles - the old thresholds sat in a range the noise almost never reaches, which is exactly why you could not find the new plants).
+- **Every biome block always wears its own grass** (the rule stands): classic turf - void tufts, ember turf - ember blades, frost turf - icy blades; blooms and mushrooms replace single lawn cells, never stack.
+- **Menu polish**: button hover/click areas are now 3px forgiving on every side, button labels are centered by their true measured height (no more visually off-center captions), and the options panel no longer keeps an empty dead row below the last button.
+- Generator safety net: the world probe now refuses any block id that is placed without a definition (this class of invisible-flora bug cannot return).
 
 ## v63.9 - the lawn rule: every biome block always wears its own grass, biome blooms actually appear
 

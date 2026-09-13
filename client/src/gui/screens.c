@@ -67,18 +67,22 @@ bool Screens_UpgradeMenuIsOpen(void) { return upgradeMenuOpen; }
  * the game-facing menus. */
 static bool CosmicButton(Rectangle bounds, const char *label, bool enabled) {
     Vector2 mp = GetMousePosition();
-    bool hover = enabled && CheckCollisionPointRec(mp, bounds);
+    /* v64.0: the hover/click area is 3px larger on every side than the
+     * drawing - near-the-edge cursors no longer "miss" a button that
+     * is visibly under them */
+    Rectangle hit = { bounds.x - 3, bounds.y - 3, bounds.width + 6, bounds.height + 6 };
+    bool hover = enabled && CheckCollisionPointRec(mp, hit);
     DrawRectangleRec(bounds, enabled ? (Color){ 24, 12, 48, 235 } : (Color){ 14, 9, 26, 210 });
     DrawRectangleLinesEx(bounds, hover ? 2 : 1,
         !enabled ? (Color){ 90, 92, 120, 150 } :
         hover   ? (Color){ 96, 255, 214, 255 } : (Color){ 94, 231, 255, 110 });
     int fs = 18;
-    int tw = I18n_MeasureText(label, fs);
+    Vector2 tb = I18n_MeasureEx(label, fs);
     Color tc = !enabled ? (Color){ 125, 125, 150, 255 }
              : hover   ? (Color){ 225, 255, 250, 255 }
                        : (Color){ 170, 235, 225, 255 };
-    I18n_DrawText(label, (int)(bounds.x + bounds.width / 2.0f - tw / 2.0f),
-             (int)(bounds.y + bounds.height / 2.0f - fs / 2.0f), fs, tc);
+    I18n_DrawText(label, (int)(bounds.x + bounds.width / 2.0f - tb.x / 2.0f),
+             (int)(bounds.y + bounds.height / 2.0f - tb.y / 2.0f), fs, tc);
     return hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 }
 
@@ -773,7 +777,9 @@ void Screen_DrawOptions(void) {
     /* v55: options at a readable size */
     int offsetY = screenHeight / 2 - 196;
     int offsetX = screenWidth / 2 - 150;
-    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 10 * 50 + 10)});
+    /* v64.0: the panel is sized to the actual row count (9 rows) - it
+     * used to keep an empty 10th row of dead space below the buttons */
+    DrawPanel((Rectangle){offsetX - 16, offsetY - 16, 332, (float)(48 + 9 * 50 + 10)});
 
     const char *otitle = "OPTIONS";
     I18n_DrawText(otitle, offsetX + 150 - I18n_MeasureText(otitle, 24) / 2 + 1, offsetY + 6 + 1, 24, BLACK);

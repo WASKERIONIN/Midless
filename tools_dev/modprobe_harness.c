@@ -77,6 +77,28 @@ int main(void) {
         }
     }
     printf("PROBE: cells=%ld solidCells=%ld\n", cells, islandsCells);
+    /* v64.0: measure the fine_n noise field (seedOffset 777) so the
+     * lawn bloom/mushroom bands can be tuned to real percentiles */
+    {
+        WGField *fn = NULL;
+        for (int i = 0; i < worldgen.fieldCount; i++)
+            if (worldgen.fields[i].seedOffset == 777) { fn = &worldgen.fields[i]; break; }
+        if (fn) {
+            static float vals[40401];
+            int n = 0;
+            for (int z = -100; z <= 100; z++)
+                for (int x = -100; x <= 100; x++)
+                    vals[n++] = fnlGetNoise2D(&fn->noise, (float)x, (float)z);
+            for (int i = 0; i < n; i++)
+                for (int j = i + 1; j < n; j++)
+                    if (vals[j] < vals[i]) { float t = vals[i]; vals[i] = vals[j]; vals[j] = t; }
+            printf("PROBE: fine_n percentiles: p50=%.3f p75=%.3f p90=%.3f p95=%.3f p97=%.3f p98=%.3f p99=%.3f max=%.3f\n",
+                   vals[n/2], vals[n*3/4], vals[n*9/10], vals[n*95/100],
+                   vals[n*97/100], vals[n*98/100], vals[n*99/100], vals[n-1]);
+        } else {
+            printf("PROBE: fine_n field (777) not found\n");
+        }
+    }
     printf("PROBE: block histogram (nonzero):\n");
     for (int i = 1; i < 256; i++)
         if (counts[i]) printf("  %3d %-16s %ld\n", i, BlockName(i), counts[i]);
@@ -175,10 +197,19 @@ int main(void) {
             }
         }
     {
-        long mush = counts[64] + counts[65] + counts[66] + counts[73] +
-                    counts[74] + counts[75];
-        printf("PROBE: worldgen mushrooms 64-66/73-75 (must be 0): %ld\n", mush);
-        if (mush != 0) { printf("PROBE: FAIL mushrooms in worldgen\n"); return 1; }
+        /* v64.0: mushrooms are lawn residents now - each species must be
+         * present, the old twin ids must never come back, and the total
+         * must stay modest (a sprinkle, not a carpet) */
+        long mush = counts[73] + counts[74] + counts[75];
+        long oldTwins = counts[64] + counts[65] + counts[66];
+        printf("PROBE: lawn mushrooms 73/74/75 = %ld/%ld/%ld, old twins = %ld\n",
+               counts[73], counts[74], counts[75], oldTwins);
+        if (oldTwins != 0) { printf("PROBE: FAIL old mushroom twins returned\n"); return 1; }
+        if (counts[73] == 0 || counts[74] == 0 || counts[75] == 0) {
+            printf("PROBE: FAIL a mushroom species is missing\n");
+            return 1;
+        }
+        if (mush > 200) { printf("PROBE: FAIL mushroom carpet\n"); return 1; }
     }
     /* v63.9: every non-default id the worldgen places MUST have a block
      * definition - undefined ids slip past Worldgen_Freeze (the material

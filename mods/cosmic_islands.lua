@@ -422,11 +422,9 @@ for _, band in ipairs({
 }) do
     classic_id = f.select(f.lt(band[1], which_n), band[2], classic_id)
 end
--- v63.7: mushrooms are RAIN-GROWN now - a wandering rain cloud waters
--- the ground and only that biome's own mushroom sprouts where drops
--- land. The three species (ids 73-75) are defined below; they are NOT
--- in any worldgen band, so a world starts mushroom-free until it
--- rains. Three completely different body plans, zero recolors:
+-- v64.0: mushrooms are lawn residents - each biome grows only its own
+-- species right on its turf (bands in the lawn layer below). Three
+-- completely different body plans, zero recolors:
 --   73 Void Glowcaps - a gregarious CLUSTER of small teal umbrellas
 --   74 Cinder Trumpet - a hollow chanterelle-style funnel with a
 --     smoldering glow deep in the cup
@@ -515,21 +513,15 @@ classic_id = f.select(f.lt(0.965, fine_n), 49, classic_id)
 -- (patch_n masks where blooms may appear) and rare lantern groves
 local ember_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local ember_id = 59                                   -- ember tuft lawn
-ember_id = f.select(ember_patch * f.lt(-0.50, which_n) * f.lt(which_n, -0.20), 67, ember_id)
-ember_id = f.select(ember_patch * f.lt(-0.20, which_n) * f.lt(which_n, 0.00), 68, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.20), 76, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.20, which_n) * f.lt(which_n, 0.35), 31, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.35, which_n), 33, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 31, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.00, which_n), 33, ember_id)
 ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
 
 -- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
 local frost_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.50, which_n) * f.lt(which_n, -0.20), 77, frost_id)
-frost_id = f.select(frost_patch * f.lt(-0.20, which_n) * f.lt(which_n, 0.00), 71, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.40), 72, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.40, which_n) * f.lt(which_n, 0.60), 48, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.60, which_n), 52, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.15), 48, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.15, which_n), 52, frost_id)
 frost_id = f.select(f.lt(0.90, fine_n), 49, frost_id) -- rare void tree
 
 local flower_id = f.select(classic_f, classic_id,
@@ -549,16 +541,33 @@ mid_body = f.select(frost_b, 19, mid_body)
 mid_body = f.select(starter_zone, 2, mid_body)
 local body = f.select(surface, top_block, f.select(f.lt(y, 46), 1, mid_body))
 local material = f.select(inside, body, 0)
--- v63.9 RULE: every biome surface ALWAYS wears its own grass - the
--- air cell resting on the ground (the same cell flora uses) carries
--- the biome lawn: classic turf -> void tufts, ember turf -> ember
--- blades, frost turf -> icy blades. Flowers claim individual cells on
--- top of that lawn (they replace the tuft, never stack on it).
+-- v64.0 RULE: every biome surface ALWAYS wears its own grass - the
+-- air cell resting on the ground carries the biome lawn: classic
+-- turf -> void tufts, ember turf -> ember blades, frost turf -> icy
+-- blades. ON that lawn, scattered cell by cell (fine noise, so they
+-- pepper the whole island instead of clumping), grow each biome's
+-- own blooms and mushrooms - mushrooms simply live on the lawn now
+-- (the rain-cloud experiment is gone for good).
 local lawn_spot = solid_below * (1 - inside)
+local lawn_open = lawn_spot * open_above
 local lawn_id = f.select(starter_zone, 39,
                  f.select(ember_b, 59,
                  f.select(frost_b, 60, 39)))
 material = f.select(lawn_spot, lawn_id, material)
+-- three interleaved fine-noise bands pepper each biome's lawn with
+-- its three blooms. Bands sit on MEASURED percentiles of the fine
+-- noise (p95=0.467, p97=0.511, p99=0.577 in a representative region)
+-- so every island gets a visible scatter of all three species.
+local bloom1 = f.select(ember_b, 67, 77)   -- smolderhead / frost burst
+local bloom2 = f.select(ember_b, 68, 71)   -- cinder buds / glacier dewdrop
+local bloom3 = f.select(ember_b, 76, 72)   -- ember lantern / ringbloom
+material = f.select(lawn_open * f.lt(0.460, fine_n) * f.lt(fine_n, 0.495), bloom1, material)
+material = f.select(lawn_open * f.lt(0.495, fine_n) * f.lt(fine_n, 0.530), bloom2, material)
+material = f.select(lawn_open * f.lt(0.530, fine_n) * f.lt(fine_n, 0.577), bloom3, material)
+-- mushrooms: glowcap cluster (classic) / cinder trumpet (ember) /
+-- frost puffball (frost) - rare lawn residents beyond the p99+ line
+local mush_id = f.select(ember_b, 74, f.select(frost_b, 75, 73))
+material = f.select(lawn_open * f.lt(0.640, fine_n), mush_id, material)
 material = f.select(flora_cell, flower_id, material)
 
 ------------------------------------------- starter island decorations ----
@@ -594,7 +603,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 19,
+    id = "midless:cosmic", version = 20,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),
