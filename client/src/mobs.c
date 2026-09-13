@@ -1695,8 +1695,13 @@ static void Grazer_Draw(double now) {
  * stock rlgl shader has no alpha cutout, so a sprite's TRANSPARENT
  * texels wrote depth and punched invisible holes in whatever was drawn
  * after them (flowers vanishing when you looked through another
- * flower's quad). This batch runs a shader that discards alpha < 0.5
- * and keeps the depth mask off - sprites can no longer clip anything. */
+ * flower's quad). This batch runs a shader that discards alpha < 0.5.
+ * v65.6: the depth mask stays ON now. With the mask off (v59.6) plants
+ * wrote no depth at all, so everything drawn later - mobs, particles,
+ * other billboards - painted straight through them ("the world shows
+ * through the trees, it glitches"). The cutout discard already keeps
+ * transparent corners from writing depth, so solid ink occludes
+ * properly and sprite-vs-sprite overlap stops depending on draw order. */
 static Shader spriteCutShader;
 static bool spriteCutReady = false;
 static const char *spriteCutVs =
@@ -1731,7 +1736,8 @@ void Mobs_SpriteBatchBegin(Texture2D atlas) {
         spriteCutShader = LoadShaderFromMemory(spriteCutVs, spriteCutFs);
     }
     BeginShaderMode(spriteCutShader);   /* flushes whatever batch was open */
-    rlDisableDepthMask();
+    /* v65.6: depth writes ON - see the note above */
+    rlEnableDepthMask();
     /* v61: billboards are double-sided by nature - with the session's
      * backface culling left ON after World_Draw, a quad whose winding
      * faces away from the camera simply vanished (this is what silently
@@ -1816,7 +1822,7 @@ bool Mobs_TryCollectMushroom(void) {
             m->active = false;
             int si = Mushroom_SpeciesIndex(m->tile);
             if (si >= 0) mushroomsStoredBySpecies[si]++;
-            Player_HotbarAutoAdd(27);   /* v58: quick slot picks it up */
+            Player_HotbarAutoAdd(m->tile);   /* v65.6: pin the species art */
             SoundFx_PlayPlace();
             if (!mushHintShown) {
                 mushHintShown = true;

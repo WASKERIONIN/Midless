@@ -1,6 +1,29 @@
-# Midless: Cosmic Edition v65.5
+# Midless: Cosmic Edition v65.6
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.6 - solid plants, six quick slots, no G key, named items, and the purple mushrooms are back
+
+- **Plants no longer see through.** The flora sprite batch ran with the depth mask off (a v59.6
+  over-correction), so trees, flowers and mushrooms wrote no depth at all: everything drawn later
+  painted straight through them and overlaps depended on draw order ("the world shows through the
+  plants, it glitches"). The batch now writes depth; the alpha-cutout shader still discards
+  transparent corners, so quads occlude like solid geometry and sprite-vs-sprite overlap is
+  depth-correct.
+- **Six quick slots** (was four), and the old junk is gone: pins are the real species tiles now
+  (glowcap / trumpet / puffball art in the slot, per-species counts), the legacy generic mushroom
+  icon is accepted only as an alias, and discovery order fills one slot per carried species.
+- **The G key is deleted.** Eating a mushroom lives only on the quick slots (pin one, press its
+  number) - the hotbar already had use-bindings, the extra key was legacy debris. Hints and the
+  satchel footer say so.
+- **The satchel names what you point at**: hover any occupied cell and the item name appears under
+  the grid (localised: Void Glowcaps / Cinder Trumpet / Frost Puffball / Gaze Scroll).
+- **Mushrooms wear their own violet family - no biome colours, no world colours.** The glowcap
+  cluster was teal (both the "disgusting green" and the world's crystal colour); the trumpet wore
+  ember amber; the puffball wore frost magenta. Now: glowcaps are bright violet with lavender
+  spots (the original purple look, back on dirt blocks), the cinder trumpet is a violet funnel with
+  a hot-pink rim, the puffball a deep-violet dome with pale warts. Contrast gate still passes
+  (dL 63-88 against their grounds), and species still sprout only on their own biome ground.
 
 ## v65.5 - the mushroom scheme, an honest satchel, a currency section, bigger type, dimmer lights
 

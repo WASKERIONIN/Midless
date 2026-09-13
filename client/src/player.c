@@ -69,8 +69,9 @@ static int voidShards = 3;   /* v48: warp travel currency */
 static int armorLvl = 0;     /* v58: forged armor plates 0..3 */
 
 /* ---- v58: quick slots + spell scroll ----------------------------------- */
-#define PLAYER_HOTBAR_SLOTS 4
-static int hotbarItem[PLAYER_HOTBAR_SLOTS] = { -1, -1, -1, -1 };
+/* v65.6: six quick slots (was four - the satchel outgrew them) */
+#define PLAYER_HOTBAR_SLOTS 6
+static int hotbarItem[PLAYER_HOTBAR_SLOTS] = { -1, -1, -1, -1, -1, -1 };
 static int scrollCount = 0;  /* spell scrolls carried */
 static double gazeUntil = 0.0; /* while active: the black hole lens is calm */
 
@@ -155,7 +156,9 @@ bool Player_HotbarIsEmpty(void) {
 
 /* new items claim the first free slot (discovery order); duplicates stack */
 int Player_HotbarAutoAdd(int item) {
-    if (item != 27 && item != 40) return -1;
+    /* v65.6: same pin vocabulary as Assign */
+    if (item == 27) item = 73;
+    if (item != 73 && item != 74 && item != 75 && item != 40) return -1;
     for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++)
         if (hotbarItem[i] == item) return i;
     for (int i = 0; i < PLAYER_HOTBAR_SLOTS; i++)
@@ -165,8 +168,11 @@ int Player_HotbarAutoAdd(int item) {
 
 bool Player_HotbarAssign(int slot, int item) {
     if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return false;
-    if (item != 27 && item != 40) { hotbarItem[slot] = -1; return true; }
-    if (item == 27 && Mobs_GetMushrooms() <= 0) return false;
+    /* v65.6: pins are the real species tiles (73/74/75), the scroll, or
+     * the legacy generic mushroom icon 27 (accepted, drawn as glowcap) */
+    if (item == 27) item = 73;
+    if (item != 73 && item != 74 && item != 75 && item != 40) { hotbarItem[slot] = -1; return true; }
+    if ((item == 73 || item == 74 || item == 75) && Mobs_GetMushroomSpecies(item) <= 0) return false;
     if (item == 40 && scrollCount <= 0) return false;
     hotbarItem[slot] = item;
     return true;
@@ -175,7 +181,8 @@ bool Player_HotbarAssign(int slot, int item) {
 void Player_HotbarUseSlot(int slot) {
     if (slot < 0 || slot >= PLAYER_HOTBAR_SLOTS) return;
     int item = hotbarItem[slot];
-    if (item == 27) {
+    if (item == 27 || item == 73 || item == 74 || item == 75) {
+        /* v65.6: eating lives ONLY on the quick slots (the G key is gone) */
         if (Mobs_EatMushroom()) return;
         SoundFx_PlayClick();
         Chat_AddLine("No mushrooms in the satchel.");
@@ -197,7 +204,10 @@ static void Hotbar_InitDefaults(void) {
     /* v58: default layout = everything the player already carries,
      * in discovery order */
     int slot = 0;
-    if (Mobs_GetMushrooms() > 0 && slot < PLAYER_HOTBAR_SLOTS) hotbarItem[slot++] = 27;
+    /* v65.6: one pin per carried species, then the scroll */
+    const int sp[3] = { 73, 74, 75 };
+    for (int k = 0; k < 3; k++)
+        if (Mobs_GetMushroomSpecies(sp[k]) > 0 && slot < PLAYER_HOTBAR_SLOTS) hotbarItem[slot++] = sp[k];
     if (scrollCount > 0 && slot < PLAYER_HOTBAR_SLOTS) hotbarItem[slot] = 40;
 }
 
@@ -778,21 +788,16 @@ void Player_CheckInputs() {
           }
         }
 
-        /* v51: G eats a stored mushroom */
-        if (IsKeyPressed(KEY_G) && !player.webActive) {
-            if (!Mobs_EatMushroom()) {
-                SoundFx_PlayClick();
-                if (Mobs_GetMushrooms() > 0) Chat_AddLine("HP is already full.");
-            }
-        }
-
-        /* v58: quick slots 1..4 */
+        /* v65.6: quick slots 1..6 - the only way to use an item now
+         * (the old G-eats-mushroom key was legacy junk and is gone) */
         {
             int slotKey = -1;
             if (IsKeyPressed(KEY_ONE)) slotKey = 0;
             else if (IsKeyPressed(KEY_TWO)) slotKey = 1;
             else if (IsKeyPressed(KEY_THREE)) slotKey = 2;
             else if (IsKeyPressed(KEY_FOUR)) slotKey = 3;
+            else if (IsKeyPressed(KEY_FIVE)) slotKey = 4;
+            else if (IsKeyPressed(KEY_SIX)) slotKey = 5;
             if (slotKey >= 0) Player_HotbarUseSlot(slotKey);
         }
 

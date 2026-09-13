@@ -1,8 +1,17 @@
-=== Midless: Cosmic Edition v65.5 ===
+=== Midless: Cosmic Edition v65.6 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.6
+  - Plants are solid: the sprite batch writes depth again, so nothing
+    shows through trees, flowers or mushrooms.
+  - Six quick slots; pins show the real mushroom species art; the G key
+    is gone - use a quick slot to eat.
+  - The satchel shows the name of the item you hover.
+  - Mushrooms repainted into their own violet family (purple glowcaps on
+    dirt are back): no biome colours, no standard world colours.
 
 WHAT'S NEW IN v65.5
   - Mushroom scheme: rain cloud -> mushrooms grow -> live 10 minutes ->

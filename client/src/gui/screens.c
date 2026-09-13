@@ -94,6 +94,17 @@ static void CosmicCell(int x, int y, int size, bool highlighted) {
                          (Color){ 200, 60, 255, 45 });
 }
 
+/* v65.6: satchel names what it shows (hover a cell to read the name) */
+static const char *Satchel_ItemName(int tile) {
+    switch (tile) {
+        case 73: return "Void Glowcaps";
+        case 74: return "Cinder Trumpet";
+        case 75: return "Frost Puffball";
+        case 40: return "Gaze Scroll";
+        default: return "Unknown";
+    }
+}
+
 /* atlas tile drawn as an inventory icon (crisp point-scaled pixel art) */
 static void CosmicTileIcon(Texture2D atlas, int tile, int x, int y, int size) {
     if (atlas.id == 0) return;
@@ -276,13 +287,13 @@ void Screen_Shutdown(void) {
 
 /* v58: quick-slot state shared between the satchel and the HUD strip */
 static int satchelPick = -1;            /* item tile picked in the satchel */
-static Rectangle hotbarRects[4];
+static Rectangle hotbarRects[6];   /* v65.6: six quick slots */
 static bool hotbarRectsReady = false;
 
 bool Screens_HotbarConsumeClick(void) {
     if (!hotbarRectsReady) return false;
     Vector2 mp = GetMousePosition();
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 6; i++)
         if (CheckCollisionPointRec(mp, hotbarRects[i])) return true;
     return false;
 }
@@ -343,7 +354,8 @@ void Screen_DrawGame(void) {
         else if (Player_NearWarpCore())
             moveText = TextFormat(Tr("%s E - WARP   B - UPGRADE LASER (5 shards)"), weaponTag);
         else if (Mobs_GetMushrooms() > 0)
-            moveText = TextFormat(Tr("%s G - EAT MUSHROOM x%d   I - SATCHEL"), weaponTag, Mobs_GetMushrooms());
+            moveText = TextFormat(Tr("%s MUSHROOM x%d - pin it to a quick slot to eat   I - SATCHEL"),
+                                  weaponTag, Mobs_GetMushrooms());
         else if (World_GetBlock(padCheck) == 21)
             moveText = TextFormat(Tr("%s SPACE - LAUNCH from the pad"), weaponTag);
         else if (dashCharges > 0)
@@ -586,7 +598,7 @@ void Screen_DrawGame(void) {
                 if (c > 0 && nItems < 12) {
                     items[nItems].tile = spTiles[k];
                     items[nItems].count = c;
-                    items[nItems].pin = 27;      /* pins as the edible item */
+                    items[nItems].pin = spTiles[k];   /* v65.6: pin the species art */
                     nItems++;
                 }
             }
@@ -597,11 +609,16 @@ void Screen_DrawGame(void) {
                 nItems++;
             }
             for (int i = nItems; i < 12; i++) { items[i].tile = -1; items[i].count = 0; items[i].pin = -1; }
+            int hoverTile = -1;
+            Vector2 smp = GetMousePosition();
             for (int i = 0; i < 12; i++) {
                 int cx = gx + (i % 4) * (cell + gap);
                 int cy = gy + (i / 4) * (cell + gap);
                 CosmicCell(cx, cy, cell, items[i].tile >= 0);
                 if (items[i].tile >= 0) {
+                    /* v65.6: the satchel names what you point at */
+                    if (CheckCollisionPointRec(smp, (Rectangle){ (float)cx, (float)cy, (float)cell, (float)cell }))
+                        hoverTile = items[i].tile;
                     CosmicTileIcon(atlas, items[i].tile, cx + 10, cy + 8, 52);
                     const char *cnt = TextFormat("%d", items[i].count);
                     int w = I18n_MeasureText(cnt, 18);
@@ -618,8 +635,13 @@ void Screen_DrawGame(void) {
                     }
                 }
             }
-            I18n_DrawText("only what you carry shows here", gx + 2, gy + 3 * cell + 2 * gap + 8,
-                          14, (Color){ 130, 130, 160, 255 });
+            if (hoverTile >= 0) {
+                I18n_DrawText(Satchel_ItemName(hoverTile), gx + 2, gy + 3 * cell + 2 * gap + 8,
+                              16, (Color){ 255, 240, 200, 255 });
+            } else {
+                I18n_DrawText("only what you carry shows here", gx + 2, gy + 3 * cell + 2 * gap + 8,
+                              14, (Color){ 130, 130, 160, 255 });
+            }
 
             /* ---- details (right side) ---- */
             int sx = gx + 4 * (cell + gap) + 26;
@@ -656,11 +678,11 @@ void Screen_DrawGame(void) {
 
             /* footer */
             int fy = my + 398;
-            I18n_DrawText("G - eat a mushroom (+3 HP)      E - pick one in the field",
+            I18n_DrawText("E - pick a mushroom in the field      1-6 - use a quick slot",
                      mx + 24, fy, 15, (Color){ 170, 170, 195, 255 });
             I18n_DrawText("Shards are currency: they live in the CURRENCY section, not the grid.",
                      mx + 24, fy + 22, 14, (Color){ 170, 200, 190, 255 });
-            I18n_DrawText("Click an item, then a slot below to pin it to 1-4.",
+            I18n_DrawText("Click an item, then a slot below to pin it to 1-6.",
                      mx + 24, fy + 40, 14, (Color){ 170, 200, 190, 255 });
             I18n_DrawText("I / ESC - close", mx + 560, fy + 40, 14, (Color){ 140, 140, 165, 255 });
         }
@@ -682,12 +704,12 @@ void Screen_DrawGame(void) {
      * click them (or press 1..4) to use, click in the satchel to assign */
     {
         int hbSize = 56, hbGap = 10;
-        int hbW = 4 * hbSize + 3 * hbGap;
+        int hbW = 6 * hbSize + 5 * hbGap;   /* v65.6: six quick slots */
         int hx = screenWidth / 2 - hbW / 2;
         int hy = screenHeight - 74;
         Texture2D atlasHb = World_GetTerrainTexture();
         bool assignMode = inventoryOpen && screenCursorEnabled && satchelPick >= 0;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 6; i++) {
             int cx = hx + i * (hbSize + hbGap);
             hotbarRects[i] = (Rectangle){ (float)cx, (float)hy, (float)hbSize, (float)hbSize };
             hotbarRectsReady = true;
@@ -695,7 +717,9 @@ void Screen_DrawGame(void) {
             int item = Player_HotbarItem(i);
             if (item >= 0) {
                 CosmicTileIcon(atlasHb, item, cx + 8, hy + 6, 40);
-                int cnt = (item == 27) ? Mobs_GetMushrooms() : (item == 40 ? Player_GetScrollCount() : 0);
+                int cnt = (item == 27 || item == 73 || item == 74 || item == 75)
+                          ? (item == 27 ? Mobs_GetMushrooms() : Mobs_GetMushroomSpecies(item))
+                          : (item == 40 ? Player_GetScrollCount() : 0);
                 const char *cntS = TextFormat("%d", cnt);
                 int tw = I18n_MeasureText(cntS, 15);
                 I18n_DrawText(cntS, cx + hbSize - tw - 5 + 1, hy + hbSize - 19 + 1, 15, BLACK);
@@ -707,7 +731,7 @@ void Screen_DrawGame(void) {
         }
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mp = GetMousePosition();
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 6; i++) {
                 if (CheckCollisionPointRec(mp, hotbarRects[i])) {
                     if (assignMode) {
                         Player_HotbarAssign(i, satchelPick);

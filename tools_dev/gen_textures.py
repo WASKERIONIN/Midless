@@ -2031,13 +2031,16 @@ def t_glowcap_cluster(index):
     lavender spots, pale stems, one tiny button in front."""
     img = blank_tile()
     px = img.load()
+    # v65.6: THE PURPLES ARE BACK. The teal caps were both the "disgusting
+    # green" and a standard world colour (crystal teal); mushrooms now wear
+    # their own violet family - no biome colour, no world colour.
     ST = (214, 206, 190)
     ST_D = (168, 158, 142)
-    CAP_D = (28, 108, 96)
-    CAP = (56, 196, 172)
-    CAP_L = (130, 240, 220)
-    SPOT = (198, 188, 232)
-    OUT = (20, 48, 44)
+    CAP_D = (104, 58, 172)
+    CAP = (168, 110, 235)
+    CAP_L = (214, 170, 255)
+    SPOT = (238, 224, 255)
+    OUT = (44, 22, 78)
     # big umbrella (left): cap rows 4-8, x2-9
     dome = {4: (4, 7), 5: (3, 8), 6: (2, 9), 7: (2, 9), 8: (3, 8)}
     for y, (x0, x1) in dome.items():
@@ -2081,70 +2084,87 @@ def t_glowcap_cluster(index):
 
 
 def t_cinder_trumpet(index):
-    """v65.1: cinder trumpet - a wide flared AMBER funnel with a hot rim
-    and a dark hollow cup, on a thick bone stem with a skirt ring. The
-    v63 funnel was a narrow dark-brown cone: dL 25 on charcoal turf."""
+    """v65.6: cinder trumpet - a wide flared VIOLET funnel with a hot pink
+    rim and a dark hollow cup, on a thick bone stem with a skirt ring.
+    The v65.1 amber funnel matched the ember biome; mushrooms must NOT
+    wear biome colours, so the trumpet joined the violet family."""
     img = blank_tile()
     px = img.load()
+    ST = (214, 206, 190)
+    ST_D = (168, 158, 142)
+    ST_L = (238, 232, 218)
+    CAP = (150, 80, 205)
+    CAP_D = (96, 48, 150)
+    RIM = (255, 110, 210)
+    GLOW = (255, 150, 230)
+    EDGE = (190, 95, 235)
     for y in range(11, 16):                # stout bone leg
-        px[7, y] = EMB_ASH
-        px[8, y] = EMB_ASH_D
-    px[6, 12] = EMB_ASH_D                  # skirt ring
-    px[9, 12] = EMB_ASH_D
-    px[7, 14] = EMB_ASH_L
+        px[7, y] = ST
+        px[8, y] = ST_D
+    px[6, 12] = ST_D                       # skirt ring
+    px[9, 12] = ST_D
+    px[7, 14] = ST_L
     rows = {3: (5, 10), 4: (4, 11), 5: (2, 13), 6: (2, 13),
             7: (4, 11), 8: (5, 10), 9: (6, 9), 10: (7, 8)}
     for y, (x0, x1) in rows.items():
         for x in range(x0, x1 + 1):
             if y == 3:
-                px[x, y] = EMB_HOT         # hot wavy rim
+                px[x, y] = RIM             # hot wavy rim
             elif y == 4 and x in (7, 8):
-                px[x, y] = EMB_DEEP        # the hollow cup
+                px[x, y] = CAP_D           # the hollow cup
             elif x == x0:
-                px[x, y] = EMB_GOLD
+                px[x, y] = EDGE
             elif x == x1:
-                px[x, y] = EMB_EMB
+                px[x, y] = GLOW
             else:
-                px[x, y] = EMB_AMBER
+                px[x, y] = CAP
     for x in range(6, 10):
-        px[x, 2] = EMB_HOT                 # rim crown
-    px[5, 2] = EMB_HOT                     # rim points
-    px[10, 2] = EMB_HOT
-    px[7, 5] = EMB_EMB                     # glow deep in the cup
-    px[8, 5] = EMB_HOT
-    px[4, 6] = EMB_GOLD
-    px[11, 6] = EMB_EMB
+        px[x, 2] = RIM                     # rim crown
+    px[5, 2] = RIM                         # rim points
+    px[10, 2] = RIM
+    px[7, 5] = GLOW                        # glow deep in the cup
+    px[8, 5] = RIM
+    px[4, 6] = EDGE
+    px[11, 6] = GLOW
     return img
 
 
 def t_frost_puffball(index):
-    """v65.1: frost puffball - a big MAGENTA ball with white warts and a
-    cracked spore crown, on a stout violet stem with a ring. The v63 ball
-    was pale ice, stemless, lying on pale hoarfrost: dL 15, no leg."""
+    """v65.6: frost puffball - a big DEEP-VIOLET ball with pale lilac warts
+    and a cracked spore crown, on a stout violet-grey stem with a ring.
+    The v65.1 magenta matched the frost blooms; mushrooms keep their own
+    violet family instead of any biome colour."""
     img = blank_tile()
     px = img.load()
+    STM_L = (150, 130, 190)
+    STM = (112, 92, 158)
+    STM_D = (84, 66, 122)
+    CAP_L = (150, 95, 215)
+    CAP = (115, 60, 180)
+    CAP_D = (82, 40, 135)
+    SPARK = (235, 220, 255)
     for y in range(11, 16):                # three-pixel violet leg
-        px[6, y] = FRS_STM_L
-        px[7, y] = FRS_STM
-        px[8, y] = FRS_STM_D
+        px[6, y] = STM_L
+        px[7, y] = STM
+        px[8, y] = STM_D
     for x in range(5, 10):
-        px[x, 11] = FRS_STM_L              # stem ring
+        px[x, 11] = STM_L                  # stem ring
     rows = {2: (6, 9), 3: (5, 10), 4: (4, 11), 5: (3, 12), 6: (3, 12),
             7: (3, 12), 8: (4, 11), 9: (5, 10), 10: (6, 9)}
     for y, (x0, x1) in rows.items():
         for x in range(x0, x1 + 1):
             if y <= 4:
-                px[x, y] = FRS_MAG_L if (x + y) % 2 else FRS_MAG
+                px[x, y] = CAP_L if (x + y) % 2 else CAP
             elif y <= 6:
-                px[x, y] = FRS_MAG
+                px[x, y] = CAP
             else:
-                px[x, y] = FRS_MAG_D
+                px[x, y] = CAP_D
     for x, y in ((6, 4), (9, 5), (7, 7), (10, 7), (5, 6), (8, 3)):
-        px[x, y] = FRS_SPARK               # warts
-    px[7, 2] = FRS_SPARK                   # cracked spore crown
-    px[8, 3] = FRS_SPARK
-    px[4, 5] = FRS_MAG_L                   # lit rim
-    px[4, 6] = FRS_MAG_L
+        px[x, y] = SPARK                   # warts
+    px[7, 2] = SPARK                       # cracked spore crown
+    px[8, 3] = SPARK
+    px[4, 5] = CAP_L                       # lit rim
+    px[4, 6] = CAP_L
     return img
 
 
