@@ -1,10 +1,19 @@
-=== Midless: Cosmic Edition v43 ===
+=== Midless: Cosmic Edition v65 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
 
-WHAT'S NEW IN v43
+WHAT'S NEW IN v65
+  - Biome audit: every island cube grows its own grass and its own plants;
+    the hidden 80-plants-per-chunk cap that ate half of every lawn is gone.
+  - The mushroom rain cloud rains and sprouts again (biome-correct species).
+  - Green log-and-leaf trees grow only in the classic meadow and stand in
+    the grass; billboard trees got plain straight trunks.
+  - The leftover flat cloud layer was deleted; the sky keeps its asteroids.
+  - Grazers replant biome blooms; cocoons spawn on meadows again.
+
+ARCHIVE (v43)WHAT'S NEW IN v43
   - Black hole rebuilt: rotating gold accretion disk, photon ring, violet
     halo, and real gravity lensing that bends the view around it.
   - Deeper sky: galaxy band of stars, drifting nebulae, shooting stars,

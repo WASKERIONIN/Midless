@@ -24,4 +24,11 @@ check_pair client/src/mobs.h client/src/mobs.c
 check_pair client/src/soundfx.h client/src/soundfx.c
 check_pair client/src/starfield.h client/src/starfield.c
 check_pair client/src/asteroid.h client/src/asteroid.c
+# v65: mirrored constants must not drift apart
+FLORA_CLIENT=$(grep -oE '#define CHUNK_FLORA_MAX [0-9]+' client/src/chunk/chunk.h | awk '{print $3}')
+FLORA_PROBE=$(grep -oE '#define CLIENT_FLORA_CAP [0-9]+' tools_dev/worldprobe.c | awk '{print $3}')
+if [ "$FLORA_CLIENT" != "$FLORA_PROBE" ]; then
+    echo "MIRRORED CONSTANT DRIFT: CHUNK_FLORA_MAX=$FLORA_CLIENT vs CLIENT_FLORA_CAP=$FLORA_PROBE"
+    FAIL=1
+fi
 if [ "$FAIL" = "0" ]; then echo "API CHECK OK"; else echo "API CHECK FAILED"; exit 1; fi

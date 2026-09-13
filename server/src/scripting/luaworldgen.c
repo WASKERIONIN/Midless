@@ -91,7 +91,7 @@ static int PushFieldNode(lua_State *luaState, WGField node) {
     }
     if (index < 0) {
         if (worldgen.fieldCount == WG_MAX_FIELDS)
-            return luaL_error(luaState, "worldgen field limit (512) reached");
+            return luaL_error(luaState, "worldgen field limit (%d) reached", WG_MAX_FIELDS);
         index = worldgen.fieldCount++;
         worldgen.fields[index] = node;
     }
@@ -623,6 +623,23 @@ static int DefineStructure(lua_State *luaState) {
                                  ReadInteger(luaState, tableIndex, "block", 1, 0, 255));
             lua_pop(luaState, 1);
         }
+    }
+    lua_pop(luaState, 1);
+    lua_getfield(luaState, 2, "ground");
+    if (!lua_isnil(luaState, -1)) {
+        luaL_checktype(luaState, -1, LUA_TTABLE);
+        int groundCount = lua_rawlen(luaState, -1);
+        if (groundCount < 1 || groundCount > 255)
+            return luaL_error(luaState, "ground filter needs 1..255 block IDs");
+        for (int i = 1; i <= groundCount; i++) {
+            lua_rawgeti(luaState, -1, i);
+            int id = (int)luaL_checkinteger(luaState, -1);
+            if (id < 1 || id > 255)
+                return luaL_error(luaState, "ground block id must be 1..255");
+            structure.groundOk[id] = true;
+            lua_pop(luaState, 1);
+        }
+        structure.hasGroundFilter = true;
     }
     lua_pop(luaState, 1);
     lua_getfield(luaState, 2, "tree");

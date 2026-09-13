@@ -810,10 +810,13 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     int tuftT = 39, sedgeT = 41;
     if (groundId == 57) { tuftT = 59; sedgeT = 59; }
     else if (groundId == 58) { tuftT = 60; sedgeT = 60; }
-    if (id != 39 && id != 41 && id != 32 && id != 59 && id != 60) {
+    /* v65: the LAWN ids are the ground cover itself - since v63.9 every
+     * surface cell carries one, so ringing each of them with a grass skirt
+     * meant ~10 extra quads per cell per chunk (and a fuzzy double carpet).
+     * The lawn draws just itself; only real plants keep their skirt. */
+    int isLawnId = (id == 39 || id == 41 || id == 32 || id == 59 || id == 60);
+    if (!isLawnId) {
         World_GrassSkirt(base, skirt, bright, t, gust, phase, tuftT, sedgeT);
-    } else {
-        World_GrassSkirt(base, 0.8f, bright, t, gust, phase + 2.1f, tuftT, sedgeT);
     }
     if (id == 39) {
         /* v59: a taller sedge strand beside every tuft, its own phase */
@@ -845,8 +848,13 @@ void World_DrawWireAuras(void) {
                  * drawn after them (the "flowers vanish in the distance"
                  * artifact when you looked through a bloom's quad). */
                 Mobs_SpriteBatchBegin(atlas);
-                for (int s = 0; s < chunk->floraCount; s++)
-                    World_FloraBillboardAt(chunk->floraPos[s], chunk->floraBlock[s]);
+                for (int s = 0; s < chunk->floraCount; s++) {
+                    /* v65: flora lists are chunk-local byte offsets now */
+                    Vector3 base = { chunk->blockPosition.x + chunk->floraLX[s] + 0.5f,
+                                     chunk->blockPosition.y + chunk->floraLY[s],
+                                     chunk->blockPosition.z + chunk->floraLZ[s] + 0.5f };
+                    World_FloraBillboardAt(base, chunk->floraBlock[s]);
+                }
                 Mobs_SpriteBatchEnd();
             }
         }

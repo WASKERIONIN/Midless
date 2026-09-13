@@ -1,6 +1,46 @@
-# Midless: Cosmic Edition v64.0
+# Midless: Cosmic Edition v65.0
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.0 - the biome audit: every cube grows its own, the mushroom cloud rains again, flat clouds deleted
+
+- **Every biome surface now really wears its own grass AND its own plants.** The per-chunk
+  billboard list still capped flora at 80 plants (a number from before the lawn existed), so each
+  chunk silently threw away everything after its first five rows - that is why only part of every
+  island had grass and the blooms/mushrooms were invisible. The cap is now 1024 compact entries
+  and the whole lawn draws.
+- **Biome purity enforced**: the lawn "pepper" bands were two-way (ember, else frost), so classic
+  meadows grew frost bursts, ringblooms and puffballs; the starter island inherited whatever the
+  biome noise said over spawn (frost plants on crystal turf); ember patches planted classic twin
+  tulips. Every layer now selects per biome: classic - bellflower/starbloom/lanternberry + glowcap
+  clusters; ember - smolderhead/cinder buds/ember lantern + cinder trumpets; frost - frost
+  burst/glacier dewdrop/ringbloom + frost puffballs.
+- **The mushroom rain cloud works again.** It never could sprout anything since the lawn rule
+  landed: its spore scan demanded bare dirt/grass with air above, and every column now starts with
+  a grass tuft. The scan understands lawns now, and the drops grow the biome's OWN mushroom art
+  (glowcap cluster / cinder trumpet / frost puffball) instead of one generic cap.
+- **Green log-and-leaf trees stay in the classic meadow.** Structures gained a `ground = { ... }`
+  surface filter (the cosmic biomes are noise regions, not registered biomes, so nothing else
+  could gate them). Trees also no longer float: `density` counted flower cells as terrain, so
+  every gate/totem/tree was placed one block above the ground, and air-only structures silently
+  dropped their base blocks - structures now settle into the grass and skip placement entirely
+  when their anchor cell is occupied (no more canopies hovering over the launch pad).
+- **Trees have plain trunks**: the billboard tree sprites ended in a widened root-flare "base" at
+  the bottom of the trunk - repainted as straight constant-width trunks into the soil.
+- **The flat vanilla cloud layer is gone for good** (cloud.c + its four shaders). It was dead code
+  left behind when clouds became asteroids; nothing draws it, nothing misses it.
+- **Grazers replant again**: their seed scatter had the same "cell must be air" bug as the cloud
+  (lawns occupy those cells), and it still offered the v63.6 recolor twins; seeds now replace a
+  lawn tuft with that biome's own bloom.
+- **Cocoons return to the meadows**: the egg placement flora-list had frozen at v61 and treated the
+  new lawns as flowers, so since v63.9 no cocoon could spawn anywhere; eggs now avoid blooms and
+  mushrooms but may park on grass.
+- **Generator headroom**: the field-graph ceiling (512) made the mod fail to LOAD once the biome
+  gates grew three-way selects - raised to 1024 with a readable error.
+- **Dev tooling kept in-repo** (tools_dev/): `worldprobe` generates real chunks headless and audits
+  lawn coverage, biome purity, per-chunk flora caps, stacked/floating plants, tree biomes and
+  undefined blocks; `probe_build.sh` builds/runs it; `atlas_view.py` zooms atlas tiles for sprite
+  inspection; `fetch_raylib.sh` restores the pinned raylib headers compile_check needs.
 
 ## v64.0 - mushrooms back on the lawns, blooms pepper every island, clouds removed, menu polish
 

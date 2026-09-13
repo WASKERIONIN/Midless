@@ -2,7 +2,7 @@ name: Build Windows Release
 
 on:
   push:
-    branches: [ "arena/01a0872c-midless", "arena/01a096b7-midless" ]
+    branches: [ "arena/01a0872c-midless", "arena/01a096b7-midless", "arena/01a09a63-midless" ]
   workflow_dispatch:
 
 permissions:
@@ -123,7 +123,7 @@ jobs:
         TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
         gh release create "$TAG" \
           --target "$GITHUB_SHA" \
-          --title "Midless: Cosmic Edition v64.0" \
+          --title "Midless: Cosmic Edition v65.0" \
           --notes-file docs/RELEASE_NOTES.md \
           release/Midless-Cosmic-Windows-x64.zip \
           release/SHA256SUMS

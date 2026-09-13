@@ -401,6 +401,14 @@ local which_n = f.noise2d({
 local ember_f = f.lt(0.22, biome_n)
 local frost_f = f.lt(biome_n, -0.22)
 local classic_f = 1 - f.max(ember_f, frost_f)
+-- v65: the starter island is ALWAYS classic meadow (its ground blocks are
+-- forced below), so its flora gates must be forced too - otherwise a frost
+-- noise pocket over the spawn pad grew frost bursts and puffballs on
+-- classic turf (the old code mixed a frost lawn into the starter meadow).
+local starter_flora = f.lt(f.abs(x - 8), 13) * f.lt(f.abs(z - 8), 13)
+ember_f = ember_f * (1 - starter_flora)
+frost_f = frost_f * (1 - starter_flora)
+classic_f = f.max(classic_f, starter_flora)
 
 -- classic meadow: v54 species bands. NOTE: fold must run from the
 -- LOWEST threshold up: the last select that fires wins, so higher
@@ -416,7 +424,7 @@ for _, band in ipairs({
     { 0.30, 30 },  -- spiral fern
     { 0.41, 47 },  -- v59.5: void orchid
     { 0.52, 31 },  -- twin tulip
-    { 0.575, 48 }, -- v59.5: frostfern
+    { 0.575, 52 }, -- v65: void puff (48 frostfern was frost-native: leak)
     { 0.71, 32 },  -- glow grass
     { 0.80, 50 },  -- v61.2: lantern tree groves (very rare)
 }) do
@@ -511,17 +519,21 @@ classic_id = f.select(f.lt(0.965, fine_n), 49, classic_id)
 
 -- ember isles: smoldering grass lawn with flower PATCHES inside it
 -- (patch_n masks where blooms may appear) and rare lantern groves
+-- v65: biome patches grow ONLY that biome's own blooms - the old ember
+-- patches planted classic twin tulips / lanternberries on charcoal turf
 local ember_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local ember_id = 59                                   -- ember tuft lawn
-ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 31, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.00, which_n), 33, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 67, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.30), 68, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.30, which_n), 76, ember_id)
 ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
 
 -- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
 local frost_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.15), 48, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.15, which_n), 52, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.15), 77, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.15, which_n) * f.lt(which_n, 0.45), 71, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.45, which_n), 72, frost_id)
 frost_id = f.select(f.lt(0.90, fine_n), 49, frost_id) -- rare void tree
 
 local flower_id = f.select(classic_f, classic_id,
@@ -558,15 +570,25 @@ material = f.select(lawn_spot, lawn_id, material)
 -- its three blooms. Bands sit on MEASURED percentiles of the fine
 -- noise (p95=0.467, p97=0.511, p99=0.577 in a representative region)
 -- so every island gets a visible scatter of all three species.
-local bloom1 = f.select(ember_b, 67, 77)   -- smolderhead / frost burst
-local bloom2 = f.select(ember_b, 68, 71)   -- cinder buds / glacier dewdrop
-local bloom3 = f.select(ember_b, 76, 72)   -- ember lantern / ringbloom
+-- v65: same starter-zone rule for the lawn layer (the ground skin is
+-- forced classic there, so the lawn species must be too)
+local lawn_ember = ember_b * (1 - starter_flora)
+local lawn_frost = frost_b * (1 - starter_flora)
+-- v65: the pepper bands were two-way (ember else FROST), so classic meadows
+-- grew frost bursts and ringblooms. Every biome now peppers its OWN three:
+--   classic - bellflower / starbloom / lanternberry
+--   ember   - smolderhead / cinder buds / ember lantern
+--   frost   - frost burst / glacier dewdrop / ringbloom
+local bloom1 = f.select(lawn_ember, 67, f.select(lawn_frost, 77, 28))
+local bloom2 = f.select(lawn_ember, 68, f.select(lawn_frost, 71, 29))
+local bloom3 = f.select(lawn_ember, 76, f.select(lawn_frost, 72, 33))
 material = f.select(lawn_open * f.lt(0.460, fine_n) * f.lt(fine_n, 0.495), bloom1, material)
 material = f.select(lawn_open * f.lt(0.495, fine_n) * f.lt(fine_n, 0.530), bloom2, material)
 material = f.select(lawn_open * f.lt(0.530, fine_n) * f.lt(fine_n, 0.577), bloom3, material)
 -- mushrooms: glowcap cluster (classic) / cinder trumpet (ember) /
 -- frost puffball (frost) - rare lawn residents beyond the p99+ line
-local mush_id = f.select(ember_b, 74, f.select(frost_b, 75, 73))
+local mush_id = f.select(lawn_ember, 74,
+              f.select(frost_b * (1 - starter_flora), 75, 73))
 material = f.select(lawn_open * f.lt(0.640, fine_n), mush_id, material)
 material = f.select(flora_cell, flower_id, material)
 
@@ -603,10 +625,14 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 20,
+    id = "midless:cosmic", version = 21,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
-    material = material, density = f.max(inside, flora_cell),
+    -- v65: density is the ISLANDS only. It used to include flora_cell, so
+    -- FindSurfaceHeight returned the plant cell instead of the ground: every
+    -- structure then stood one block ABOVE the lawn (floating gates/trees)
+    -- and the new ground filter compared against a flower, never the turf.
+    material = material, density = inside,
     skylight = f.max(inside, flora_cell),
 })
 
@@ -676,9 +702,14 @@ wg.define_structure("midless:crystal_spire", {
     },
 })
 
+-- v65: the leafy green tree belongs to the CLASSIC crystal meadow only -
+-- it used to sprout on ember basalt and hoarfrost alike. The ground filter
+-- is the new engine-side biome gate (the cosmic biomes are noise regions,
+-- not registered WGBiomes, so `biome = ...` cannot express this).
 wg.define_structure("midless:cosmic_tree", {
-    spacing = 28, chance = 0.28, min_y = 20, max_y = 150,
-    max_slope = 4, rotate = true, air_only = true,
+    spacing = 22, chance = 0.55, min_y = 20, max_y = 150,
+    max_slope = 5, rotate = true, air_only = true,
+    ground = { 3, 2 },
     tree = { height = 5, radius = 2, trunk = 10, leaves = 11 },
 })
 

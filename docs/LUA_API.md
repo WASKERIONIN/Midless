@@ -946,7 +946,13 @@ min_y / max_y       Height range
 biome               Restrict to a biome
 max_slope           Maximum terrain height difference
 rotate              Random 90° rotation
-air_only            Only replace air
+air_only            Only replace air (ground-cover sprites such as grass
+                    tufts still get replaced, so structures stand IN the
+                    lawn instead of hovering over it; a structure whose
+                    anchor cell is occupied is skipped entirely)
+ground              Optional list of surface block ids the structure may
+                    stand on - the biome gate for noise-defined biomes,
+                    e.g. ground = { 3, 2 } keeps a tree on classic turf
 foundation          Foundation block
 foundation_depth    Maximum foundation depth
 ```

@@ -123,10 +123,21 @@ static int FindSurfaceHeight(int x, int z, TerrainColumn *column) {
 
 /* v61.3: sprite flora ids (flowers, grass, trees) - the cocoon must
  * never share its cell or its neighborhood with them. Mirrors the mod's
- * SPRITE definitions. */
+ * SPRITE definitions. v65: the list had frozen at v61 - the biome lawns
+ * (59/60), the stemmed blooms (67/68/71/72/76/77) and the mushrooms
+ * (73/74/75) were missing, so eggs happily parked inside the new grass. */
 static bool IsFloraBlock(int id) {
     return id == 12 || id == 13 || (id >= 28 && id <= 33) ||
-           (id >= 37 && id <= 42) || (id >= 45 && id <= 54);
+           (id >= 37 && id <= 38) || (id >= 45 && id <= 54) ||
+           id == 67 || id == 68 || (id >= 71 && id <= 77);
+}
+
+/* v65: ground cover (the biome lawns) is decor, not a plant: structures may
+ * stand in it (their base row replaces the tuft instead of floating a block
+ * above the ground), and cocoons may park on it. Before the lawn-everywhere
+ * rule this distinction did not exist - air meant air. */
+static bool IsGroundCoverBlock(int id) {
+    return id == 32 || id == 39 || id == 41 || id == 59 || id == 60;
 }
 
 /* v61.3: what would the material field place at this cell? This is how
@@ -296,8 +307,23 @@ static void PlaceStructureBlock(Chunk *chunk, const WGStructure *structure, int 
     if (!IsInsideChunk(chunk, x, y, z))
         return;
     int i = WorldPositionToIndex(chunk, x, y, z);
-    if (!structure->airOnly || chunk->data[i] == 0)
+    /* v65: air_only means "never overwrite real blocks" - but the biome
+     * lawns are decor, so a structure's base row settles INTO the grass
+     * instead of hovering one block above it (since v63.9 every surface
+     * cell carries a tuft, which used to lift every gate/totem/tree). */
+    if (!structure->airOnly || chunk->data[i] == 0 || IsGroundCoverBlock(chunk->data[i]))
         chunk->data[i] = id;
+}
+
+/* v65 dev switch: MIDLESS_TRACE_STRUCTURES=1 logs every structure candidate
+ * and the gate that rejected it (tools_dev/worldprobe.c uses it). */
+static bool TraceStructures(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        const char *env = getenv("MIDLESS_TRACE_STRUCTURES");
+        cached = env && env[0] == '1';
+    }
+    return cached;
 }
 
 static void GenerateStructures(Chunk *chunk) {
@@ -312,6 +338,7 @@ static void GenerateStructures(Chunk *chunk) {
                 uint32_t randomValue = RandomAtPosition(cx, 0, cz, structure->salt);
                 if (RandomToUnitInterval(randomValue) >= structure->chance)
                     continue;
+                bool trace = TraceStructures();
                 int x =
                     cx * structure->spacing + (int)(MixSeed(randomValue + 1) % structure->spacing);
                 int z =
@@ -319,8 +346,22 @@ static void GenerateStructures(Chunk *chunk) {
                 TerrainColumn column;
                 int y = FindSurfaceHeight(x, z, &column) + 1;
                 if (y <= worldgen.minY || y < structure->minY || y > structure->maxY ||
-                    (structure->biome >= 0 && column.biome != structure->biome))
+                    (structure->biome >= 0 && column.biome != structure->biome)) {
+                    if (trace)
+                        fprintf(stderr, "TRACE %s @(%d,%d) reject surface y=%d\n",
+                                structure->name, x, z, y);
                     continue;
+                }
+                /* v65: biome-exclusive structures (the green trees) stand
+                 * only on their own ground - the cosmic biomes are noise
+                 * regions, not WGBiomes, so the biome index cannot gate them */
+                if (structure->hasGroundFilter &&
+                    !structure->groundOk[MaterialIdAt(x, y - 1, z)]) {
+                    if (trace)
+                        fprintf(stderr, "TRACE %s @(%d,%d) reject ground=%d\n", structure->name,
+                                x, z, MaterialIdAt(x, y - 1, z));
+                    continue;
+                }
                 if (y + structure->maxDY < chunk->blockPosition.y ||
                     y + structure->minDY - structure->foundationDepth >=
                         chunk->blockPosition.y + CHUNK_SIZE_Y)
@@ -336,13 +377,43 @@ static void GenerateStructures(Chunk *chunk) {
                             break;
                         }
                     }
-                if (!valid)
+                if (!valid) {
+                    if (trace)
+                        fprintf(stderr, "TRACE %s @(%d,%d) reject slope\n", structure->name, x, z);
                     continue;
+                }
                 /* v61.3: cocoons never spawn on/next to flora and never
                  * spawn on the starter island */
                 if (strcmp(structure->name, "midless:void_cocoon") == 0 &&
                     (InSpawnSanctuary(x, z) || FloraNearCell(x, y, z)))
                     continue;
+                /* v65: the anchor cell (the structure's lowest block) must be
+                 * placeable, otherwise skip the WHOLE structure. Before this,
+                 * air_only placement silently dropped individual blocks, so a
+                 * tree whose trunk base landed on a launch pad still grew its
+                 * canopy - a floating crown with a hole underneath. */
+                if (structure->airOnly) {
+                    bool anchored = false;
+                    for (int i = 0; i < structure->count && !anchored; i++)
+                        if (structure->blocks[i].y == structure->minDY) {
+                            int ax = x + structure->blocks[i].x,
+                                az = z + structure->blocks[i].z;
+                            if (IsInsideChunk(chunk, ax, y + structure->minDY, az)) {
+                                int cell =
+                                    chunk->data[WorldPositionToIndex(
+                                        chunk, ax, y + structure->minDY, az)];
+                                anchored = cell == 0 || IsGroundCoverBlock(cell);
+                            }
+                        }
+                    if (!anchored) {
+                        if (trace)
+                            fprintf(stderr, "TRACE %s @(%d,%d) reject anchor\n", structure->name,
+                                    x, z);
+                        continue;
+                    }
+                }
+                if (trace)
+                    fprintf(stderr, "TRACE %s @(%d,%d) PLACED at y=%d\n", structure->name, x, z, y);
                 int rotation = structure->rotate ? MixSeed(randomValue + 3) % 4 : 0;
                 for (int i = 0; i < structure->count; i++) {
                     WGBlock block = structure->blocks[i];

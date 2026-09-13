@@ -1468,7 +1468,7 @@ def _px_disc(px, cx, cy, r, col):
 def t_void_tree_big():
     """v61.3: void tree, 32x32 - a real silhouette: lobed teal canopy
     with dithered depth bands, carved gaps, aerial glow-roots, an
-    indigo trunk with a fork and flaring roots. 5+ blocks tall live."""
+    indigo trunk, plain and straight to the soil. 5+ blocks tall live."""
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
     TD = (26, 17, 42)
@@ -1520,26 +1520,18 @@ def t_void_tree_big():
     for x, y in ((7, 14), (12, 15), (17, 14), (22, 14), (26, 12), (4, 12)):
         px[x, y] = A
 
-    # ---- trunk: bent, forked, flaring ----
-    for y in range(14, 30):
-        w = 2 if y < 20 else (3 if y < 27 else 4)
-        x0 = 14 if y < 25 else 13
-        for x in range(x0, x0 + w):
+    # ---- trunk: v65 plain straight trunk ----
+    # The v61 trunk widened 2->4 px towards the ground and ended in a
+    # horizontal root-flare bar ("a base at the end of the trunk"). Trees
+    # now wear one constant-width trunk from the canopy down to the soil.
+    for y in range(14, 32):
+        for x in range(14, 17):
             px[x, y] = T
-        px[x0, y] = TL if y < 22 else T
-        px[x0 + w - 1, y] = TD
+        px[14, y] = TL if y < 22 else T
+        px[16, y] = TD
     # fork branch up-left into the canopy
     for i, (x, y) in enumerate(((13, 16), (12, 15), (11, 14), (10, 13))):
         px[x, y] = T if i < 2 else TD
-    # root flare
-    roots = ((10, 30, 11, 31), (12, 29, 12, 31), (17, 30, 18, 31), (16, 29, 16, 31))
-    for x0, y0, x1, y1 in roots:
-        for y in range(y0, y1 + 1):
-            px[10 + (y - 30), 30] = TD
-            px[18 - (y - 30), 31] = TD
-    px[12, 30] = T; px[13, 31] = T
-    px[16, 30] = TD; px[15, 31] = TD
-    px[14, 29] = TD   # knot
     # aerial glow-root strands
     for x, y0, y1 in ((9, 15, 21), (22, 15, 19)):
         for y in range(y0, y1):
@@ -1551,7 +1543,7 @@ def t_void_tree_big():
 def t_lantern_tree_big():
     """v61.2: lantern tree, 32x32 - copper fork-trunk, two-and-a-half
     leafy clusters full of gold lanterns, three lanterns hanging below
-    the canopy on stems."""
+    the canopy on stems, plain straight trunk."""
     img = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
     px = img.load()
     TD = (32, 21, 15)
@@ -1591,25 +1583,18 @@ def t_lantern_tree_big():
     px[19, 4] = W
     px[21, 11] = W
 
-    # ---- trunk: fork into two branches ----
-    for y in range(15, 30):
-        w = 2 if y < 21 else (3 if y < 27 else 4)
-        x0 = 15 if y < 25 else 14
-        for x in range(x0, x0 + w):
+    # ---- trunk: v65 plain straight trunk, fork into two branches ----
+    for y in range(15, 32):
+        for x in range(15, 18):
             px[x, y] = T
-        px[x0, y] = TL if y < 23 else T
-        px[x0 + w - 1, y] = TD
+        px[15, y] = TL if y < 23 else T
+        px[17, y] = TD
     # left branch to the big cluster
     for x, y in ((14, 16), (13, 15), (12, 14), (11, 13), (11, 12)):
         px[x, y] = T if y > 14 else TD
     # right branch
-    for x, y in ((17, 16), (18, 15), (19, 14), (20, 13), (21, 12)):
+    for x, y in ((18, 16), (19, 15), (20, 14), (21, 13), (22, 12)):
         px[x, y] = T if y > 14 else TD
-    px[15, 28] = TD  # knot
-    # root flare
-    px[13, 30] = TD; px[14, 31] = TD; px[12, 31] = TD
-    px[17, 30] = TD; px[18, 31] = TD; px[19, 31] = TD
-    px[15, 31] = T; px[16, 31] = T
 
     # ---- three hanging lanterns below the canopy ----
     hangs = [(8, 17, 4), (17, 18, 3), (24, 16, 5)]

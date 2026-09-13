@@ -239,11 +239,12 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
                  * (like the void mushrooms) instead of static crossed quads;
                  * fire keeps its crossed quads - it needs the volume */
                 if (block->modelType == BLOCK_MODEL_SPRITE && blockId != 15) {
-                    if (chunk->floraCount < 80) {
-                        chunk->floraPos[chunk->floraCount] =
-                            (Vector3){ chunk->blockPosition.x + x + 0.5f,
-                                       chunk->blockPosition.y + y,
-                                       chunk->blockPosition.z + z + 0.5f };
+                    /* v65: cap raised 80 -> CHUNK_FLORA_MAX (see chunk.h).
+                     * Local byte offsets keep the list compact. */
+                    if (chunk->floraCount < CHUNK_FLORA_MAX) {
+                        chunk->floraLX[chunk->floraCount] = (unsigned char)x;
+                        chunk->floraLY[chunk->floraCount] = (unsigned char)y;
+                        chunk->floraLZ[chunk->floraCount] = (unsigned char)z;
                         chunk->floraBlock[chunk->floraCount] = (unsigned char)blockId;
                         chunk->floraCount++;
                     }

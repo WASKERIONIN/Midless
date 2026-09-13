@@ -12,6 +12,8 @@
 #include "chunkmesh.h"
 #include "chunkdata.h"
 
+#define CHUNK_FLORA_MAX 1024
+
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
 
 typedef struct Chunk{
@@ -31,9 +33,17 @@ typedef struct Chunk{
     int specialCount[3];
 
     //v57: flora blocks render as view-facing billboards, not crossed quads -
-    //positions are gathered at mesh build and drawn after the mesh pass
-    Vector3 floraPos[80];
-    unsigned char floraBlock[80];
+    //positions are gathered at mesh build and drawn after the mesh pass.
+    //v65: CHUNK_FLORA_MAX used to be 80. Since v63.9 EVERY surface cell
+    //carries a lawn tuft, so a single chunk can hold ~256 lawn billboards
+    //plus blooms - the old cap silently dropped everything after the first
+    //5 rows of the chunk ("half the island has no grass, no plants at all").
+    //Stored as chunk-local byte offsets (4 bytes per plant) so the bigger
+    //cap costs ~4 KB per chunk instead of ~13 KB of Vector3.
+    unsigned char floraLX[CHUNK_FLORA_MAX];
+    unsigned char floraLY[CHUNK_FLORA_MAX];
+    unsigned char floraLZ[CHUNK_FLORA_MAX];
+    unsigned char floraBlock[CHUNK_FLORA_MAX];
     int floraCount;
 
     //Loading/Generation flags

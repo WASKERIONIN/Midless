@@ -731,7 +731,27 @@ typedef struct Mushroom {
     Vector3 pos;
     double expireAt;   /* 10 real minutes */
     float scale;
+    int tile;          /* v65: which biome species art (73/74/75) */
 } Mushroom;
+
+/* v65: the rain-cloud sprout rules. Since v63.9 every biome surface wears
+ * its own lawn tuft, so the first non-air cell of a column is the LAWN, and
+ * the living ground is the cell under it. A drop that lands on a lawn (or on
+ * bare turf whose lawn was eaten) grows that biome's own mushroom. */
+static bool Mushroom_IsLawn(int id) {
+    return id == 39 || id == 41 || id == 32 || id == 59 || id == 60;
+}
+static bool Mushroom_IsBloom(int id) {
+    return id == 12 || id == 13 || (id >= 28 && id <= 33) || (id >= 37 && id <= 38) ||
+           (id >= 45 && id <= 52) || id == 67 || id == 68 || id == 71 || id == 72 ||
+           id == 76 || id == 77;
+}
+static int Mushroom_SpeciesForGround(int ground) {
+    if (ground == 57) return 74;   /* ember turf  -> cinder trumpet  */
+    if (ground == 58) return 75;   /* frost turf  -> frost puffball  */
+    if (ground == 3)  return 73;   /* crystal turf-> glowcap cluster */
+    return 0;
+}
 static Mushroom mushrooms[MUSH_MAX];
 static int mushroomsStored = 0;   /* inventory count */
 static bool mushHintShown;
@@ -1374,28 +1394,34 @@ static void Grazer_PlantSeed(Vector3 at) {
             Vector3 below = { bx, y - 1, bz };
             Vector3 cell = { bx, y, bz };
             int ground = World_GetBlock(below);
-            if ((ground == 3 || ground == 57 || ground == 58) &&
-                World_GetBlock(cell) == 0) {
+            int cellId = World_GetBlock(cell);
+            /* v65: since v63.9 the surface cell wears its lawn tuft, so the
+             * old "cell must be air" test never fired and seeds died out.
+             * A seed now replaces a lawn tuft (never a bloom). Species are
+             * the biome's own - the v63.6 recolor twins (45/46) are gone. */
+            bool lawnCell = (cellId == 0 || cellId == 39 || cellId == 41 ||
+                             cellId == 59 || cellId == 60 || cellId == 32);
+            if ((ground == 3 || ground == 57 || ground == 58) && lawnCell) {
                 int species;
                 if (ground == 57) {          /* ember isle: warm flora */
                     switch (GetRandomValue(0, 2)) {
-                        case 0: species = 46; break;   /* embercup */
-                        case 1: species = 31; break;   /* twin tulip */
-                        default: species = 33; break;  /* lanternberry */
+                        case 0: species = 67; break;   /* smolderhead */
+                        case 1: species = 68; break;   /* cinder buds */
+                        default: species = 76; break;  /* ember lantern */
                     }
                 } else if (ground == 58) {   /* frost isle: pale flora */
                     switch (GetRandomValue(0, 2)) {
-                        case 0: species = 48; break;   /* frostfern */
-                        case 1: species = 45; break;   /* glassbell */
-                        default: species = 52; break;  /* void puff */
+                        case 0: species = 77; break;   /* frost burst */
+                        case 1: species = 71; break;   /* glacier dewdrop */
+                        default: species = 72; break;  /* ringbloom */
                     }
                 } else {                     /* classic crystal meadow */
                     switch (GetRandomValue(0, 4)) {
                         case 0: species = 29; break;
                         case 1: species = 28; break;
-                        case 2: species = 45; break;
-                        case 3: species = 52; break;
-                        default: species = 30; break;
+                        case 2: species = 30; break;
+                        case 3: species = 33; break;
+                        default: species = 37; break;
                     }
                 }
                 World_SetBlock(cell, species, true);
@@ -1716,8 +1742,9 @@ void Mobs_SpriteBatchEnd(void) {
     EndShaderMode();
 }
 
-/* violet shell event: a shimmering dome parks over a nearby island and
- * rains void spores; mushrooms sprout on plain dirt while it rains */
+/* v65 mushroom rain cloud: a puffy cumulus parks over a nearby island and
+ * rains light; where the drops land on a biome lawn, that biome's own
+ * mushroom species sprouts (glowcap cluster / cinder trumpet / puffball) */
 static bool shellActive;
 static double shellUntil;
 static Vector3 shellCenter;
@@ -1791,19 +1818,26 @@ static void Mushroom_SpawnTry(Vector3 shellC) {
             Vector3 p = { bx, y, bz };
             int id = World_GetBlock(p);
             if (id == 0) continue;
-            /* v52 fix: island tops are GRASS (3) over dirt (2) - the old
-             * dirt-only check broke every scan instantly: zero mushrooms */
-            if (id != 2 && id != 3) break;
-            Vector3 above = { bx, y + 1, bz };
-            if (World_GetBlock(above) != 0) break;
-            if (Mushroom_CellTaken(bx, y, bz)) break;   /* v54: cell busy */
+            /* v65: the column top is the LAWN (or bare turf). Anything else
+             * (rock, crystal, a barrel, an egg) is not living ground. */
+            int groundY = y;
+            if (Mushroom_IsBloom(id)) break;               /* never eat a flower */
+            if (Mushroom_IsLawn(id)) groundY = y - 1;      /* lawn: ground is below */
+            else if (id != 3 && id != 57 && id != 58) break;  /* bare turf or not ground */
+            int ground = World_GetBlock((Vector3){ bx, groundY, bz });
+            int species = Mushroom_SpeciesForGround(ground);
+            if (!species) break;
+            if (World_GetBlock((Vector3){ bx, groundY + 1, bz }) != 0 &&
+                !Mushroom_IsLawn(World_GetBlock((Vector3){ bx, groundY + 1, bz }))) break;
+            if (Mushroom_CellTaken(bx, groundY, bz)) break;   /* v54: cell busy */
             for (int i = 0; i < MUSH_MAX; i++) {
                 Mushroom *m = &mushrooms[i];
                 if (m->active) continue;
                 m->active = true;
-                m->pos = (Vector3){ bx + 0.5f, y + 1.0f, bz + 0.5f };
+                m->pos = (Vector3){ bx + 0.5f, groundY + 1.0f, bz + 0.5f };
                 m->expireAt = (double)GetTime() + 600.0;
                 m->scale = 0.8f + (float)GetRandomValue(0, 50) / 100.0f;
+                m->tile = species;
                 return;
             }
             return;
@@ -1826,9 +1860,9 @@ static void Shell_Update(float deltaTime, double now) {
                 for (int q = 0; q < 3; q++) Mushroom_SpawnTry(shellCenter);
                 if (!shellAnnounced) {
                     shellAnnounced = true;
-                    Chat_AddLine(Tr("A violet shell shimmers over the islands... it is raining light."));
+                    Chat_AddLine(Tr("A rain cloud drifts in over the islands... mushrooms follow its rain."));
                 } else {
-                    Chat_AddLine(Tr("The violet shell returns."));
+                    Chat_AddLine(Tr("The rain cloud returns."));
                 }
                 SoundFx_PlayTeleport();
             } else {
@@ -1841,7 +1875,7 @@ static void Shell_Update(float deltaTime, double now) {
     if (now >= shellUntil) {
         shellActive = false;
         shellEventAt = now + 210.0 + (double)GetRandomValue(0, 180);
-        Chat_AddLine(Tr("The shell folds away into the nebula."));
+        Chat_AddLine(Tr("The rain cloud rains itself out and drifts away."));
         return;
     }
 
@@ -2468,7 +2502,7 @@ void Mobs_Draw(void) {
             unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
             /* v61.3: Mob_FloraBillboard paints the mushroom, THEN its
              * grass ring - the stem base hides in the lawn */
-            Mob_FloraBillboard(m->pos, m->scale, 27, br);
+            Mob_FloraBillboard(m->pos, m->scale, m->tile ? m->tile : 27, br);
         }
         Moth_Draw(now);        /* cone bodies + flapping wings (atlas batch) */
         Mobs_SpriteBatchEnd();

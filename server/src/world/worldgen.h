@@ -6,7 +6,10 @@
 #include "FastNoiseLite.h"
 #include "chunk/chunk.h"
 
-#define WG_MAX_FIELDS 512
+/* v65: 512 -> 1024. The cosmic mod's biome-pure flora gates (three-way
+ * selects per biome plus the starter-island clamps) pushed the graph past
+ * 500 nodes; the old ceiling made the mod fail to LOAD at all. */
+#define WG_MAX_FIELDS 1024
 #define WG_MAX_RULES 32
 #define WG_MAX_FEATURES 16
 #define WG_MAX_COMMANDS 32
@@ -114,6 +117,11 @@ typedef struct WGStructure {
     float chance;
     bool rotate;
     bool airOnly;
+    /* v65: optional ground filter - when hasGroundFilter, the structure may
+     * only stand on the listed surface blocks. This is how biome-exclusive
+     * trees stay in their biome (the noise biomes are not WGBiomes). */
+    bool hasGroundFilter;
+    bool groundOk[256];
     int count;
     int radius;
     int minDY;

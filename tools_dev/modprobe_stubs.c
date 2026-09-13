@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdarg.h>
+#include <time.h>
 #include "raylib.h"
 #include "stb_ds.h"
 
@@ -39,7 +41,12 @@ Image LoadImageFromMemory(const char *type, const unsigned char *data, int n) {
     Image img = {0};
     return img;
 }
-double GetTime(void) { return 0.0; }
+double GetTime(void) {
+    /* v65: a real clock - the probes time chunk generation with it */
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1000000000.0;
+}
 
 /* server world/network surface used by lua bindings */
 typedef struct ServerWorld ServerWorld;
@@ -73,7 +80,16 @@ void ServerWorld_SendEntityModels(Player *player) { (void)player; }
 void ServerWorld_SendBlockDefinitions(Player *player) { (void)player; }
 bool ServerWorld_QueueChunk(Vector3 p) { (void)p; return false; }
 void ServerWorld_RemovePlayerFromChunks(Player *p) { (void)p; }
-void TraceLog(int type, const char *fmt, ...) { (void)type; (void)fmt; }
+void TraceLog(int type, const char *fmt, ...) {
+    /* v65: the probe NEEDS these - "Worldgen references undefined block N"
+     * and the freeze warnings are the whole point of running headless. */
+    (void)type;
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fputc('\n', stderr);
+}
 void UnloadFileText(char *t) { (void)t; }
 void UnloadDirectoryFiles(FilePathList l) { (void)l; }
 void UnloadFileData(unsigned char *d) { (void)d; }
@@ -87,3 +103,20 @@ int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayer
 void ServerWorld_RemoveEntity(int id) { (void)id; }
 void ServerWorld_TeleportEntity(int id, Vector3 p, Vector3 r) { (void)id; (void)p; (void)r; }
 void ServerWorld_AddPlayer(void *p) { (void)p; }
+
+/* v65: the probe link needed a handful of server-side symbols that only
+ * exist in the dedicated-server translation units (packet.c / player.c).
+ * They are never exercised by worldgen, so no-op stubs are enough and the
+ * probe stays free of enet/mongoose. */
+#include "packet.h"
+unsigned char *serverPacketData;
+Player *serverPacketPlayer;
+int serverPacketLastDynamicLength;
+int serverPacketReaderIndex;
+int serverPacketDataLength;
+unsigned char *ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count) {
+    (void)updates; (void)count; return NULL;
+}
+void ServerPlayer_SendMessage(Player *player, const char *message) { (void)player; (void)message; }
+void ServerPlayer_Teleport(Player *player, Vector3 position) { (void)player; (void)position; }
+double GetTimeMilliseconds(void) { return GetTime() * 1000.0; }
