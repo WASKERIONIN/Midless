@@ -1,6 +1,15 @@
-# Midless: Cosmic Edition v63.7
+# Midless: Cosmic Edition v63.8
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.8 - the atlas is whole again, stemmed biome blooms, one proper mushroom cloud
+
+- **Sprite-sheet duplication fixed at the root**: the two big trees live in 2x2 sprite regions (tiles 49/50+65/66 and 53/54+69/70), and they were painted outside the generator - every atlas rebuild wiped them, and other plants ghosted into the free halves (that is exactly the "doubled/stretched" flora you spotted). The trees are now painted inside the generator itself and can never vanish again.
+- **The biome blooms are redrawn with stems and varied heights** (no more egg shapes):
+  - ember biome: **Smolderhead** (a coal rosette on a curved stem, ~0.9 blocks), **Cinder Buds** (three pods on stems of three different heights), **Ember Lantern** (~1.2 blocks - a tall arched stem with a hanging glow-lampion);
+  - frost biome: **Frost Burst** (~1 block - an icy starburst on a straight stem), **Glacier Dewdrop** (an arched stem with one hanging teardrop bud), **Ringbloom** (a stem topped with a hollow halo of frost orbs).
+- **Rain is one proper mushroom cloud again**: a single cloud drifts in, rains visibly, and mushrooms of exactly that biome sprout where drops land (glowcap cluster / cinder trumpet / frost puffball). No cloud flocks.
+- Grazers snack on all the new blooms. World guide poster in the zip updated.
 
 ## v63.7 - rain clouds grow the mushrooms, three real mushroom body plans, zero recolors
 

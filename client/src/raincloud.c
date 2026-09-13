@@ -14,7 +14,7 @@
 #include "packet.h"
 #include "networkhandler.h"
 
-#define RC_MAX_CLOUDS 3
+#define RC_MAX_CLOUDS 1   /* v63.8: one proper mushroom cloud at a time */
 #define RC_MAX_DROPS 160
 #define RC_GROW_CHANCE 0.09f
 

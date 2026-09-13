@@ -760,13 +760,13 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         /* v63.5: biome lawns + biome mushrooms */
         case 59: halfW = 0.36f; h = 0.24f; swayAmp = 0.090f; break; /* ember tuft */
         case 60: halfW = 0.36f; h = 0.24f; swayAmp = 0.090f; break; /* frost tuft */
-        /* v63.6: low unique biome blooms (no tall shapes here) */
-        case 67: halfW = 0.36f; h = 0.55f; swayAmp = 0.030f; break; /* smolderhead */
-        case 68: halfW = 0.36f; h = 0.45f; swayAmp = 0.030f; break; /* cinder cluster */
-        case 69: halfW = 0.42f; h = 0.32f; swayAmp = 0.020f; break; /* ember lens */
-        case 70: halfW = 0.44f; h = 0.40f; swayAmp = 0.030f; break; /* frost star */
-        case 71: halfW = 0.28f; h = 0.55f; swayAmp = 0.030f; break; /* glacier bulb */
-        case 72: halfW = 0.40f; h = 0.32f; swayAmp = 0.030f; break; /* ringbloom */
+        /* v63.8: stemmed biome blooms, deliberately varied heights */
+        case 67: halfW = 0.34f; h = 0.85f; swayAmp = 0.040f; break; /* smolderhead */
+        case 68: halfW = 0.44f; h = 0.80f; swayAmp = 0.045f; break; /* cinder buds */
+        case 71: halfW = 0.32f; h = 0.75f; swayAmp = 0.045f; break; /* glacier dewdrop */
+        case 72: halfW = 0.36f; h = 0.75f; swayAmp = 0.040f; break; /* ringbloom */
+        case 76: halfW = 0.36f; h = 1.15f; swayAmp = 0.050f; break; /* ember lantern */
+        case 77: halfW = 0.36f; h = 0.95f; swayAmp = 0.040f; break; /* frost burst */
         /* v63.7: rain-grown mushrooms, three different body plans */
         case 73: halfW = 0.44f; h = 0.80f; swayAmp = 0.030f; break; /* glowcap cluster */
         case 74: halfW = 0.34f; h = 0.85f; swayAmp = 0.030f; break; /* cinder trumpet */
@@ -810,8 +810,7 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     int tuftT = 39, sedgeT = 41;
     if (groundId == 57) { tuftT = 59; sedgeT = 59; }
     else if (groundId == 58) { tuftT = 60; sedgeT = 60; }
-    if (id != 39 && id != 41 && id != 32 && id != 59 && id != 60 &&
-        (id < 67 || id > 72)) {  /* v63.6: ground-rosette blooms sit baseless */
+    if (id != 39 && id != 41 && id != 32 && id != 59 && id != 60) {
         World_GrassSkirt(base, skirt, bright, t, gust, phase, tuftT, sedgeT);
     } else {
         World_GrassSkirt(base, 0.8f, bright, t, gust, phase + 2.1f, tuftT, sedgeT);

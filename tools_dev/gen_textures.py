@@ -1275,11 +1275,11 @@ def build_atlas():
         59: t_ember_tuft(59),
         60: t_frost_tuft(60),
         67: t_smolderhead(67),
-        68: t_cinder_cluster(68),
-        69: t_ember_lens(69),
-        70: t_frost_star(70),
-        71: t_glacier_bulb(71),
+        68: t_cinder_buds(68),
+        71: t_glacier_dewdrop(71),
         72: t_ringbloom(72),
+        76: t_ember_lantern(76),
+        77: t_frost_burst(77),
         73: t_glowcap_cluster(73),
         74: t_cinder_trumpet(74),
         75: t_frost_puffball(75),
@@ -1303,6 +1303,13 @@ def build_atlas():
     }
     for index in sorted(tiles):
         paste(atlas, index, tiles[index])
+    # v63.8: the big trees live in 2x2 sprite regions and are painted
+    # HERE, in the generator (the v63 inline-PIL painting was lost on the
+    # next regeneration - that wiped both trees and ghosted flora into
+    # the free halves). Void tree: tiles 49,50 + 65,66 above them.
+    atlas.paste(t_void_tree_big(), (1 * 16, 3 * 16))
+    # Lantern tree: tiles 53,54 + 69,70 above them.
+    atlas.paste(t_lantern_tree_big(), (5 * 16, 3 * 16))
     return atlas
 
 
@@ -1799,6 +1806,191 @@ def t_frost_tuft(index):
     return img
 
 
+def t_smolderhead(index):
+    """v63.8: smolderhead - a layered coal rosette carried on a curved
+    charred stem. The glowing core split sits in the head, well off the
+    ground. (Stem + head, not an egg.)"""
+    img = blank_tile()
+    px = img.load()
+    ST_D = (44, 32, 30)
+    ST = (64, 46, 40)
+    LEAF_D = (38, 28, 34)
+    LEAF = (86, 36, 32)
+    LEAF_L = (128, 58, 38)
+    CORE = (232, 120, 44)
+    GLOW = (255, 196, 88)
+    # curved stem x=7..8, rows 7..15, slight lean
+    for y in range(7, 16):
+        x = 8 if y > 11 else 7
+        px[x, y] = ST
+        px[x + 1, y] = ST_D
+    px[9, 14] = ST_D
+    # rosette head rows 2..7 (flat dome, layered arcs)
+    head = {2: (6, 9), 3: (5, 10), 4: (4, 11), 5: (4, 11), 6: (5, 10), 7: (6, 9)}
+    for y, (x0, x1) in head.items():
+        for x in range(x0, x1 + 1):
+            if y == 2 or x in (x0, x1):
+                px[x, y] = LEAF_L if y <= 4 else LEAF_D
+            elif y >= 6:
+                px[x, y] = LEAF_D
+            else:
+                px[x, y] = LEAF
+    # glowing core split rises out of the head top
+    px[7, 1] = GLOW
+    px[8, 1] = GLOW
+    px[7, 2] = CORE
+    px[8, 2] = CORE
+    px[7, 3] = CORE
+    px[8, 3] = CORE
+    px[5, 4] = LEAF_L
+    px[10, 5] = LEAF_L
+    return img
+
+
+def t_cinder_buds(index):
+    """v63.8: cinder buds - three ember pods on thin stems of clearly
+    different heights, like a small bouquet of coal buds."""
+    img = blank_tile()
+    px = img.load()
+    ST = (64, 46, 40)
+    ST_D = (44, 32, 30)
+    POD_D = (86, 36, 32)
+    POD = (128, 58, 38)
+    EMB = (232, 120, 44)
+    HOT = (255, 200, 96)
+    def bud(cx, top, ph):
+        for y in range(top + 2, 16):           # thin stem
+            px[cx, y] = ST
+            if y % 3 == 0:
+                px[cx + 1, y] = ST_D
+        px[cx, top] = EMB                      # pod
+        px[cx, top + 1] = EMB
+        px[cx, top - 1] = POD
+        px[cx - 1, top] = POD_D
+        px[cx + 1, top] = POD_D
+        if ph:
+            px[cx, top - 1] = HOT
+    bud(4, 8, 1)      # left: medium stem
+    bud(8, 11, 0)     # middle: short stem
+    bud(12, 6, 1)     # right: tall stem
+    px[8, 9] = ST_D
+    px[12, 12] = ST_D
+    return img
+
+
+def t_ember_lantern(index):
+    """v63.8: ember lantern - a tall arched stem and from its curve hangs
+    a small glowing lampion. The tallest of the set; reads as a living
+    street lamp."""
+    img = blank_tile()
+    px = img.load()
+    ST = (64, 46, 40)
+    ST_D = (44, 32, 30)
+    WALL = (86, 36, 32)
+    WALL_L = (128, 58, 38)
+    GLOW = (255, 160, 60)
+    HOT = (255, 214, 120)
+    # arched stem: rises at x=5, curves over to x=10 at the top
+    arc = {14: 5, 13: 5, 12: 5, 11: 5, 10: 5, 9: 6, 8: 7, 7: 8,
+           6: 9, 5: 10, 4: 10}
+    for y, x in arc.items():
+        px[x, y] = ST
+        px[x + 1, y] = ST_D
+    # hanging lampion below the arch end
+    lamp = {6: (9, 12), 7: (9, 12), 8: (10, 11)}
+    for y, (x0, x1) in lamp.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1)
+            px[x, y] = WALL_L if edge else GLOW
+    px[10, 7] = HOT
+    px[10, 6] = HOT
+    px[9, 9] = WALL                     # little finial
+    px[5, 15] = ST_D                    # base flick
+    px[4, 15] = ST_D
+    return img
+
+
+def t_frost_burst(index):
+    """v63.8: frost burst - a straight pale stem crowned with an icy
+    starburst of thin spikes, white tips. A frozen firework on a stick."""
+    img = blank_tile()
+    px = img.load()
+    ST = (168, 186, 202)
+    ST_D = (128, 146, 164)
+    ICE = (140, 172, 198)
+    PALE = (202, 226, 240)
+    WHT = (244, 252, 255)
+    for y in range(8, 16):
+        px[8, y] = ST
+        px[9, y] = ST_D
+    px[7, 15] = ST_D
+    cx, cy = 8, 5
+    rays = [(-4, 0), (4, 0), (-2, -3), (2, -3), (0, -4), (-2, 2), (2, 2)]
+    for rx, ry in rays:
+        px[cx + rx, cy + ry] = WHT if abs(rx) + abs(ry) >= 4 else PALE
+        if abs(rx) > 1 and abs(ry) > 0:
+            px[cx + rx // 2, cy + ry // 2] = ICE
+    px[cx, cy] = WHT
+    px[cx, cy + 1] = PALE
+    px[cx - 1, cy] = ICE
+    px[cx + 1, cy] = ICE
+    return img
+
+
+def t_glacier_dewdrop(index):
+    """v63.8: glacier dewdrop - the stem arches to one side and a single
+    icy teardrop bud hangs from the curve, pointing down. Snowdrop
+    logic, glacier materials."""
+    img = blank_tile()
+    px = img.load()
+    ST = (168, 186, 202)
+    ST_D = (128, 146, 164)
+    ICE = (146, 178, 202)
+    PALE = (202, 226, 240)
+    WHT = (244, 252, 255)
+    SEAM = (170, 230, 255)
+    arc = {15: 8, 14: 8, 13: 8, 12: 8, 11: 8, 10: 7, 9: 6, 8: 5,
+           7: 4, 6: 4, 5: 4}
+    for y, x in arc.items():
+        px[x, y] = ST
+        px[x + 1, y] = ST_D
+    # hanging teardrop bud at the arch tip (points down)
+    px[4, 6] = WHT
+    px[5, 6] = PALE
+    px[4, 7] = PALE
+    px[5, 7] = ICE
+    px[4, 8] = (120, 150, 180)
+    px[5, 8] = (120, 150, 180)
+    px[5, 7] = SEAM
+    px[6, 8] = ST                       # the hook it hangs from
+    px[7, 15] = ST_D
+    return img
+
+
+def t_ringbloom(index):
+    """v63.8: ringbloom - a straight stem topped with a HALO: a hollow
+    ring of frost orbs with one cold spark floating in its center."""
+    img = blank_tile()
+    px = img.load()
+    ST = (150, 182, 204)
+    ST_D = (120, 144, 166)
+    ORB = (214, 234, 246)
+    ORB_L = (244, 252, 255)
+    SPARK = (170, 230, 255)
+    for y in range(9, 16):
+        px[8, y] = ST
+        px[9, y] = ST_D
+    px[7, 15] = ST_D
+    ring = [(5, 3), (7, 2), (9, 2), (11, 3), (10, 5), (6, 5)]
+    for i, (x, y) in enumerate(ring):
+        px[x, y] = ORB_L if i % 2 == 0 else ORB
+        px[x, y + 1] = ORB
+    px[8, 4] = SPARK                    # spark inside the ring
+    px[7, 3] = ORB
+    px[10, 4] = ORB
+    return img
+
+
 def t_glowcap_cluster(index):
     """v63.7: void glowcaps - a GREGARIOUS CLUSTER of three small
     umbrella mushrooms (real agarics sprout in groups). Teal caps with
@@ -1944,189 +2136,6 @@ def t_frost_puffball(index):
             px[x, y] = SKIN if y == 12 else SKIN_D
     px[13, 12] = TOP
     px[13, 15] = BASE
-    return img
-
-
-def t_smolderhead(index):
-    """v63.6: ember rosette - a squat layered bulb like a coal cabbage:
-    charcoal-maroon leaf arcs with a glowing ember core split. Low and
-    round on purpose (no stems in this set)."""
-    img = blank_tile()
-    px = img.load()
-    LEAF_D = (38, 28, 34)   # outer leaf charcoal
-    LEAF = (86, 36, 32)     # maroon leaf
-    LEAF_L = (128, 58, 38)  # warm leaf edge
-    CORE = (232, 120, 44)   # ember core
-    GLOW = (255, 196, 88)   # hot center
-    # outer leaf dome rows 9..15
-    outer = {9: (6, 9), 10: (4, 11), 11: (3, 12), 12: (3, 12),
-             13: (4, 11), 14: (5, 10), 15: (6, 9)}
-    for y, (x0, x1) in outer.items():
-        for x in range(x0, x1 + 1):
-            edge = x in (x0, x1) or y in (9, 15)
-            px[x, y] = LEAF_D if edge else LEAF
-    # mid leaf layer rows 7..12
-    mid = {7: (6, 9), 8: (5, 10), 9: (4, 11), 10: (5, 10), 11: (6, 9)}
-    for y, (x0, x1) in mid.items():
-        for x in range(x0, x1 + 1):
-            if y == 7 or x in (x0, x1):
-                px[x, y] = LEAF_L
-            else:
-                px[x, y] = LEAF
-    # glowing core split, rows 5..9 down the middle
-    for y in range(5, 10):
-        px[7, y] = CORE
-        px[8, y] = CORE
-    px[7, 6] = GLOW
-    px[8, 6] = GLOW
-    px[7, 5] = GLOW
-    px[4, 12] = LEAF_L
-    px[11, 13] = LEAF_L
-    return img
-
-
-def t_cinder_cluster(index):
-    """v63.6: ember cluster - three charred nodes huddled on the ground,
-    each with a smoldering ember spark. Reads as coals that took root."""
-    img = blank_tile()
-    px = img.load()
-    ND_D = (34, 26, 30)
-    ND = (58, 42, 44)
-    ND_L = (92, 62, 52)
-    EMB = (232, 120, 44)
-    HOT = (255, 200, 96)
-    def node(cx, cy, r, hotx, hoty):
-        for y in range(cy - r, cy + r + 1):
-            for x in range(cx - r, cx + r + 1):
-                d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy) * 1.4
-                if d2 <= r * r + 0.4:
-                    edge = d2 > (r - 1) * (r - 1) + 0.4
-                    px[x, y] = ND_D if edge else ND_L if d2 < 2.0 else ND
-        px[hotx, hoty] = EMB
-    node(5, 12, 3, 5, 12)      # big left node
-    node(11, 13, 3, 11, 13)    # right node
-    node(8, 8, 2, 8, 8)        # small top node
-    px[5, 11] = HOT
-    px[8, 7] = HOT
-    px[11, 12] = HOT
-    px[3, 14] = ND_D
-    px[13, 15] = ND_D
-    return img
-
-
-def t_ember_lens(index):
-    """v63.6: ember lens - a flat molten disc lying ON the ground, like a
-    puddle of glass with a hot ring. The only ground-hugging bloom."""
-    img = blank_tile()
-    px = img.load()
-    RIM = (44, 30, 34)
-    MID = (120, 44, 30)
-    RED = (196, 60, 40)
-    HOT = (255, 160, 60)
-    CORE = (255, 214, 120)
-    for y in range(10, 16):
-        for x in range(1, 15):
-            dx = (x - 8) / 6.3
-            dy = (y - 13) / 2.6
-            d2 = dx * dx + dy * dy
-            if d2 <= 1.0:
-                if d2 > 0.72:
-                    px[x, y] = RIM
-                elif d2 > 0.40:
-                    px[x, y] = MID
-                elif d2 > 0.16:
-                    px[x, y] = RED
-                else:
-                    px[x, y] = HOT
-    px[7, 13] = CORE
-    px[8, 13] = CORE
-    px[8, 12] = CORE
-    px[5, 8] = HOT              # lazy sparks
-    px[11, 9] = HOT
-    px[3, 10] = (140, 70, 40)
-    return img
-
-
-def t_frost_star(index):
-    """v63.6: frost star - a thick six-ray ice star sprawling flat on the
-    turf, white tips, bright heart. A silhouette nothing else in the game
-    has (radial, spiky, ground-level)."""
-    img = blank_tile()
-    px = img.load()
-    ICE_D = (92, 124, 156)
-    ICE = (140, 172, 198)
-    PALE = (198, 224, 240)
-    WHT = (240, 250, 255)
-    cx, cy = 8, 12
-    rays = [(-6, 0), (6, 0), (-3, -4), (3, -4), (-3, 3), (3, 3)]
-    for rx, ry in rays:
-        steps = max(abs(rx), abs(ry))
-        for i in range(steps + 1):
-            x = cx + rx * i // steps
-            y = cy + ry * i // steps
-            col = WHT if i >= steps - 1 else (PALE if i >= steps * 0.45 else ICE)
-            px[x, y] = col
-            if y + 1 <= 15:
-                px[x, y + 1] = col   # 2px-thick ray
-    px[cx - 1, cy] = PALE            # heart
-    px[cx, cy] = WHT
-    px[cx + 1, cy] = PALE
-    px[cx, cy + 1] = PALE
-    px[cx, cy - 1] = PALE
-    return img
-
-
-def t_glacier_bulb(index):
-    """v63.6: glacier bulb - a fat ice onion half-buried in the turf with
-    one bright seam of cold light down its side. Single round body."""
-    img = blank_tile()
-    px = img.load()
-    ICE_D = (96, 128, 158)
-    ICE = (146, 178, 202)
-    PALE = (202, 226, 240)
-    SEAM = (176, 234, 255)
-    WHT = (244, 252, 255)
-    dome = {6: (7, 8), 7: (6, 9), 8: (5, 10), 9: (4, 11), 10: (4, 11),
-            11: (4, 11), 12: (5, 10), 13: (5, 10), 14: (6, 9), 15: (7, 8)}
-    for y, (x0, x1) in dome.items():
-        for x in range(x0, x1 + 1):
-            edge = x in (x0, x1)
-            if y <= 8:
-                px[x, y] = PALE if not edge else ICE
-            elif y <= 12:
-                px[x, y] = ICE if not edge else ICE_D
-            else:
-                px[x, y] = ICE_D if not edge else (78, 104, 132)
-    for y in range(7, 14):          # the glowing seam
-        px[9, y] = SEAM
-    px[9, 7] = WHT
-    px[8, 6] = WHT
-    px[6, 10] = PALE                # frost glints
-    px[10, 11] = PALE
-    return img
-
-
-def t_ringbloom(index):
-    """v63.6: ringbloom - a fairy ring of small frost orbs with a cold
-    spark in the hollow center. Hollow circle, nothing else looks like
-    it; hugs the ground."""
-    img = blank_tile()
-    px = img.load()
-    ORB = (214, 234, 246)
-    ORB_L = (244, 252, 255)
-    ORB_D = (150, 182, 204)
-    SPARK = (170, 230, 255)
-    orbs = [(4, 12), (5, 10), (8, 9), (11, 10), (12, 12), (10, 14), (6, 14)]
-    for ox, oy in orbs:
-        px[ox, oy] = ORB
-        px[ox + 1, oy] = ORB
-        px[ox, oy + 1] = ORB
-        px[ox + 1, oy + 1] = ORB_D
-        px[ox, oy] = ORB_L if (ox + oy) % 2 == 0 else ORB
-    px[8, 12] = SPARK
-    px[9, 12] = SPARK
-    px[8, 11] = (120, 190, 230)
-    px[9, 13] = (120, 190, 230)
     return img
 
 

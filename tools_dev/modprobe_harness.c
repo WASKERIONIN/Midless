@@ -14,7 +14,7 @@ void LuaBindings_Shutdown(void);
 static const char *BlockName(unsigned short id) {
     /* v63.7: sparse map of REAL block ids (the old dense list was
      * shifted by several entries and mislabeled every histogram) */
-    static const char *names[76] = {
+    static const char *names[80] = {
         [1] = "stone", [2] = "dirt", [3] = "turf", [19] = "voidrock",
         [12] = "rose", [13] = "dandelion",
         [28] = "bellflower", [29] = "starbloom", [30] = "spiral_fern",
@@ -25,8 +25,9 @@ static const char *BlockName(unsigned short id) {
         [50] = "lantern_tree", [51] = "crystal_stalk", [52] = "void_puff",
         [56] = "ember_rock", [57] = "ember_turf", [58] = "frost_turf",
         [59] = "ember_tuft", [60] = "frost_tuft",
-        [67] = "smolderhead", [68] = "cinder_cluster", [69] = "ember_lens",
-        [70] = "frost_star", [71] = "glacier_bulb", [72] = "ringbloom",
+        [67] = "smolderhead", [68] = "cinder_buds", [69] = "tree_lantern_low",
+        [70] = "tree_void_low", [71] = "glacier_dewdrop", [72] = "ringbloom",
+        [76] = "ember_lantern", [77] = "frost_burst",
         [73] = "glowcap_cluster", [74] = "cinder_trumpet",
         [75] = "frost_puffball",
     };

@@ -515,7 +515,7 @@ local ember_patch = f.lt(0.55, patch_n)
 local ember_id = 59                                   -- ember tuft lawn
 ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 67, ember_id)
 ember_id = f.select(ember_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 68, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.30), 69, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.30), 76, ember_id)
 ember_id = f.select(ember_patch * f.lt(0.30, which_n) * f.lt(which_n, 0.45), 31, ember_id)
 ember_id = f.select(ember_patch * f.lt(0.45, which_n), 33, ember_id)
 ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
@@ -523,7 +523,7 @@ ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
 -- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
 local frost_patch = f.lt(0.55, patch_n)
 local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 70, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 77, frost_id)
 frost_id = f.select(frost_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 71, frost_id)
 frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.45), 72, frost_id)
 frost_id = f.select(frost_patch * f.lt(0.45, which_n) * f.lt(which_n, 0.65), 48, frost_id)
@@ -582,7 +582,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 17,
+    id = "midless:cosmic", version = 18,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),
