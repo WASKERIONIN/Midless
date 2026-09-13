@@ -227,23 +227,6 @@ midless.define_block(58, {
     textures = { all = 58 },
 })
 
--- v63: biome ground cover - every biome keeps its own grass
-midless.define_block(59, {
-    name = "Ember Tuft",
-    textures = { all = 59 },
-    model = block.model.SPRITE,
-    render = block.render.TRANSPARENT,
-    collider = block.collider.NONE,
-})
-
-midless.define_block(60, {
-    name = "Frost Tuft",
-    textures = { all = 60 },
-    model = block.model.SPRITE,
-    render = block.render.TRANSPARENT,
-    collider = block.collider.NONE,
-})
-
 ------------------------------------------------------------- utilities ----
 local function layer(seed, freq, thresh, base_y, amp, thick)
     local n = f.noise2d({
@@ -290,18 +273,6 @@ local function layer_at(seed, freq, thresh, base_y, amp, thick, yy)
         type = "opensimplex2s", fractal = "fbm", frequency = freq * 2.3,
         octaves = 2, seed_offset = seed + 9,
     })
-    -- v63b: keep the ember terraces in sync with layer() - the flora
-    -- gates sample these offset fields, so a mismatch made plants
-    -- stack or float around terrace edges
-    if seed == 1 then
-        local biome_n_t = f.noise2d({
-            type = "opensimplex2s", fractal = "fbm", frequency = 0.006,
-            octaves = 2, seed_offset = 4242,
-        })
-        local ember_b = f.lt(0.22, biome_n_t)
-        local terr = f.floor(h * 3.0) / 3.0 + 0.15
-        h = f.select(ember_b, terr, h)
-    end
     local surface = base_y + h * amp
     local thickness = 4 + f.max(mask, 0) * thick
     local warp = f.noise3d({
@@ -384,28 +355,18 @@ local fine_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.4,
     octaves = 1, seed_offset = 777,
 })
--- v63b: the near-open-sky gate kills stacked plants: on a soft island
--- edge two cells in a row could both pass the product threshold and
--- grow a flower on top of a flower. Real ground always has clear sky.
 local flora_cell = f.lt(3.0, f.max(f.abs(x - 8), f.abs(z - 8))) *
                    f.lt(0.4, solid_below * (1 - inside) * open_above) *
-                   f.lt(0.92, open_above) *
-                   (1 - f.lt(0.2, inside)) *
                    f.lt(0.05, patch_n) * f.lt(0.1, fine_n)
 local which_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
     octaves = 2, seed_offset = 555,
 })
--- v63: biome gates for flora. Every biome keeps its own plant set:
--- the classic crystal meadow no longer leaks into ember or frost.
-local ember_f = f.lt(0.22, biome_n)
-local frost_f = f.lt(biome_n, -0.22)
-local classic_f = 1 - f.max(ember_f, frost_f)
-
--- classic meadow: v54 species bands. NOTE: fold must run from the
--- LOWEST threshold up: the last select that fires wins, so higher
--- thresholds (checked later) claim higher which_n.
-local classic_id = 33                                 -- lanternberry default
+-- v54: eight species in noise bands - whole patches share one species
+-- v54: eight species in noise bands - whole patches share one species.
+-- NOTE: fold must run from the LOWEST threshold up: the last select that
+-- fires wins, so higher thresholds (checked later) claim higher which_n.
+local flower_id = 33                                   -- lanternberry default
 for _, band in ipairs({
     { -0.58, 12 }, -- rose
     { -0.36, 13 }, -- dandelion
@@ -422,35 +383,32 @@ for _, band in ipairs({
     { 0.74, 32 },  -- glow grass
     { 0.80, 50 },  -- v61.2: lantern tree groves (very rare)
 }) do
-    classic_id = f.select(f.lt(band[1], which_n), band[2], classic_id)
+    flower_id = f.select(f.lt(band[1], which_n), band[2], flower_id)
 end
--- v61.2 giant ladder (classic biome only) - puffs, moon bells, star
+-- v57: tall flora grows as rare giants inside starbloom patches - where the
+-- patch is at its densest (high fine_n) the ordinary bloom becomes a
+-- two-block moon bell, and the very densest spots grow a star reed
+-- v57: tall flora - rare giants keyed on the fine noise (which_n's top
+-- tail is too thin to bank on); moon bells and star reeds rise singly
+-- v61.2: the giant ladder got five rungs - puffs, moon bells, star
 -- reeds, crystal stalks and (the rarest) void trees
-classic_id = f.select(f.lt(0.60, fine_n) * f.lt(fine_n, 0.70), 52, classic_id)
-classic_id = f.select(f.lt(0.70, fine_n) * f.lt(fine_n, 0.80), 38, classic_id)
-classic_id = f.select(f.lt(0.80, fine_n) * f.lt(fine_n, 0.90), 37, classic_id)
-classic_id = f.select(f.lt(0.90, fine_n) * f.lt(fine_n, 0.965), 51, classic_id)
-classic_id = f.select(f.lt(0.965, fine_n), 49, classic_id)
-
--- ember isles: smoldering grass lawn with flower PATCHES inside it
--- (patch_n masks where blooms may appear) and rare lantern groves
-local ember_patch = f.lt(0.55, patch_n)
-local ember_id = 59                                   -- ember tuft lawn
-ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 46, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.35), 31, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.35, which_n), 33, ember_id)
-ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
-
--- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
-local frost_patch = f.lt(0.55, patch_n)
-local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 48, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.35), 45, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.35, which_n), 52, frost_id)
-frost_id = f.select(f.lt(0.90, fine_n), 49, frost_id) -- rare void tree
-
-local flower_id = f.select(classic_f, classic_id,
-                   f.select(ember_f, ember_id, frost_id))
+flower_id = f.select(f.lt(0.60, fine_n) * f.lt(fine_n, 0.70), 52, flower_id)
+flower_id = f.select(f.lt(0.70, fine_n) * f.lt(fine_n, 0.80), 38, flower_id)
+flower_id = f.select(f.lt(0.80, fine_n) * f.lt(fine_n, 0.90), 37, flower_id)
+flower_id = f.select(f.lt(0.90, fine_n) * f.lt(fine_n, 0.965), 51, flower_id)
+flower_id = f.select(f.lt(0.965, fine_n), 49, flower_id)
+-- v62: biome flora - the ember isles grow warm species, the frost
+-- isles grow pale ones; lantern groves prefer ember, void trees frost
+local ember_f = f.lt(0.22, biome_n)
+local frost_f = f.lt(biome_n, -0.22)
+flower_id = f.select(ember_f * f.lt(0.00, fine_n) * f.lt(fine_n, 0.35), 46, flower_id)
+flower_id = f.select(ember_f * f.lt(0.35, fine_n) * f.lt(fine_n, 0.60), 31, flower_id)
+flower_id = f.select(ember_f * f.lt(0.60, fine_n) * f.lt(fine_n, 0.75), 33, flower_id)
+flower_id = f.select(frost_f * f.lt(0.00, fine_n) * f.lt(fine_n, 0.35), 48, flower_id)
+flower_id = f.select(frost_f * f.lt(0.35, fine_n) * f.lt(fine_n, 0.60), 45, flower_id)
+flower_id = f.select(frost_f * f.lt(0.60, fine_n) * f.lt(fine_n, 0.75), 52, flower_id)
+flower_id = f.select(ember_f * f.lt(0.80, which_n), 50, flower_id)
+flower_id = f.select(frost_f * f.lt(0.80, which_n), 49, flower_id)
 
 -- stratified bodies: crystal turf over dirt over void rock over stone.
 -- v62: the biome picks the skin - ember turf over ember rock, frost

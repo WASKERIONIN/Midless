@@ -9,7 +9,7 @@ GameSettings gameSettings = {
     .height = 1080,
     .fullscreen = true,    /* borderless at the monitor's own resolution */
     .maxFpsChoice = 0,
-    .drawDistance = 8,
+    .drawDistance = 26,   /* v63.3: default horizon (18/22/26 selectable) */
     .volume = 70,
     .vsync = 1,
     .language = 0,
@@ -47,7 +47,13 @@ void Settings_Load(void) {
         else if (sscanf(line, "fullscreen=%d", &value) == 1) gameSettings.fullscreen = value != 0;
         else if (sscanf(line, "maxfps=%d", &value) == 1) gameSettings.maxFpsChoice = value;
         else if (sscanf(line, "drawdistance=%d", &value) == 1) {
-            (void)value; /* v47.1: draw distance is fixed at 20 */
+            /* v63.3: real setting again (18/22/26 chunks) - smaller value
+             * = faster world fill on the single-thread loader */
+            if (value >= 24) value = 26;
+            else if (value >= 20) value = 22;
+            else if (value > 0) value = 18;
+            else value = 26;
+            gameSettings.drawDistance = value;
         } else if (sscanf(line, "volume=%d", &value) == 1) {
             if (value < 0) value = 0;
             if (value > 100) value = 100;

@@ -1,6 +1,12 @@
-# Midless: Cosmic Edition v63.2
+# Midless: Cosmic Edition v63.3
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.3 - draw distance is a real setting (faster world fill), sprite editor mirror toggle
+
+- **The chunk loader stays exactly as v62** (as requested) - verified byte-for-byte in this release. Standing still, the game fills a disc of ~23,000 chunks (draw distance 26) one chunk at a time at ~20 chunks/s, which takes many minutes - that is the original v62 pace, not a regression; the mod generation cost was measured identical to v62 (25.3 s vs 24.9 s on the same workload). Walking re-centers the fill, which is why islands appear along your path.
+- **New: "Draw Distance" is now a clickable setting** in the pause menu (18 / 22 / 26 chunks). Smaller value = the world fills up to 2.4x faster; the fog follows the value automatically, so islands still fade out before the load edge. The choice is saved to settings.ini and applied live. Old settings files are migrated to 18 (fastest fill).
+- **Sprite editor**: the mirror toggle now shows its state explicitly ("Симметрия: ВКЛ/ВЫКЛ"), draws a dashed guide line down the canvas center while on, and pops a hint when switched.
 
 ## v63.2 - world loading fully reverted to the proven v62 system + sprite editor
 

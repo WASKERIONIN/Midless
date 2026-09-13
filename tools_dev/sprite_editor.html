@@ -28,6 +28,8 @@
   .hint { color: #8888a0; font-size: 12px; line-height: 1.5; }
   #toast { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
            background: #2a2a3d; border: 1px solid #55556e; padding: 6px 14px; border-radius: 6px; display: none; }
+  #guide { position: absolute; top: 8%; bottom: 8%; left: 50%; width: 0;
+           border-left: 1px dashed rgba(255, 226, 130, .5); pointer-events: none; }
 </style>
 </head>
 <body>
@@ -42,7 +44,7 @@
   </div>
   <div class="row">
     <button id="grid" class="on">Сетка</button>
-    <button id="mirror" class="on">Симметрия ⇔</button>
+    <button id="mirror" class="on">Симметрия: ВКЛ</button>
     <button id="clear" class="warn">Очистить</button>
   </div>
 
@@ -83,7 +85,7 @@
   и пришлите файл в чат — я вставлю его в игру (в атлас terrain.png) и настрою блок.<br><br>
   Горячие клавиши: B карандаш, E ластик, G заливка, L линия, R прямоугольник, I пипетка, Ctrl+Z/Y отмена/возврат.</p>
 </div>
-<div id="main"><canvas id="board" width="32" height="32" style="width:640px;height:640px;"></canvas><div id="toast"></div></div>
+<div id="main"><div id="guide"></div><canvas id="board" width="32" height="32" style="width:640px;height:640px;"></canvas><div id="toast"></div></div>
 
 <script>
 "use strict";
@@ -237,8 +239,17 @@ document.getElementById('grid').onclick = e => {
   cv.style.background = gridOn
     ? 'repeating-conic-gradient(#20202e 0% 25%, #181822 0% 50%) 0 0 / 24px 24px' : '#181822';
 };
-document.getElementById('mirror').onclick = e => {
-  mirrorOn = !mirrorOn; e.target.classList.toggle('on', mirrorOn); };
+function syncMirrorUi(){
+  const b = document.getElementById('mirror');
+  b.textContent = 'Симметрия: ' + (mirrorOn ? 'ВКЛ' : 'ВЫКЛ');
+  b.classList.toggle('on', mirrorOn);
+  document.getElementById('guide').style.display = mirrorOn ? 'block' : 'none';
+}
+document.getElementById('mirror').onclick = () => {
+  mirrorOn = !mirrorOn; syncMirrorUi();
+  toast(mirrorOn ? 'Зеркало включено: рисуешь половину - вторая рисуется сама'
+                 : 'Зеркало выключено: обе половины рисуются вручную');
+};
 document.getElementById('clear').onclick = () => { pushUndo(); ctx.clearRect(0,0,S,S); };
 document.getElementById('undo').onclick = undo;
 document.getElementById('redo').onclick = redo;
@@ -290,7 +301,7 @@ window.addEventListener('keydown', e => {
   }
 });
 
-buildPal('cosmic'); setColor('#7ed6b4'); setSize(32);
+buildPal('cosmic'); setColor('#7ed6b4'); setSize(32); syncMirrorUi();
 document.querySelector('[data-s="32"]').classList.add('on');
 </script>
 </body>

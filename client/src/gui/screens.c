@@ -781,9 +781,17 @@ void Screen_DrawOptions(void) {
     int index = 1;
     offsetY += index * 48;
 
-    const char* drawDistanceTxt = "Draw Distance: 26 (fixed)";
-    I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2 + 1, offsetY + 13 + 1, 16, BLACK);
-    I18n_DrawText(drawDistanceTxt, offsetX + 150 - I18n_MeasureText(drawDistanceTxt, 16) / 2, offsetY + 13, 16, (Color){ 200, 200, 220, 255 });
+    /* v63.3: draw distance is a real setting again. Smaller = the world
+     * fills much faster on the v62 single-thread loader; the fog follows
+     * the value automatically so islands still fade before the edge. */
+    const char* drawDistanceTxt = TextFormat("Draw Distance: %d", world.drawDistance);
+    if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, drawDistanceTxt, true)) {
+        int dd = world.drawDistance == 26 ? 22 : (world.drawDistance == 22 ? 18 : 26);
+        world.drawDistance = dd;
+        gameSettings.drawDistance = dd;
+        Settings_Save();
+        Network_Send(Packet_CreateSetDrawDistance((unsigned char)dd));
+    }
 
     offsetY += 50;
 

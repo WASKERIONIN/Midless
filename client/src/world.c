@@ -52,7 +52,10 @@ void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
     /* v47.1: fixed draw distance - the user wants the whole sky visible */
-    world.drawDistance = 26;   /* v63b: proven v62 horizon */
+    /* v63.3: honor the saved draw distance (18/22/26; default 26) */
+    world.drawDistance = (gameSettings.drawDistance == 18 ||
+                          gameSettings.drawDistance == 22)
+                             ? gameSettings.drawDistance : 26;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
