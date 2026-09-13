@@ -523,13 +523,19 @@ static float Mus_NextSample(void) {
      * before the station sweep, new track always from its top */
     unsigned int cycle = (unsigned int)(musSample / (BAR * 32.0f));
     if (cycle > 0 && cycle != musLastCycle) {
-        musTrack = Mus_PickDifferent();
-        T = &tracks[musTrack];
-        BAR = (float)MUS_SR * T->barSec;
-        musSample = 0;
-        curNote = 0;
-        xfadePos = 0;
-        musLastCycle = 0;
+        /* v63.5: auto switching is a setting now (default OFF) - the
+         * radio stays on the chosen station unless you press N */
+        if (gameSettings.autoTrack) {
+            musTrack = Mus_PickDifferent();
+            T = &tracks[musTrack];
+            BAR = (float)MUS_SR * T->barSec;
+            musSample = 0;
+            curNote = 0;
+            xfadePos = 0;
+            musLastCycle = 0;
+        } else {
+            musLastCycle = cycle;
+        }
     } else {
         musLastCycle = cycle;
     }
@@ -690,12 +696,10 @@ void SoundFx_Init(void) {
         musicReady = true;
         musicEnabled = gameSettings.music != 0;
         if (!musicEnabled) StopAudioStream(musicStream);
-        /* v59.3: every launch starts on a random side, seeded by the
-         * clock - raylib's rand may be unseeded this early, which is why
-         * the same track played at every start */
+        /* v63.5: every launch opens with "The Abyss" */
         musSeed = (unsigned int)time(NULL) ^ (unsigned int)clock();
         Mus_NextRand(); Mus_NextRand();
-        musTrack = (int)(Mus_NextRand() % 4u);
+        musTrack = 1;
     }
     digSnd = MakeSound(3200, FillDig);
     placeSnd = MakeSound(3600, FillPlace);

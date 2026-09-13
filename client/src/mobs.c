@@ -1299,7 +1299,8 @@ static bool Grazer_Reachable(Vector3 from, Vector3 flower);
 
 /* scan the neighborhood for a flower cell the grazer can actually
  * reach (not behind a ledge, not floating two blocks up) */
-static bool Grazer_FindFlower(Vector3 center, Vector3 *out) {
+static bool Grazer_FindFlower(const Grazer *self, Vector3 *out) {
+    Vector3 center = self->pos;
     int cx = (int)floorf(center.x), cy = (int)floorf(center.y), cz = (int)floorf(center.z);
     for (int dy = 1; dy >= -1; dy--)
         for (int dz = -6; dz <= 6; dz++)
@@ -1307,6 +1308,16 @@ static bool Grazer_FindFlower(Vector3 center, Vector3 *out) {
                 Vector3 cell = { cx + dx, cy + dy, cz + dz };
                 if (!Grazer_IsDelicacy(World_GetBlock(cell))) continue;
                 if (!Grazer_Reachable(center, cell)) continue;
+                /* v63.5: every mind its own - never claim a flower another
+                 * grazer is already heading to or eating */
+                bool claimed = false;
+                for (int j = 0; j < GRAZER_MAX; j++) {
+                    const Grazer *o = &grazers[j];
+                    if (o == self || !o->active) continue;
+                    if (o->state != 1 && o->state != 2) continue;
+                    if (Vector3Equals(o->targetCell, cell)) { claimed = true; break; }
+                }
+                if (claimed) continue;
                 *out = cell;
                 return true;
             }
@@ -1467,7 +1478,7 @@ static void Grazer_Update(float deltaTime, double now) {
                         continue;
                     }
                     Vector3 flower;
-                    if (roll < 60 && Grazer_FindFlower(g->pos, &flower)) {
+                    if (roll < 60 && Grazer_FindFlower(g, &flower)) {
                         g->targetCell = flower;
                         g->state = 1;
                     } else {

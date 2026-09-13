@@ -1,6 +1,18 @@
-# Midless: Cosmic Edition v63.4
+# Midless: Cosmic Edition v63.5
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.5 - loading-screen polish, draw distance 34, bigger safe ship, biome grass + mushrooms, radio settings
+
+- **Loading screen fixed**: the dirt bar no longer sticks out of its frame (edges align pixel-perfect at every window size); the bunny now faces the direction it walks and *eats each flower right in front of its nose*; and the progress bar finally reaches 100% exactly when the world is ready - the bunny always finishes its stroll. Flowers pop with petals at the spot where they are eaten.
+- **Draw distance**: default is now 30 for everyone (one-time migration, your later choice is kept). The setting gained a bigger step: **18 / 22 / 26 / 30 / 34**. Fair warning for 34: with the classic single-thread loader the world fills at the same ~20 chunks/s, so a full disc at 34 is roughly 40+ minutes of standing still - it is there for the view, walking fills it as you go.
+- **Grazers have no shared mind**: every grazer decides on its own (verified in code - reactions are strictly per-animal; two grazing side by side can both bolt simply because you were close to both). On top of that, two grazers no longer pick the same flower - each flower can be claimed by only one grazer now.
+- **The sky freighter got a real refit**: 1.6x bigger hull, engines and trail, and its approach lane is now probed *along the actual flight path* - the ship climbs above the tallest island under the route (30 m clearance) instead of clipping through peaks.
+- **Biome lawns under every plant**: the grass skirt at each stem base is picked from the ground it grows on - teal lawn on classic turf, warm ember blades on ember turf, icy pale blades on frost turf. No more green lawn on frost.
+- **Mushrooms!** Each biome grows its own species on its own ground: **Void Glowcap** (glowing teal cap, classic turf), **Ember Cap** (smoldering orange cap, ember turf), **Frost Cap** (pale icy cap, frost turf). Per-mushroom crafting properties are planned for a future round.
+- **Radio settings**: the game now always starts with **"The Abyss"**, and track auto-switching is a separate option ("Auto Tracks", default OFF - press N to skip manually). The Wanderer's March still opens the options screen vibe... from the second track on, if you enable auto mode.
+
+## v63.4 - loading screen with a grazing bunny, smarter grazers, draw distance up to 30
 
 ## v63.4 - loading screen with a grazing bunny, smarter grazers, draw distance up to 30
 

@@ -1274,6 +1274,9 @@ def build_atlas():
         58: t_frost_turf(58),
         59: t_ember_tuft(59),
         60: t_frost_tuft(60),
+        64: t_void_glowcap(64),
+        65: t_ember_cap(65),
+        66: t_frost_cap(66),
         61: t_grazer_fur(61),
         46: t_embercup(46),
         47: t_voidorchid(47),
@@ -1787,6 +1790,115 @@ def t_frost_tuft(index):
     px[11, 13] = D
     px[8, 4] = H
     px[5, 8] = (88, 172, 160)   # hardy teal blade
+    return img
+
+
+def t_void_glowcap(index):
+    """v63.5: classic-biome mushroom - pale stem, wide glowing teal cap
+    with a bright rim and lavender spots. Grows on turf (3)."""
+    img = blank_tile()
+    px = img.load()
+    ST = (214, 206, 190)    # pale stem
+    ST_D = (168, 158, 142)
+    CAP_D = (28, 108, 96)   # teal cap deep
+    CAP = (56, 196, 172)    # teal cap
+    CAP_L = (130, 240, 220) # cap rim light
+    SPOT = (198, 188, 232)  # lavender spots
+    OUT = (20, 48, 44)
+    # stem x=7..8, y=8..14
+    for y in range(9, 15):
+        px[7, y] = ST
+        px[8, y] = ST_D
+    px[6, 14] = ST_D
+    px[9, 14] = ST_D
+    # cap: dome rows y=3..7, gill row y=8
+    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
+            6: (2, 13), 7: (3, 12), 8: (4, 11)}
+    for y, (x0, x1) in dome.items():
+        for x in range(x0, x1 + 1):
+            if y == 2 or x == x0 or x == x1:
+                px[x, y] = CAP_L
+            elif y >= 5:
+                px[x, y] = CAP_D
+            else:
+                px[x, y] = CAP
+    for x in range(4, 12):
+        px[x, 9] = OUT           # gill shadow line
+    px[5, 4] = SPOT
+    px[10, 4] = SPOT
+    px[11, 6] = SPOT
+    px[3, 6] = CAP_L
+    return img
+
+
+def t_ember_cap(index):
+    """v63.5: ember-biome mushroom - charcoal stem, smoldering orange
+    cap with glowing rim and ember motes. Grows on ember turf (57)."""
+    img = blank_tile()
+    px = img.load()
+    ST = (74, 58, 52)       # charcoal stem
+    ST_D = (52, 40, 38)
+    CAP_D = (120, 44, 30)   # cap deep
+    CAP = (196, 60, 40)     # ember cap
+    CAP_L = (255, 160, 60)  # glow rim
+    MOTE = (255, 210, 120)
+    OUT = (40, 18, 24)
+    for y in range(9, 15):
+        px[7, y] = ST
+        px[8, y] = ST_D
+    px[6, 14] = ST_D
+    px[9, 14] = ST_D
+    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
+            6: (2, 13), 7: (3, 12), 8: (4, 11)}
+    for y, (x0, x1) in dome.items():
+        for x in range(x0, x1 + 1):
+            if y == 2 or x == x0 or x == x1:
+                px[x, y] = CAP_L
+            elif y >= 5:
+                px[x, y] = CAP_D
+            else:
+                px[x, y] = CAP
+    for x in range(4, 12):
+        px[x, 9] = OUT
+    px[5, 4] = MOTE
+    px[10, 4] = MOTE
+    px[7, 6] = MOTE
+    px[4, 6] = MOTE
+    return img
+
+
+def t_frost_cap(index):
+    """v63.5: frost-biome mushroom - icy stem, pale blue cap with a
+    white frost rim and cold glints. Grows on frost turf (58)."""
+    img = blank_tile()
+    px = img.load()
+    ST = (210, 224, 236)    # icy stem
+    ST_D = (168, 186, 202)
+    CAP_D = (110, 136, 160)
+    CAP = (150, 176, 196)   # pale blue cap
+    CAP_L = (240, 250, 255) # frost rim
+    GLINT = (198, 244, 255)
+    OUT = (60, 76, 92)
+    for y in range(9, 15):
+        px[7, y] = ST
+        px[8, y] = ST_D
+    px[6, 14] = ST_D
+    px[9, 14] = ST_D
+    dome = {2: (6, 9), 3: (4, 11), 4: (3, 12), 5: (2, 13),
+            6: (2, 13), 7: (3, 12), 8: (4, 11)}
+    for y, (x0, x1) in dome.items():
+        for x in range(x0, x1 + 1):
+            if y == 2 or x == x0 or x == x1:
+                px[x, y] = CAP_L
+            elif y >= 5:
+                px[x, y] = CAP_D
+            else:
+                px[x, y] = CAP
+    for x in range(4, 12):
+        px[x, 9] = OUT
+    px[5, 4] = GLINT
+    px[9, 5] = GLINT
+    px[11, 6] = CAP_L
     return img
 
 

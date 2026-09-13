@@ -19,6 +19,7 @@
 
 #define SHIP_HULL_QUADS 220
 #define SHIP_TRAIL 96
+#define SHIP_SCALE 1.6f   /* v63.5: the runner reads as a proper freighter */
 
 typedef struct ShipQuad {
     Vector3 v[4];        /* local space, CCW seen from outside */
@@ -192,19 +193,31 @@ void Ship_Shutdown(void) {
 
 /* v63: highest loaded terrain along a world-space line, so the pass
  * lane can be pushed above every island it crosses (never clips) */
-static float Ship_TerrainTopAlong(Vector3 ax, Vector3 az01, float len) {
+/* v63.5: highest loaded terrain under a point (column probe) */
+static float Ship_TerrainTopAt(float px, float pz) {
+    for (int y = 210; y >= 8; y -= 2) {
+        Vector3 probe = { px, y + 0.5f, pz };
+        int id = World_GetBlock(probe);
+        if (id > 0 && blockDefinitions[id].colliderType == BLOCK_COLLIDER_SOLID)
+            return (float)y;
+    }
+    return -1000.0f;
+}
+
+/* v63.5: highest terrain along the ACTUAL flyby segment (plus a wing
+ * margin on both sides) - the old probe walked a parallel line and
+ * missed islands the lane itself crossed */
+static float Ship_TerrainTopAlongLane(Vector3 a, Vector3 b) {
     float top = -1000.0f;
-    for (int s = 0; s <= 20; s++) {
-        float t = (float)s / 20.0f;
-        float px = ax.x + az01.x * len * t;
-        float pz = ax.z + az01.z * len * t;
-        for (int y = 210; y >= 8; y -= 2) {
-            Vector3 probe = { px, y + 0.5f, pz };
-            int id = World_GetBlock(probe);
-            if (id > 0 && blockDefinitions[id].colliderType == BLOCK_COLLIDER_SOLID) {
-                if ((float)y > top) top = (float)y;
-                break;
-            }
+    for (int s = 0; s <= 24; s++) {
+        float t = (float)s / 24.0f;
+        float px = a.x + (b.x - a.x) * t;
+        float pz = a.z + (b.z - a.z) * t;
+        for (int m = -1; m <= 1; m++) {
+            float mx = px + (b.z - a.z) * 0.05f * m;
+            float mz = pz - (b.x - a.x) * 0.05f * m;
+            float ty = Ship_TerrainTopAt(mx, mz);
+            if (ty > top) top = ty;
         }
     }
     return top;
@@ -219,16 +232,6 @@ static void Ship_BeginPass(double now) {
     float sideOff = 46.0f + (float)GetRandomValue(0, 320) / 10.0f;
     Vector3 dirA = V3(cosf(ang), 0, sinf(ang));
     Vector3 side = V3(-dirA.z, 0, dirA.x);
-    /* v63: probe the ground under the whole corridor; the lane rides
-     * at least 26 m above the tallest island under it */
-    Vector3 probeA = V3(pc.x + dirA.x * 150.0f + side.x * sideOff * 0.8f, 0,
-                        pc.z + dirA.z * 150.0f + side.z * sideOff * 0.8f);
-    Vector3 probeD = V3(-dirA.x * 15.0f, 0, -dirA.z * 15.0f);   /* step back along dir */
-    float terrainTop = Ship_TerrainTopAlong(probeA, probeD, 300.0f);
-    float minH = terrainTop - pc.y + 26.0f;
-    if (minH > h) h = minH;
-    if (h > 170.0f) h = 170.0f;
-    if (h < 24.0f) h = 24.0f;
     Vector3 mid = V3(pc.x, pc.y + h, pc.z);
     from = V3(mid.x + dirA.x * 150.0f + side.x * sideOff,
               mid.y + 6.0f,
@@ -236,6 +239,17 @@ static void Ship_BeginPass(double now) {
     to = V3(mid.x - dirA.x * 150.0f + side.x * sideOff * 0.55f,
             mid.y - 3.0f,
             mid.z - dirA.z * 150.0f + side.z * sideOff * 0.55f);
+    /* v63.5: probe the ACTUAL lane; lift the whole pass until the lowest
+     * point of the flight clears the tallest island under it by 30 m */
+    float terrainTop = Ship_TerrainTopAlongLane(from, to);
+    if (terrainTop > -500.0f) {
+        float neededMidY = terrainTop + 33.0f;   /* lane low point = mid.y - 3 */
+        if (mid.y < neededMidY) mid.y = neededMidY;
+        from.y = mid.y + 6.0f;
+        to.y = mid.y - 3.0f;
+    }
+    float hCap = pc.y + 200.0f;
+    if (from.y > hCap) { from.y = hCap; to.y = hCap - 9.0f; }
     passDuration = 15.0 + (double)GetRandomValue(0, 800) / 100.0;
     passStart = now;
     passEnd = now + passDuration;
@@ -330,7 +344,7 @@ void Ship_Draw(double now) {
         unsigned char b = (unsigned char)(q->b * L * 255.0f);
         rlColor4ub(r, g, b, 255);
         for (int vtx = 0; vtx < 4; vtx++) {
-            Vector3 lv = q->v[vtx];
+            Vector3 lv = Vector3Scale(q->v[vtx], SHIP_SCALE);
             Vector3 wp = Vector3Add(shipPos,
                 Vector3Add(Vector3Add(Vector3Scale(rightB, lv.x),
                                       Vector3Scale(upB, lv.y)),
@@ -349,28 +363,28 @@ void Ship_Draw(double now) {
         ShipTrailPt *t = &trail[i];
         if (t->life <= 0.0f) continue;
         float a = t->life;
-        Vector3 side = Vector3Scale(rightB, 0.16f * a);
+        Vector3 side = Vector3Scale(rightB, 0.16f * a * SHIP_SCALE);
         rlColor4ub((unsigned char)(60 * a), (unsigned char)(170 * a),
                    (unsigned char)(220 * a), (unsigned char)(120 * a));
         rlVertex3f(t->pos.x - side.x, t->pos.y - side.y, t->pos.z - side.z);
         rlVertex3f(t->pos.x + side.x, t->pos.y + side.y, t->pos.z + side.z);
-        rlVertex3f(t->pos.x + side.x * 0.3f - shipFwd.x * 2.2f,
-                   t->pos.y + side.y * 0.3f - shipFwd.y * 2.2f,
-                   t->pos.z + side.z * 0.3f - shipFwd.z * 2.2f);
-        rlVertex3f(t->pos.x - side.x * 0.3f - shipFwd.x * 2.2f,
-                   t->pos.y - side.y * 0.3f - shipFwd.y * 2.2f,
-                   t->pos.z - side.z * 0.3f - shipFwd.z * 2.2f);
+        rlVertex3f(t->pos.x + side.x * 0.3f - shipFwd.x * 2.2f * SHIP_SCALE,
+                   t->pos.y + side.y * 0.3f - shipFwd.y * 2.2f * SHIP_SCALE,
+                   t->pos.z + side.z * 0.3f - shipFwd.z * 2.2f * SHIP_SCALE);
+        rlVertex3f(t->pos.x - side.x * 0.3f - shipFwd.x * 2.2f * SHIP_SCALE,
+                   t->pos.y - side.y * 0.3f - shipFwd.y * 2.2f * SHIP_SCALE,
+                   t->pos.z - side.z * 0.3f - shipFwd.z * 2.2f * SHIP_SCALE);
     }
     /* twin exhaust glow blobs at the nacelles */
     for (int sideI = 0; sideI < 2; sideI++) {
         float s = sideI == 0 ? 1.0f : -1.0f;
         Vector3 e = Vector3Add(shipPos,
-            Vector3Add(Vector3Add(Vector3Scale(rightB, s * 0.52f),
-                                  Vector3Scale(shipFwd, -4.35f)),
+            Vector3Add(Vector3Add(Vector3Scale(rightB, s * 0.52f * SHIP_SCALE),
+                                  Vector3Scale(shipFwd, -4.35f * SHIP_SCALE)),
                        Vector3Scale(upB, 0.02f)));
         float pulse = 0.75f + 0.25f * sinf(now * 17.0f + sideI);
-        Vector3 rr_ = Vector3Scale(rightB, 0.34f * pulse);
-        Vector3 uu = Vector3Scale(upB, 0.34f * pulse);
+        Vector3 rr_ = Vector3Scale(rightB, 0.34f * pulse * SHIP_SCALE);
+        Vector3 uu = Vector3Scale(upB, 0.34f * pulse * SHIP_SCALE);
         rlColor4ub(90, 190, 255, 160);
         rlVertex3f(e.x - rr_.x - uu.x, e.y - rr_.y - uu.y, e.z - rr_.z - uu.z);
         rlVertex3f(e.x - rr_.x + uu.x, e.y - rr_.y + uu.y, e.z - rr_.z + uu.z);

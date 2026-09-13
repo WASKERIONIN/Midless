@@ -52,10 +52,10 @@ void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
     /* v47.1: fixed draw distance - the user wants the whole sky visible */
-    /* v63.4: honor the saved draw distance (18/22/26/30; default 26) */
+    /* v63.5: honor the saved draw distance (18/22/26/30/34; default 30) */
     world.drawDistance = (gameSettings.drawDistance >= 18 &&
-                          gameSettings.drawDistance <= 30)
-                             ? gameSettings.drawDistance : 26;
+                          gameSettings.drawDistance <= 34)
+                             ? gameSettings.drawDistance : 30;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
@@ -706,7 +706,8 @@ static float World_PosHash(float x, float z) {
  * come from a stable per-position hash, so the lawn reads as grown, not
  * stamped from one cookie cutter. */
 static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
-                             float t, float gust, float phase) {
+                             float t, float gust, float phase,
+                             int tuftTile, int sedgeTile) {
     float h0 = World_PosHash(base.x, base.z);
     const float offs[5][2] = { { 0, 0 }, { 0.16f, 0.13f }, { -0.15f, 0.14f },
                                { 0.14f, -0.16f }, { -0.13f, -0.15f } };
@@ -720,11 +721,11 @@ static void World_GrassSkirt(Vector3 base, float scale, unsigned char bright,
         float amp = 0.075f * gust;
         float lean = amp * sinf(t * 2.1f + phase + i * 1.7f);
         float bw = 0.24f * scale * (0.85f + 0.3f * hp);
-        Mobs_DrawBillboard(at, bw, 0.21f * scale * hMul, 39, bright, lean);
+        Mobs_DrawBillboard(at, bw, 0.21f * scale * hMul, tuftTile, bright, lean);
         /* the taller sedge layers over the tuft on most ring blades */
         if (i > 0 && hp > 0.30f) {
             float sh = 0.30f * scale * (0.70f + 0.55f * hp);
-            Mobs_DrawBillboard(at, 0.22f * scale, sh, 41, bright, lean * 1.15f);
+            Mobs_DrawBillboard(at, 0.22f * scale, sh, sedgeTile, bright, lean * 1.15f);
         }
     }
 }
@@ -756,6 +757,12 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
         case 50: halfW = 1.25f; h = 4.40f; swayAmp = 0.036f; break; /* lantern tree */
         case 51: halfW = 0.42f; h = 1.90f; swayAmp = 0.020f; break; /* crystal stalk */
         case 52: halfW = 0.45f; h = 0.85f; swayAmp = 0.095f; break; /* void puff */
+        /* v63.5: biome lawns + biome mushrooms */
+        case 59: halfW = 0.36f; h = 0.24f; swayAmp = 0.090f; break; /* ember tuft */
+        case 60: halfW = 0.36f; h = 0.24f; swayAmp = 0.090f; break; /* frost tuft */
+        case 64: halfW = 0.42f; h = 0.85f; swayAmp = 0.040f; break; /* void glowcap */
+        case 65: halfW = 0.40f; h = 0.80f; swayAmp = 0.040f; break; /* ember cap */
+        case 66: halfW = 0.40f; h = 0.80f; swayAmp = 0.040f; break; /* frost cap */
         default: return;
     }
     /* v61.2: stable per-instance variation - plants of one species are
@@ -789,10 +796,16 @@ static void World_FloraBillboardAt(Vector3 base, int id) {
     } else {
         Mobs_DrawBillboard(base, halfW, h, tile, bright, lean);
     }
-    if (id != 39 && id != 41 && id != 32) {
-        World_GrassSkirt(base, skirt, bright, t, gust, phase);
+    /* v63.5: the skirt MATCHES the biome lawn - ember turf grows ember
+     * grass at every stem base, frost turf grows frost grass */
+    int groundId = World_GetBlock((Vector3){ base.x, base.y - 0.5f, base.z });
+    int tuftT = 39, sedgeT = 41;
+    if (groundId == 57) { tuftT = 59; sedgeT = 59; }
+    else if (groundId == 58) { tuftT = 60; sedgeT = 60; }
+    if (id != 39 && id != 41 && id != 32 && id != 59 && id != 60) {
+        World_GrassSkirt(base, skirt, bright, t, gust, phase, tuftT, sedgeT);
     } else {
-        World_GrassSkirt(base, 0.8f, bright, t, gust, phase + 2.1f);
+        World_GrassSkirt(base, 0.8f, bright, t, gust, phase + 2.1f, tuftT, sedgeT);
     }
     if (id == 39) {
         /* v59: a taller sedge strand beside every tuft, its own phase */

@@ -789,7 +789,8 @@ void Screen_DrawOptions(void) {
     if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, drawDistanceTxt, true)) {
         int dd = world.drawDistance == 18 ? 22
                : (world.drawDistance == 22 ? 26
-               : (world.drawDistance == 26 ? 30 : 18));
+               : (world.drawDistance == 26 ? 30
+               : (world.drawDistance == 30 ? 34 : 18)));
         world.drawDistance = dd;
         gameSettings.drawDistance = dd;
         Settings_Save();
@@ -857,6 +858,15 @@ void Screen_DrawOptions(void) {
     if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, muTxt, true)) {
         gameSettings.music = !gameSettings.music;
         SoundFx_SetMusicEnabled(gameSettings.music != 0);
+        Settings_Save();
+    }
+
+    offsetY += 50;
+
+    /* v63.5: auto track switching - off by default, N skips manually */
+    const char *atTxt = gameSettings.autoTrack ? "Auto Tracks: ON" : "Auto Tracks: OFF";
+    if (CosmicButton((Rectangle){offsetX, offsetY, 300, 42}, atTxt, true)) {
+        gameSettings.autoTrack = !gameSettings.autoTrack;
         Settings_Save();
     }
 
@@ -984,6 +994,11 @@ void Screen_DrawLogin(void) {
  * progress bar munching flowers while the near-field chunks stream in */
 static void Screen_DrawWorldFill(float prog, double elapsed) {
     int w = screenWidth, h = screenHeight;
+    /* v63.5: show the NEAR-FIELD gate as 0..100% so the bunny actually
+     * reaches the end of the bar when loading completes */
+    float disp = prog / 0.92f;
+    if (disp > 1.0f) disp = 1.0f;
+    if (disp < 0.0f) disp = 0.0f;
     /* dusk sky */
     DrawRectangleGradientV(0, 0, w, h, (Color){22, 12, 44, 255}, (Color){8, 4, 18, 255});
     for (int i = 0; i < 90; i++) {
@@ -1000,39 +1015,43 @@ static void Screen_DrawWorldFill(float prog, double elapsed) {
     I18n_DrawText(sub, w / 2 - I18n_MeasureText(sub, 20) / 2, h / 5 + 66, 20,
                   (Color){190, 190, 210, 255});
 
-    /* the bar doubles as the ground the grazer walks on */
-    int barW = w * 62 / 100, barH = 26;
+    /* the bar doubles as the ground the grazer walks on.
+     * v63.5: barW snapped to whole 32px tiles so the soil never sticks
+     * out of the frame; the frame wraps the tiles with an even margin. */
+    int barW = w * 62 / 100;
+    barW -= barW % 32;
+    int barH = 32;
     int barX = w / 2 - barW / 2, barY = h * 74 / 100;
     Texture2D atlas = ClientTextures_Get(1);
     Rectangle soil = { 2 * 16, 0, 16, 16 };          /* tile 2: dirt */
     Rectangle turf = { 3 * 16, 0, 16, 16 };          /* tile 3: turf */
-    for (int tx = 0; tx < barW; tx += 2 * 16) {
+    for (int tx = 0; tx < barW; tx += 32) {
         Rectangle dst = { barX + tx, barY, 32, 32 };
-        DrawTexturePro(atlas, soil, dst, (Vector2){0, 0}, 0, (Color){140, 130, 150, 255});
+        DrawTexturePro(atlas, soil, dst, (Vector2){0, 0}, 0, (Color){150, 140, 158, 255});
     }
-    int fillW = (int)(barW * prog);
-    for (int tx = 0; tx < fillW; tx += 2 * 16) {
+    int fillW = (int)(barW * disp) / 32 * 32;
+    for (int tx = 0; tx < fillW; tx += 32) {
         Rectangle dst = { barX + tx, barY, 32, 32 };
         DrawTexturePro(atlas, turf, dst, (Vector2){0, 0}, 0, WHITE);
     }
     DrawRectangle(barX, barY - 4, fillW, 4, (Color){110, 214, 156, 255});
-    DrawRectangleLinesEx((Rectangle){barX - 2, barY - 2, barW + 4, barH + 6}, 2,
+    DrawRectangleLinesEx((Rectangle){(float)barX - 3, (float)barY - 3,
+                                     (float)barW + 6, (float)barH + 6}, 2,
                          (Color){70, 70, 95, 255});
 
     /* flowers along the bar; the grazer eats them as it passes */
     static float fracs[3] = { 0.22f, 0.47f, 0.72f };
     static int eaten = 0;
     static float chewT = 0.0f;
-    static float prevProg = 0.0f;
-    if (elapsed < 0.05f) { eaten = 0; chewT = 0; prevProg = 0; }
+    if (elapsed < 0.05f || disp < 0.02f) { eaten = 0; chewT = 0; }
     for (int i = 0; i < 3; i++) {
         if (eaten & (1 << i)) continue;
         float fx = barX + fracs[i] * barW;
-        if (prog >= fracs[i]) {          /* nom */
+        if (disp >= fracs[i]) {          /* nom - right at the nose */
             eaten |= (1 << i);
             chewT = 0.7f;
             for (int p = 0; p < 10; p++) {
-                DrawCircle(fx + (GetRandomValue(-18, 18)), barY - 34 + GetRandomValue(-12, 6),
+                DrawCircle(fx + GetRandomValue(-18, 18), barY - 34 + GetRandomValue(-12, 6),
                            2, (Color){230, 150, 200, 220});
             }
             continue;
@@ -1044,30 +1063,30 @@ static void Screen_DrawWorldFill(float prog, double elapsed) {
     }
     if (chewT > 0) chewT -= GetFrameTime();
 
-    /* the grazer itself, strolling right */
-    float gx = barX + barW * prog - 6;
-    float gy = barY + 4;
+    /* the grazer itself: NOSE exactly on the progress point, walking
+     * right - the next flower is eaten right in front of its face */
+    float gx = barX + barW * disp;
+    float gy = barY + 2;
     float gait = sinf((float)elapsed * 10.0f);
     for (int leg = 0; leg < 4; leg++) {
         float lo = (leg % 2 == 0) ? gait * 3.0f : -gait * 3.0f;
-        float lx = gx - 18 + leg * 12 + lo;
-        DrawRectangle((int)lx, (int)gy - 12, 6, 14, (Color){134, 116, 98, 255});
+        float lx = gx - 62 + leg * 13 + lo;
+        DrawRectangle((int)lx, (int)gy - 13, 6, 15, (Color){134, 116, 98, 255});
     }
-    DrawEllipse(gx, gy - 26, 30, 20, (Color){176, 158, 138, 255});
-    DrawEllipse(gx, gy - 17, 23, 10, (Color){198, 182, 160, 255});
-    DrawCircle(gx - 30, gy - 28, 8, (Color){198, 180, 150, 255});
-    float rosette[5][2] = { {-16, -32}, {-4, -38}, {8, -30}, {14, -22}, {-10, -20} };
+    DrawCircle(gx - 74, gy - 20, 9, (Color){214, 200, 178, 255});   /* tail puff */
+    DrawEllipse(gx - 42, gy - 26, 30, 20, (Color){176, 158, 138, 255});
+    DrawEllipse(gx - 42, gy - 16, 22, 10, (Color){198, 182, 160, 255});
+    float rosette[5][2] = { {-56, -32}, {-44, -38}, {-32, -30}, {-28, -22}, {-50, -20} };
     for (int r = 0; r < 5; r++)
         DrawCircle(gx + rosette[r][0], gy + rosette[r][1], 3.5f, (Color){122, 142, 116, 255});
     float chewBob = (chewT > 0) ? sinf((float)elapsed * 20.0f) * 3.0f : 0.0f;
-    DrawCircle(gx + 30, gy - 36 + chewBob, 14, (Color){186, 168, 146, 255});
-    DrawCircle(gx + 41, gy - 31 + chewBob, 8, (Color){204, 188, 162, 255});
-    DrawCircle(gx + 44, gy - 32 + chewBob, 2.5f, (Color){70, 52, 48, 255});
-    DrawEllipse(gx + 24, gy - 50 + chewBob, 5, 11, (Color){150, 132, 112, 255});
-    DrawEllipse(gx + 34, gy - 51 + chewBob, 5, 12, (Color){150, 132, 112, 255});
-    DrawCircle(gx + 33, gy - 39 + chewBob, 2.6f, (Color){24, 20, 26, 255});
+    DrawCircle(gx - 14, gy - 30 + chewBob, 14, (Color){186, 168, 146, 255});
+    DrawCircle(gx - 2, gy - 26 + chewBob, 8, (Color){204, 188, 162, 255});   /* muzzle */
+    DrawEllipse(gx - 19, gy - 45 + chewBob, 5, 12, (Color){150, 132, 112, 255});
+    DrawEllipse(gx - 9, gy - 47 + chewBob, 5, 13, (Color){150, 132, 112, 255});
+    DrawCircle(gx + 1, gy - 27 + chewBob, 2.6f, (Color){24, 20, 26, 255});
 
-    int pct = (int)(prog * 100.0f + 0.5f);
+    int pct = (int)(disp * 100.0f + 0.5f);
     const char *pctTxt = TextFormat("%d%%", pct);
     I18n_DrawText(pctTxt, w / 2 - I18n_MeasureText(pctTxt, 22) / 2, barY + 44, 22,
                   (Color){230, 230, 240, 255});

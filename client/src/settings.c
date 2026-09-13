@@ -9,7 +9,8 @@ GameSettings gameSettings = {
     .height = 1080,
     .fullscreen = true,    /* borderless at the monitor's own resolution */
     .maxFpsChoice = 0,
-    .drawDistance = 26,   /* v63.3: default horizon (18/22/26 selectable) */
+    .drawDistance = 30,   /* v63.5: default horizon (18/22/26/30/34) */
+    .autoTrack = 0,       /* v63.5: radio does not auto-skip by default */
     .volume = 70,
     .vsync = 1,
     .language = 0,
@@ -49,7 +50,8 @@ void Settings_Load(void) {
         else if (sscanf(line, "drawdistance=%d", &value) == 1) {
             /* v63.3: real setting again (18/22/26 chunks) - smaller value
              * = faster world fill on the single-thread loader */
-            if (value >= 28) value = 30;
+            if (value >= 32) value = 34;
+            else if (value >= 28) value = 30;
             else if (value >= 24) value = 26;
             else if (value >= 20) value = 22;
             else if (value > 0) value = 18;
@@ -63,6 +65,7 @@ void Settings_Load(void) {
         else if (sscanf(line, "vsync=%d", &value) == 1) gameSettings.vsync = value != 0;
         else if (sscanf(line, "language=%d", &value) == 1) gameSettings.language = value;
         else if (sscanf(line, "music=%d", &value) == 1) gameSettings.music = value != 0;
+        else if (sscanf(line, "autotrack=%d", &value) == 1) gameSettings.autoTrack = value != 0;
         else if (sscanf(line, "resver=%d", &value) == 1) gameSettings.resver = value;
         line = end ? end + 1 : NULL;
     }
@@ -76,6 +79,14 @@ void Settings_Load(void) {
         gameSettings.height = 1080;
         Settings_Save();
     }
+    /* v63.5: one-time re-default - everyone gets draw distance 30 and
+     * auto track switching OFF once; their later choices are respected */
+    if (gameSettings.resver < 3) {
+        gameSettings.resver = 3;
+        gameSettings.drawDistance = 30;
+        gameSettings.autoTrack = 0;
+        Settings_Save();
+    }
 }
 
 void Settings_Save(void) {
@@ -83,11 +94,11 @@ void Settings_Save(void) {
     char body[256];
     snprintf(body, sizeof(body),
              "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n"
-             "vsync=%d\nlanguage=%d\nmusic=%d\nresver=%d\n",
+             "vsync=%d\nlanguage=%d\nmusic=%d\nautotrack=%d\nresver=%d\n",
              gameSettings.width, gameSettings.height, gameSettings.fullscreen ? 1 : 0,
              gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume,
              gameSettings.vsync ? 1 : 0, gameSettings.language,
-             gameSettings.music ? 1 : 0, gameSettings.resver);
+             gameSettings.music ? 1 : 0, gameSettings.autoTrack, gameSettings.resver);
     SaveFileText(settingsPath, body);
 }
 

@@ -81,3 +81,9 @@ const char *TextFormat(const char *fmt, ...) { (void)fmt; return "stub"; }
 void UnloadImage(Image img) { (void)img; }
 unsigned int TextLength(const char *s) { return s ? strlen(s) : 0; }
 const char *TextSubtext(const char *s, int start, int len) { (void)start; (void)len; return s; }
+
+/* v63.5: extra stubs needed after the probe stopped linking world.c */
+int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayerId) { (void)type; (void)model; (void)position; (void)ownerPlayerId; return 1; }
+void ServerWorld_RemoveEntity(int id) { (void)id; }
+void ServerWorld_TeleportEntity(int id, Vector3 p, Vector3 r) { (void)id; (void)p; (void)r; }
+void ServerWorld_AddPlayer(void *p) { (void)p; }
