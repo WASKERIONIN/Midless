@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.13 ===
+=== Midless: Cosmic Edition v65.14 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.14
+  - The pocket dream got CONTRAST: a deeper mauve sky, a near-opaque
+    cloud wall straddling the lawn edge (no more visible platform rim)
+    and a cloud sea drifting below the island. The black-hole lens
+    distortion no longer warps the screen inside the pocket.
 
 WHAT'S NEW IN v65.13
   - The pocket universe now DREAMS: a pink-lavender dreamcore sky, a

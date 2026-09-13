@@ -1,6 +1,29 @@
-# Midless: Cosmic Edition v65.13
+# Midless: Cosmic Edition v65.14
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.14 - the dream gets contrast: real cloud sea, no rim, no lensing
+
+v65.13's pocket read as "white sky, white smudges": the pale wash
+swallowed the pastel clouds, and the cloud ring floated far outside the
+lawn edge, leaving the platform rim fully visible. Rebuilt:
+
+- **Deeper sky.** The pocket sky is now the saturated upper sky of the
+  references - a dusty mauve-periwinkle (168,132,178) - so the pale
+  pink/lavender/peach clouds finally have something to stand against.
+- **The rim wall.** 34 near-opaque cloud billboards now straddle the
+  lawn edge itself (radius 62 vs the platform's 64), rooted in the
+  turf by the depth test: the platform's cut edge dissolves into
+  cloud instead of ending in a hard line over the void.
+- **The under-sea.** A second cloud layer drifts BELOW the platform
+  (y 122-138): look over the edge and there is no void drop - the
+  island floats in a pastel sea, the dreamcore staple.
+- **Denser puffs.** The cloud texture core went from a faint falloff
+  to a packed cumulus (alpha 245 at the wall), so they read as
+  clouds, not haze.
+- **No black-hole lensing in the pocket.** The postfx distortion was
+  still warping the screen after the crossing; bhStrength now fades
+  out with the pocket factor. (The hole itself was already hidden.)
 
 ## v65.13 - the pocket dreams: dreamcore sky, cloud sea, its own music
 
