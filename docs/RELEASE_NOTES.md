@@ -1,6 +1,26 @@
-# Midless: Cosmic Edition v65.15
+# Midless: Cosmic Edition v65.16
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.16 - the cloud dream is over: blue sky and a marble peristyle
+
+Walking the meadow settled it: cloud billboards cannot work here -
+the camera pokes the sprites (screen glitches up close) and the
+quads flash through at grazing angles. The dreamcore attempt is
+retired with respect; the pocket keeps its calm in architecture
+instead:
+
+- **Blue sky is back.** The v65.12 soft blue (124,178,214) returns;
+  the gradient and every cloud billboard are gone.
+- **The peristyle.** A ring of 64 round marble columns (plinth,
+  shaft, echinus, abacus) at radius 62 carries 64 ROUND arches -
+  true semicircular arcs, smooth mesh geometry, not voxel steps and
+  not square lintels - over a low stylobate ring hugging the lawn
+  edge. One merged mesh, one draw call, its own tiny two-sided
+  marble shader lit by the pocket sun.
+- The perimeter now reads as a built horizon: colonnade against the
+  blue, the void edge framed by marble instead of hidden by sprites.
+- Music, purity gates and the black-hole lensing fix all stay.
 
 ## v65.15 - the dream gets a SKY: gradient, cloud collar, no panels
 

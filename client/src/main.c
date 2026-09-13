@@ -29,7 +29,7 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "pocketfx.h"
-#include "pocketdreams.h"   /* v65.8: pocket universe sky swap */
+#include "colonnade.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
 #include "atlasheal.h"   /* v65.11 */
 #include "blackhole.h"
@@ -104,7 +104,7 @@ int main(void) {
     SoundFx_SetVolume(gameSettings.volume / 100.0f);
     MapView_Init();
     Bird_Init();
-    PocketDreams_Init();   /* v65.13: dreamcore cloud sea */
+    Colonnade_Init();      /* v65.16: the pocket peristyle */
     Hunter_Init();
     Mobs_Init();
     Ship_Init();   /* v62: sky traffic */
@@ -192,7 +192,6 @@ void Game_RunLoop(void) {
         if (inWorld) {
             PostFx_BeginScene();
             ClearBackground(PocketFx_SkyColor());   /* v65.8: day sky in the pocket */
-            PocketDreams_DrawSky(PocketFx_Factor());  /* v65.15 dreamcore gradient */
             BeginMode3D(player.camera);
                 Starfield_Update(GetFrameTime());
                 /* v65.8: the pocket universe has no void - hide the nebulae,
@@ -204,7 +203,7 @@ void Game_RunLoop(void) {
                 }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
-                PocketDreams_Draw(player.camera, PocketFx_Factor());
+                Colonnade_Draw(PocketFx_Factor());   /* v65.16 peristyle */
                 /* v65.13: no overworld threats or auras bleed into the pocket */
                 if (PocketFx_Factor() < 0.5f) {
                     Hunter_Draw();

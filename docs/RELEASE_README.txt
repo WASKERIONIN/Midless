@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.15 ===
+=== Midless: Cosmic Edition v65.16 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.16
+  - The cloud experiment is retired (sprites glitched at the camera).
+    The pocket gets its calm blue sky back and a marble PERISTYLE:
+    64 round columns carrying 64 round arches around the lawn edge -
+    real smooth mesh geometry with its own marble shader.
 
 WHAT'S NEW IN v65.15
   - The pocket sky is now a dreamcore GRADIENT (periwinkle -> pink ->
