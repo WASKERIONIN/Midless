@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.17 ===
+=== Midless: Cosmic Edition v65.18 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.18
+  - The crossing crash, attempt two: the colonnade no longer uses
+    DrawMesh/VAO/custom shader at all - it draws through the same
+    rlgl immediate-batch path as the terrain, with lighting baked
+    into per-vertex colours. Nothing new on the GL path anymore.
 
 WHAT'S NEW IN v65.17
   - Fixes the v65.16 crash on crossing into the pocket: the colonnade

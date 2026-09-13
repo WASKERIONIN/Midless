@@ -1,6 +1,20 @@
-# Midless: Cosmic Edition v65.17
+# Midless: Cosmic Edition v65.18
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.18 - the peristyle leaves the DrawMesh path entirely
+
+v65.17's batch flush did not stop the crossing crash, so the whole
+VAO/custom-shader/DrawMesh path is gone - it was the only new GL
+surface in v65.16 and it is the only thing the crash could touch.
+
+- The colonnade now draws through rlgl's IMMEDIATE batch, exactly
+  like the terrain has since v1: CPU-side positions with two-sided
+  lambert baked into per-vertex colours, pushed with
+  rlColor4ub/rlVertex3f inside rlBegin/rlEnd. No UploadMesh, no VAO,
+  no shader object, no DrawMesh - nothing left to fault.
+- Same geometry, same marble look (the shading is baked per vertex
+  at build time instead of in the fragment shader).
 
 ## v65.17 - the crossing crash: batch flush around the peristyle
 

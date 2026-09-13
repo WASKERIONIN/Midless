@@ -119,49 +119,18 @@ static void mbArch(MB *m, const float C[3], const float T[3], const float Rd[3],
     }
 }
 
-/* ---------------- marble shader ---------------- */
-static const char *MARBLE_VS_DESK =
-"#version 330\n"
-"in vec3 vertexPosition;\n"
-"in vec3 vertexNormal;\n"
-"uniform mat4 mvp;\n"
-"out vec3 wn;\n"
-"void main() { wn = vertexNormal; gl_Position = mvp * vec4(vertexPosition, 1.0); }\n";
-static const char *MARBLE_FS_DESK =
-"#version 330\n"
-"in vec3 wn;\n"
-"uniform vec3 col;\n"
-"out vec4 fragColor;\n"
-"void main() {\n"
-"  vec3 n = normalize(wn);\n"
-"  vec3 sun = normalize(vec3(0.35, 0.85, 0.30));\n"
-"  float d = abs(dot(n, sun));            /* two-sided: no winding worries */\n"
-"  fragColor = vec4(col * (0.46 + 0.54 * d), 1.0);\n"
-"}\n";
-#if defined(PLATFORM_WEB)
-static const char *MARBLE_VS_WEB =
-"#version 100\n"
-"attribute vec3 vertexPosition;\n"
-"attribute vec3 vertexNormal;\n"
-"uniform mat4 mvp;\n"
-"varying vec3 wn;\n"
-"void main() { wn = vertexNormal; gl_Position = mvp * vec4(vertexPosition, 1.0); }\n";
-static const char *MARBLE_FS_WEB =
-"#version 100\n"
-"precision mediump float;\n"
-"varying vec3 wn;\n"
-"uniform vec3 col;\n"
-"void main() {\n"
-"  vec3 n = normalize(wn);\n"
-"  vec3 sun = normalize(vec3(0.35, 0.85, 0.30));\n"
-"  float d = abs(dot(n, sun));\n"
-"  gl_FragColor = vec4(col * (0.46 + 0.54 * d), 1.0);\n"
-"}\n";
-#endif
+/* ---------------- baked marble shading ---------------- */
+static const float SUN_DIR[3] = { 0.35f, 0.85f, 0.30f };
 
-static Mesh mesh;
-static Material mat;
-static int locCol = -1;
+/* per-vertex colour bytes: two-sided lambert baked at build time.
+ * v65.18: NO UploadMesh, NO VAO, NO custom shader, NO DrawMesh - the
+ * v65.16/17 crossing crashes lived on that path. The terrain has
+ * drawn through rlgl's immediate batch since v1, so the peristyle
+ * joins it: CPU positions + baked colours, rlColor3ub/rlVertex3f. */
+static unsigned char *vcol;
+static float *vpos;
+static unsigned short *vidx;
+static int vCount, iCount;
 static bool ready;
 
 void Colonnade_Init(void) {
@@ -207,44 +176,37 @@ void Colonnade_Init(void) {
         mbArch(&m, C, T, Rd, rOut - 0.55f, rOut, 0.70f, 12);
     }
 
-    mesh.vertexCount = m.vn;
-    mesh.triangleCount = m.in / 3;
-    mesh.vertices = m.v;
-    mesh.normals = m.n;
-    mesh.indices = m.idx;
-    UploadMesh(&mesh, false);
-    free(m.v); free(m.n); free(m.idx);
-
-#if defined(PLATFORM_WEB)
-    mat.shader = LoadShaderFromMemory(MARBLE_VS_WEB, MARBLE_FS_WEB);
-#else
-    mat.shader = LoadShaderFromMemory(MARBLE_VS_DESK, MARBLE_FS_DESK);
-#endif
-    locCol = GetShaderLocation(mat.shader, "col");
-    /* warm marble under the pocket's calm 0.82 sun */
-    float col[3] = { 0.80f, 0.78f, 0.74f };
-    SetShaderValue(mat.shader, locCol, col, SHADER_UNIFORM_VEC3);
-    ready = mesh.vboId != NULL && mat.shader.id != 0;
-    /* v65.17: breadcrumbs - the v65.16 crossing crash has to be
-     * attributable from the client log if it ever returns */
-    TraceLog(LOG_INFO, "COLONNADE init: verts=%d tris=%d vao=%u shader=%d locCol=%d ready=%d",
-        mesh.vertexCount, mesh.triangleCount, mesh.vaoId, mat.shader.id, locCol, (int)ready);
+    vCount = m.vn;
+    iCount = m.in;
+    vpos = m.v;
+    vidx = m.idx;
+    vcol = (unsigned char *)malloc(sizeof(unsigned char) * 3 * vCount);
+    for (int i = 0; i < vCount; i++) {
+        float nx = m.n[3 * i], ny = m.n[3 * i + 1], nz = m.n[3 * i + 2];
+        float d = fabsf(nx * SUN_DIR[0] + ny * SUN_DIR[1] + nz * SUN_DIR[2]);
+        float l = 0.85f * (0.46f + 0.54f * d);   /* pocket sun, calm */
+        vcol[3 * i + 0] = (unsigned char)(235.0f * l);
+        vcol[3 * i + 1] = (unsigned char)(231.0f * l);
+        vcol[3 * i + 2] = (unsigned char)(222.0f * l);
+    }
+    free(m.n);
+    ready = vpos != NULL && vcol != NULL && vidx != NULL;
+    TraceLog(LOG_INFO, "COLONNADE init: verts=%d tris=%d ready=%d (immediate batch path)",
+        vCount, iCount / 3, (int)ready);
 }
 
 void Colonnade_Draw(float pocketFactor) {
     if (!ready || pocketFactor <= 0.5f) return;
-    /* v65.17: the world renders through rlgl's deferred batch. The
-     * v65.16 DrawMesh switched VAO+shader with chunk vertices still
-     * pending in that batch - driver-side state corruption, crash on
-     * the crossing. Flush before AND after, like world.c does for its
-     * own special draws. */
     static bool loggedFirst = false;
     if (!loggedFirst) {
         TraceLog(LOG_INFO, "COLONNADE: first draw at factor %.2f", pocketFactor);
         loggedFirst = true;
     }
-    rlDrawRenderBatchActive();
-    Matrix xf = MatrixTranslate(POCKETFX_CX, 0.0f, POCKETFX_CZ);
-    DrawMesh(mesh, mat, xf);
-    rlDrawRenderBatchActive();
+    rlBegin(RL_TRIANGLES);
+        for (int i = 0; i < iCount; i++) {
+            unsigned short vi = vidx[i];
+            rlColor4ub(vcol[3 * vi], vcol[3 * vi + 1], vcol[3 * vi + 2], 255);
+            rlVertex3f(vpos[3 * vi] + POCKETFX_CX, vpos[3 * vi + 1], vpos[3 * vi + 2] + POCKETFX_CZ);
+        }
+    rlEnd();
 }
