@@ -12,9 +12,9 @@ static void HealTile(Color *px, int tile, int atlasWidth) {
         for (int x = 0; x < 16; x++) {
             Color c;
             if (tile == 78) {           /* pocket turf: sunny emerald */
-                c = ((x + 2 * y) % 5) ? (Color){ 96, 178, 92, 255 }
-                                      : (Color){ 68, 144, 74, 255 };
-                if ((x * 3 + y) % 11 == 0) c = (Color){ 236, 208, 120, 255 };
+                c = ((x + 2 * y) % 5) ? (Color){ 88, 146, 80, 255 }
+                                      : (Color){ 64, 112, 58, 255 };
+                if ((x * 3 + y) % 11 == 0) c = (Color){ 188, 170, 104, 255 };
             } else if (tile == 79) {    /* pocket loam: warm brown */
                 c = ((x + y) % 4) ? (Color){ 128, 92, 58, 255 }
                                   : (Color){ 100, 70, 44, 255 };

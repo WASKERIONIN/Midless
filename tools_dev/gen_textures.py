@@ -414,10 +414,12 @@ def t_pocket_turf(index):
     n = value_noise(index * 131 + 24, 4)
     img = blank_tile()
     px = img.load()
-    G = (96, 178, 92)
-    G_D = (68, 144, 74)
-    G_L = (142, 208, 122)
-    GOLD_F = (236, 208, 120)
+    # v65.12: calmer meadow - the v65.8 neon read as acid glare under
+    # the pocket day sky
+    G = (88, 146, 80)
+    G_D = (64, 112, 58)
+    G_L = (112, 168, 96)
+    GOLD_F = (188, 170, 104)
     for y in range(TILE):
         for x in range(TILE):
             v = n[y][x]

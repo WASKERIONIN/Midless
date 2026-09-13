@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.11 ===
+=== Midless: Cosmic Edition v65.12 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.12
+  - The pocket universe is now properly pocketed: from inside it the
+    cosmic islands are not rendered, from outside the meadow is not
+    rendered - the gate is the only door. Daylight, sky and bloom are
+    calmed down and the turf repainted from neon to calm emerald.
 
 WHAT'S NEW IN v65.11
   - The client now SELF-HEALS an outdated terrain.png: missing pocket

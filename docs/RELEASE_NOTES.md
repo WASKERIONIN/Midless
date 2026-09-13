@@ -1,6 +1,23 @@
-# Midless: Cosmic Edition v65.11
+# Midless: Cosmic Edition v65.12
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.12 - the pocket becomes a POCKET: veiled, calm, gate-only
+
+Screenshots from a real run showed the meadow reading as "a platform in
+the same world": the cosmic islands were visible from inside the pocket,
+and the whole scene sat under a paper-white, bloom-blown sky on acid
+grass. Fixed on all three fronts:
+
+- **The veil.** Chunk rendering is now side-aware: inside the pocket the
+  cosmos is not drawn at all; outside it the meadow platform is not
+  drawn. No islands on the pocket horizon, no platform speck from the
+  islands - the warp gate is the only door in either direction (wire
+  auras and flora respect the veil too).
+- **The glare is gone.** Pocket daylight dropped from 1.0 to 0.82, the
+  sky deepened from paper-white to a soft blue, bloom inside the pocket
+  cut to a third, and the meadow turf repainted from neon to a calm
+  emerald with muted gold flecks (atlas heal placeholders match).
 
 ## v65.11 - the client heals an outdated terrain atlas by itself
 

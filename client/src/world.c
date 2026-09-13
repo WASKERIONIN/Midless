@@ -402,11 +402,22 @@ void World_Draw(Vector3 camPosition) {
     //Create the sorted chunk list
     struct { Chunk *chunk; float dist; } sortedChunks[amountChunks > 0 ? amountChunks : 1];
 
+    /* v65.12: the pocket universe is a POCKET - from inside it the cosmos
+     * is not rendered, and from outside the meadow platform is not
+     * rendered. The warp gate is the only door in either direction. */
+    const bool pocketView = PocketFx_Factor() > 0.5f;
+
     int sortedLength = 0;
     for (int i=0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
 
         if (chunk->onlyAir) continue;
+        {
+            bool chunkInPocket =
+                fabsf(chunk->blockPosition.x + chunkLocalCenter.x - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
+                fabsf(chunk->blockPosition.z + chunkLocalCenter.z - POCKETFX_CZ) < POCKETFX_ZONE_HALF;
+            if (chunkInPocket != pocketView) continue;
+        }
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
 
         if (chunk->hasTransparency) {
@@ -897,6 +908,13 @@ void World_DrawWireAuras(void) {
         if (chunk->specialCount[0] == 0 && chunk->specialCount[1] == 0 &&
             chunk->specialCount[2] == 0 && chunk->floraCount == 0) continue;
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
+        /* v65.12: same veil as World_Draw - no cross-side auras/flora */
+        {
+            bool chunkInPocket =
+                fabsf(chunk->blockPosition.x + CHUNK_SIZE_X / 2 - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
+                fabsf(chunk->blockPosition.z + CHUNK_SIZE_Z / 2 - POCKETFX_CZ) < POCKETFX_ZONE_HALF;
+            if (chunkInPocket != (PocketFx_Factor() > 0.5f)) continue;
+        }
         for (int s = 0; s < chunk->specialCount[0]; s++) World_DrawWireAurasAt(chunk->specialPos[0][s], 0);
         for (int s = 0; s < chunk->specialCount[1]; s++) World_DrawWireAurasAt(chunk->specialPos[1][s], 1);
         for (int s = 0; s < chunk->specialCount[2]; s++) World_DrawWireAurasAt(chunk->specialPos[2][s], 2);
@@ -941,7 +959,8 @@ float World_GetSunlightStrength(void) {
      * v65.8: the pocket universe HAS a sun - bright, calm daylight. */
     float pocket = PocketFx_Factor();
     float cosmic = 0.68f + 0.04f * sinf(world.time * 0.12f);
-    return cosmic * (1.0f - pocket) + 1.0f * pocket;
+    /* v65.12: 0.82 - full 1.0 bleached the meadow into acid glare */
+    return cosmic * (1.0f - pocket) + 0.82f * pocket;
 }
 
 float World_GetBrightness(Vector3 position) {
