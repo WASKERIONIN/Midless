@@ -23,6 +23,9 @@ static const char *BlockName(unsigned short id) {
         "embrcup(46)", "orchid(47)", "frostfern(48)", "tree_big_a", "cane",
         "tree_big_b", "void_puff", "ember_rock", "ember_turf",
         "frost_turf", "ember_tuft", "frost_tuft",
+        "fur_a", "fur_b", "fur_c", "unknown63", "void_glowcap",
+        "ember_cap", "frost_cap", "smolderhead", "cinder_cluster",
+        "ember_lens", "frost_star", "glacier_bulb", "ringbloom",
     };
     static char buf[32];
     if (id < sizeof(names) / sizeof(names[0])) return names[id];
@@ -86,10 +89,12 @@ int main(void) {
                     float id = worldgen.bounded && (y < worldgen.minY || y > worldgen.maxY)
                                    ? 0 : Worldgen_Eval(&ctx, worldgen.material);
                     unsigned short b = id >= 1 && id <= 255 ? (int)id : 0;
-                    int floraPrev = prev >= 12 && prev <= 60 && prev != 19 && prev != 20 &&
-                                    prev != 21 && prev != 23 && prev != 26 && prev != 56 && prev != 57 && prev != 58;
-                    int floraCur = b >= 12 && b <= 60 && b != 19 && b != 20 &&
-                                   b != 21 && b != 23 && b != 26 && b != 56 && b != 57 && b != 58;
+                    int floraPrev = prev >= 12 && prev <= 72 && prev != 19 && prev != 20 &&
+                                    prev != 21 && prev != 23 && prev != 26 && prev != 56 && prev != 57 &&
+                                    prev != 58 && prev != 61 && prev != 62 && prev != 63;
+                    int floraCur = b >= 12 && b <= 72 && b != 19 && b != 20 &&
+                                   b != 21 && b != 23 && b != 26 && b != 56 && b != 57 &&
+                                   b != 58 && b != 61 && b != 62 && b != 63;
                     if (floraPrev && floraCur) {
                         if (stacks < 8)
                             printf("PROBE: STACK at (%d,%d,%d): %d over %d\n", x, y, z, b, prev);

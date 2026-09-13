@@ -1292,7 +1292,9 @@ int Mobs_GrazerCount(void) {
 static bool Grazer_IsDelicacy(int id) {
     return id == 12 || id == 13 || id == 28 || id == 29 || id == 30 ||
            id == 31 || id == 33 || id == 37 || id == 38 ||
-           id == 45 || id == 46 || id == 47 || id == 48 || id == 52;
+           id == 45 || id == 46 || id == 47 || id == 48 || id == 52 ||
+           id == 67 || id == 68 || id == 69 || id == 70 || id == 71 ||
+           id == 72;  /* v63.6: low biome blooms are snacks too */
 }
 
 static bool Grazer_Reachable(Vector3 from, Vector3 flower);

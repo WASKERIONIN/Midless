@@ -1,6 +1,18 @@
-# Midless: Cosmic Edition v63.5
+# Midless: Cosmic Edition v63.6
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.6 - unique biome flora (no recolors), the twin-flower fix, world guide in the zip
+
+- **The "twin flower" is gone**: the orange Embercup and the white Glassbell were the same silhouette painted twice (a v59.5 recolor pair), and they could stand side by side on frost turf looking like a glitch. Both are removed from world generation completely.
+- **No more recolors - six genuinely new plants**, all low and round (no tall stems - those are everywhere already):
+  - **Smolderhead** (ember turf) - a squat layered coal bulb with a glowing ember core split.
+  - **Cinder Cluster** (ember turf) - three charred nodes huddled on the ground, each smoldering.
+  - **Ember Lens** (ember turf) - a flat molten disc lying right on the lawn, hot ring and all.
+  - **Frost Star** (frost turf) - a thick six-ray ice star sprawled flat, white-tipped.
+  - **Glacier Bulb** (frost turf) - a fat ice onion half-buried in the turf with a seam of cold light.
+  - **Ringbloom** (frost turf) - a fairy ring of small frost orbs with a spark in the hollow.
+- Grazers happily snack on the new blooms too. The world guide poster (now also shipped **inside the release zip** as `world_guide.png` + `world_guide.md`) shows every species with ids and biome notes.
 
 ## v63.5 - loading-screen polish, draw distance 34, bigger safe ship, biome grass + mushrooms, radio settings
 

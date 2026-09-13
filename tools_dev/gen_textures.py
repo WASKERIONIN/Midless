@@ -1277,6 +1277,12 @@ def build_atlas():
         64: t_void_glowcap(64),
         65: t_ember_cap(65),
         66: t_frost_cap(66),
+        67: t_smolderhead(67),
+        68: t_cinder_cluster(68),
+        69: t_ember_lens(69),
+        70: t_frost_star(70),
+        71: t_glacier_bulb(71),
+        72: t_ringbloom(72),
         61: t_grazer_fur(61),
         46: t_embercup(46),
         47: t_voidorchid(47),
@@ -1899,6 +1905,189 @@ def t_frost_cap(index):
     px[5, 4] = GLINT
     px[9, 5] = GLINT
     px[11, 6] = CAP_L
+    return img
+
+
+def t_smolderhead(index):
+    """v63.6: ember rosette - a squat layered bulb like a coal cabbage:
+    charcoal-maroon leaf arcs with a glowing ember core split. Low and
+    round on purpose (no stems in this set)."""
+    img = blank_tile()
+    px = img.load()
+    LEAF_D = (38, 28, 34)   # outer leaf charcoal
+    LEAF = (86, 36, 32)     # maroon leaf
+    LEAF_L = (128, 58, 38)  # warm leaf edge
+    CORE = (232, 120, 44)   # ember core
+    GLOW = (255, 196, 88)   # hot center
+    # outer leaf dome rows 9..15
+    outer = {9: (6, 9), 10: (4, 11), 11: (3, 12), 12: (3, 12),
+             13: (4, 11), 14: (5, 10), 15: (6, 9)}
+    for y, (x0, x1) in outer.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1) or y in (9, 15)
+            px[x, y] = LEAF_D if edge else LEAF
+    # mid leaf layer rows 7..12
+    mid = {7: (6, 9), 8: (5, 10), 9: (4, 11), 10: (5, 10), 11: (6, 9)}
+    for y, (x0, x1) in mid.items():
+        for x in range(x0, x1 + 1):
+            if y == 7 or x in (x0, x1):
+                px[x, y] = LEAF_L
+            else:
+                px[x, y] = LEAF
+    # glowing core split, rows 5..9 down the middle
+    for y in range(5, 10):
+        px[7, y] = CORE
+        px[8, y] = CORE
+    px[7, 6] = GLOW
+    px[8, 6] = GLOW
+    px[7, 5] = GLOW
+    px[4, 12] = LEAF_L
+    px[11, 13] = LEAF_L
+    return img
+
+
+def t_cinder_cluster(index):
+    """v63.6: ember cluster - three charred nodes huddled on the ground,
+    each with a smoldering ember spark. Reads as coals that took root."""
+    img = blank_tile()
+    px = img.load()
+    ND_D = (34, 26, 30)
+    ND = (58, 42, 44)
+    ND_L = (92, 62, 52)
+    EMB = (232, 120, 44)
+    HOT = (255, 200, 96)
+    def node(cx, cy, r, hotx, hoty):
+        for y in range(cy - r, cy + r + 1):
+            for x in range(cx - r, cx + r + 1):
+                d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy) * 1.4
+                if d2 <= r * r + 0.4:
+                    edge = d2 > (r - 1) * (r - 1) + 0.4
+                    px[x, y] = ND_D if edge else ND_L if d2 < 2.0 else ND
+        px[hotx, hoty] = EMB
+    node(5, 12, 3, 5, 12)      # big left node
+    node(11, 13, 3, 11, 13)    # right node
+    node(8, 8, 2, 8, 8)        # small top node
+    px[5, 11] = HOT
+    px[8, 7] = HOT
+    px[11, 12] = HOT
+    px[3, 14] = ND_D
+    px[13, 15] = ND_D
+    return img
+
+
+def t_ember_lens(index):
+    """v63.6: ember lens - a flat molten disc lying ON the ground, like a
+    puddle of glass with a hot ring. The only ground-hugging bloom."""
+    img = blank_tile()
+    px = img.load()
+    RIM = (44, 30, 34)
+    MID = (120, 44, 30)
+    RED = (196, 60, 40)
+    HOT = (255, 160, 60)
+    CORE = (255, 214, 120)
+    for y in range(10, 16):
+        for x in range(1, 15):
+            dx = (x - 8) / 6.3
+            dy = (y - 13) / 2.6
+            d2 = dx * dx + dy * dy
+            if d2 <= 1.0:
+                if d2 > 0.72:
+                    px[x, y] = RIM
+                elif d2 > 0.40:
+                    px[x, y] = MID
+                elif d2 > 0.16:
+                    px[x, y] = RED
+                else:
+                    px[x, y] = HOT
+    px[7, 13] = CORE
+    px[8, 13] = CORE
+    px[8, 12] = CORE
+    px[5, 8] = HOT              # lazy sparks
+    px[11, 9] = HOT
+    px[3, 10] = (140, 70, 40)
+    return img
+
+
+def t_frost_star(index):
+    """v63.6: frost star - a thick six-ray ice star sprawling flat on the
+    turf, white tips, bright heart. A silhouette nothing else in the game
+    has (radial, spiky, ground-level)."""
+    img = blank_tile()
+    px = img.load()
+    ICE_D = (92, 124, 156)
+    ICE = (140, 172, 198)
+    PALE = (198, 224, 240)
+    WHT = (240, 250, 255)
+    cx, cy = 8, 12
+    rays = [(-6, 0), (6, 0), (-3, -4), (3, -4), (-3, 3), (3, 3)]
+    for rx, ry in rays:
+        steps = max(abs(rx), abs(ry))
+        for i in range(steps + 1):
+            x = cx + rx * i // steps
+            y = cy + ry * i // steps
+            col = WHT if i >= steps - 1 else (PALE if i >= steps * 0.45 else ICE)
+            px[x, y] = col
+            if y + 1 <= 15:
+                px[x, y + 1] = col   # 2px-thick ray
+    px[cx - 1, cy] = PALE            # heart
+    px[cx, cy] = WHT
+    px[cx + 1, cy] = PALE
+    px[cx, cy + 1] = PALE
+    px[cx, cy - 1] = PALE
+    return img
+
+
+def t_glacier_bulb(index):
+    """v63.6: glacier bulb - a fat ice onion half-buried in the turf with
+    one bright seam of cold light down its side. Single round body."""
+    img = blank_tile()
+    px = img.load()
+    ICE_D = (96, 128, 158)
+    ICE = (146, 178, 202)
+    PALE = (202, 226, 240)
+    SEAM = (176, 234, 255)
+    WHT = (244, 252, 255)
+    dome = {6: (7, 8), 7: (6, 9), 8: (5, 10), 9: (4, 11), 10: (4, 11),
+            11: (4, 11), 12: (5, 10), 13: (5, 10), 14: (6, 9), 15: (7, 8)}
+    for y, (x0, x1) in dome.items():
+        for x in range(x0, x1 + 1):
+            edge = x in (x0, x1)
+            if y <= 8:
+                px[x, y] = PALE if not edge else ICE
+            elif y <= 12:
+                px[x, y] = ICE if not edge else ICE_D
+            else:
+                px[x, y] = ICE_D if not edge else (78, 104, 132)
+    for y in range(7, 14):          # the glowing seam
+        px[9, y] = SEAM
+    px[9, 7] = WHT
+    px[8, 6] = WHT
+    px[6, 10] = PALE                # frost glints
+    px[10, 11] = PALE
+    return img
+
+
+def t_ringbloom(index):
+    """v63.6: ringbloom - a fairy ring of small frost orbs with a cold
+    spark in the hollow center. Hollow circle, nothing else looks like
+    it; hugs the ground."""
+    img = blank_tile()
+    px = img.load()
+    ORB = (214, 234, 246)
+    ORB_L = (244, 252, 255)
+    ORB_D = (150, 182, 204)
+    SPARK = (170, 230, 255)
+    orbs = [(4, 12), (5, 10), (8, 9), (11, 10), (12, 12), (10, 14), (6, 14)]
+    for ox, oy in orbs:
+        px[ox, oy] = ORB
+        px[ox + 1, oy] = ORB
+        px[ox, oy + 1] = ORB
+        px[ox + 1, oy + 1] = ORB_D
+        px[ox, oy] = ORB_L if (ox + oy) % 2 == 0 else ORB
+    px[8, 12] = SPARK
+    px[9, 12] = SPARK
+    px[8, 11] = (120, 190, 230)
+    px[9, 13] = (120, 190, 230)
     return img
 
 

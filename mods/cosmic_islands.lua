@@ -412,9 +412,7 @@ for _, band in ipairs({
     { -0.25, 39 }, -- v58: void tuft ground cover
     { -0.20, 41 }, -- v59: sedge strands
     { -0.14, 28 }, -- bellflower
-    { -0.06, 45 }, -- v59.5: glassbell
     { 0.08, 29 },  -- starbloom
-    { 0.19, 46 },  -- v59.5: embercup
     { 0.30, 30 },  -- spiral fern
     { 0.41, 47 },  -- v59.5: void orchid
     { 0.52, 31 },  -- twin tulip
@@ -449,6 +447,54 @@ midless.define_block(66, {
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
 })
+
+-- v63.6: unique low-growing biome blooms (no recolors, no tall stems).
+-- Ember: smolderhead (layered coal bulb with a glowing core split),
+-- cinder cluster (three smoldering nodes), ember lens (molten disc).
+-- Frost: frost star (six-ray ice star), glacier bulb (fat ice onion
+-- with a light seam), ringbloom (fairy ring of cold orbs).
+midless.define_block(67, {
+    name = "Smolderhead",
+    textures = { all = 67 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(68, {
+    name = "Cinder Cluster",
+    textures = { all = 68 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(69, {
+    name = "Ember Lens",
+    textures = { all = 69 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(70, {
+    name = "Frost Star",
+    textures = { all = 70 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(71, {
+    name = "Glacier Bulb",
+    textures = { all = 71 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(72, {
+    name = "Ringbloom",
+    textures = { all = 72 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
 -- v61.2 giant ladder (classic biome only) - puffs, moon bells, star
 -- reeds, crystal stalks and (the rarest) void trees
 classic_id = f.select(f.lt(0.60, fine_n) * f.lt(fine_n, 0.70), 52, classic_id)
@@ -461,19 +507,23 @@ classic_id = f.select(f.lt(0.965, fine_n), 49, classic_id)
 -- (patch_n masks where blooms may appear) and rare lantern groves
 local ember_patch = f.lt(0.55, patch_n)
 local ember_id = 59                                   -- ember tuft lawn
-ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.05), 65, ember_id)
-ember_id = f.select(ember_patch * f.lt(-0.05, which_n) * f.lt(which_n, 0.20), 46, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.20, which_n) * f.lt(which_n, 0.35), 31, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.35, which_n), 33, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 65, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 67, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.15), 68, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.15, which_n) * f.lt(which_n, 0.30), 69, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.30, which_n) * f.lt(which_n, 0.45), 31, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.45, which_n), 33, ember_id)
 ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
 
 -- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
 local frost_patch = f.lt(0.55, patch_n)
 local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, 0.00), 66, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.20), 48, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.20, which_n) * f.lt(which_n, 0.35), 45, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.35, which_n), 52, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 66, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 70, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.20), 71, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.20, which_n) * f.lt(which_n, 0.55), 72, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.55, which_n) * f.lt(which_n, 0.75), 48, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.75, which_n), 52, frost_id)
 frost_id = f.select(f.lt(0.90, fine_n), 49, frost_id) -- rare void tree
 
 local flower_id = f.select(classic_f, classic_id,
@@ -528,7 +578,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 15,
+    id = "midless:cosmic", version = 16,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),

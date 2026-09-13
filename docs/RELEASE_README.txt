@@ -55,6 +55,8 @@ Files in this folder:
   game.exe        the game
   server.exe      dedicated server (optional)
   README.txt      this file
+  world_guide.png illustrated guide: every block, plant and creature
+  world_guide.md  the same guide as text (ids + biome notes)
   textures\       terrain, skin and icon (used by the game)
   mods\           world generation (cosmic_islands.lua)
 
