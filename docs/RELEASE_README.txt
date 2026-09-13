@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.6 ===
+=== Midless: Cosmic Edition v65.7 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.7
+  - Multiplayer made hand-off-able: server.ini (port / max players /
+    name) beside the exe, HOST SETTINGS boxes on the login screen,
+    a HUD line and F6 host panel showing the address friends type,
+    player count, and the port-forward note. server.exe ships in the
+    zip and reads the same server.ini.
 
 WHAT'S NEW IN v65.6
   - Plants are solid: the sprite batch writes depth again, so nothing

@@ -1,6 +1,30 @@
-# Midless: Cosmic Edition v65.6
+# Midless: Cosmic Edition v65.7
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.7 - multiplayer you can hand to a friend: server config, host panel, address on screen
+
+- **The server answers "is it okay?" with yes, and now says so.** Audited and live-tested headless:
+  it binds 0.0.0.0:25565 (ENet/UDP), survives junk packets, loads the cosmic mod, and logs a
+  readable startup: config line, mod load, and "Listening on 0.0.0.0:port as 'name' (max N
+  players)". The logger also stopped printf-ing arbitrary strings (a server name from server.ini
+  could have been a format string) and gained line endings.
+- **server.ini - one config for both servers.** Written as a commented template on first run next
+  to the executable (game folder or server.exe folder): port, max_players (1..64), name. The
+  dedicated server.exe AND the in-game host read the same file, so editing it once works either
+  way.
+- **HOST SETTINGS on the login screen**: server name / port / max players boxes; pressing
+  Singleplayer saves them to server.ini and starts the hosted server with exactly those values.
+  Before this, creating a server showed nothing and tuned nothing.
+- **The address lives on screen while hosting**: a HUD line under the shard counter
+  (HOST ip:port players N/M) plus the F6 host panel - server name, the big LAN address to send to
+  friends, the port-forwarding note for internet play, player count, and the server.ini hint.
+  A chat line at host start repeats the address. The LAN IP is detected locally (a UDP route
+  probe - nothing is sent anywhere).
+- **Player counting exists now**: the server tracks connected peers (the host panel shows
+  remote players + you).
+
+## v65.6 - solid plants, six quick slots, no G key, named items, and the purple mushrooms are back
 
 ## v65.6 - solid plants, six quick slots, no G key, named items, and the purple mushrooms are back
 

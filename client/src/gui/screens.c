@@ -142,6 +142,16 @@ void Screens_InventoryToggle(void) {
 bool Screens_InventoryIsOpen(void) { return inventoryOpen; }
 bool screenShowDebug = false;
 bool screenShowWorkView = false;      /* v65.3: F4 flora work view */
+static bool hostPanelOpen = false;    /* v65.7: F6 host info panel */
+void Screens_HostPanelToggle(void) { hostPanelOpen = !hostPanelOpen; }
+bool Screens_HostPanelIsOpen(void) { return hostPanelOpen; }
+
+/* v65.7: host settings on the login screen - persisted to server.ini */
+static char hostPortInput[8] = "25565";
+static char hostMaxInput[4] = "8";
+static char hostNameInput[48] = "Midless Cosmic Server";
+static bool hostPortEdit = false, hostMaxEdit = false, hostNameEdit = false;
+static bool hostCfgLoaded = false;
 static bool loadingStarted = false;
 static bool loadingFailed = false;
 int screenHeight;
@@ -405,6 +415,15 @@ void Screen_DrawGame(void) {
         DrawLine(bx + 128, sy + 11, bx + 124, sy + 7, dEdge);
         DrawLine(bx + 124, sy + 7, bx + 128, sy + 3, dEdge);
 
+        /* v65.7: while hosting, the address lives on screen at all times */
+        if (LocalServer_IsRunning()) {
+            const char *hostLine = TextFormat(Tr("HOST %s:%d  players %d/%d"),
+                                              LocalServer_GetLocalIp(), LocalServer_GetPort(),
+                                              LocalServer_GetPlayerCount(), LocalServer_GetMaxPlayers());
+            I18n_DrawText(hostLine, bx + 1, sy + 25, 16, BLACK);
+            I18n_DrawText(hostLine, bx, sy + 24, 16, (Color){ 120, 255, 214, 235 });
+        }
+
         /* v59.8: the radio station name, BOTTOM right corner - the top
          * right corner belongs to the block preview */
         {
@@ -438,6 +457,31 @@ void Screen_DrawGame(void) {
             DrawRectangle(0, 0, screenWidth, screenHeight,
                           (Color){255, 235, 245, (unsigned char)(70.0f * (1.0 - sinceHurt / 0.3))});
         }
+    }
+
+    /* v65.7: F6 host panel - everything a friend needs to join */
+    if (hostPanelOpen && LocalServer_IsRunning()) {
+        int px = screenWidth / 2 - 260, py = screenHeight / 2 - 130;
+        DrawRectangle(0, 0, screenWidth, screenHeight, (Color){ 8, 3, 16, 165 });
+        DrawPanel((Rectangle){ (float)px - 14, (float)py - 14, 548, 288 });
+        I18n_DrawText("HOST PANEL", px + 2, py + 3, 26, BLACK);
+        I18n_DrawText("HOST PANEL", px, py, 26, (Color){ 96, 255, 214, 255 });
+        const char *nm = TextFormat(Tr("server: %s"), LocalServer_GetName());
+        I18n_DrawText(nm, px, py + 40, 18, (Color){ 225, 245, 255, 255 });
+        const char *lan = Tr("friends on your LAN join at this address:");
+        I18n_DrawText(lan, px, py + 72, 16, (Color){ 150, 160, 200, 255 });
+        const char *addr = TextFormat("%s:%d", LocalServer_GetLocalIp(), LocalServer_GetPort());
+        I18n_DrawText(addr, px + 2, py + 96 + 2, 30, BLACK);
+        I18n_DrawText(addr, px, py + 96, 30, (Color){ 255, 214, 130, 255 });
+        const char *wan = TextFormat(Tr("friends over the internet: forward port %d on your router to this PC"),
+                                     LocalServer_GetPort());
+        I18n_DrawText(wan, px, py + 140, 16, (Color){ 170, 170, 195, 255 });
+        const char *pl = TextFormat(Tr("players online: %d of %d"),
+                                    LocalServer_GetPlayerCount(), LocalServer_GetMaxPlayers());
+        I18n_DrawText(pl, px, py + 168, 18, (Color){ 120, 255, 214, 255 });
+        I18n_DrawText("server.ini next to the game edits port / max players / name",
+                      px, py + 200, 14, (Color){ 130, 130, 160, 255 });
+        I18n_DrawText("F6 - close", px, py + 224, 14, (Color){ 140, 140, 165, 255 });
     }
 
     /* v49.1/v55: the warp core forge - upgrade cards with sockets */
@@ -1059,8 +1103,38 @@ void Screen_DrawLogin(void) {
     
     //Singleplayer Button
     if (MenuButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
+        /* v65.7: the hosted server reads exactly what these boxes say */
+        LocalServer_WriteHostConfig(hostPortInput, hostMaxInput, hostNameInput);
         Screen_BeginSingleplayer();
     }
+
+    /* v65.7: HOST SETTINGS - a server you can hand to a friend starts
+     * here: port, player cap and name, saved to server.ini beside the
+     * game (the dedicated server.exe reads the same file). */
+    if (!hostCfgLoaded) {
+        hostCfgLoaded = true;
+        int p = 25565, m = 8;
+        char n[48];
+        LocalServer_ReadHostConfig(n, sizeof(n), &p, &m);
+        snprintf(hostPortInput, sizeof(hostPortInput), "%d", p);
+        snprintf(hostMaxInput, sizeof(hostMaxInput), "%d", m);
+        snprintf(hostNameInput, sizeof(hostNameInput), "%s", n);
+    }
+    int hy = offsetY + 140;
+    DrawPanel((Rectangle){ (float)offsetX - 170, (float)hy - 12, 340, 118 });
+    I18n_DrawText("HOST SETTINGS - saved to server.ini next to the game",
+                  offsetX - 158, hy - 4, 14, (Color){ 120, 190, 175, 255 });
+    I18n_DrawText("server name", offsetX - 158, hy + 18, 13, (Color){ 150, 160, 200, 220 });
+    if (GuiTextBox((Rectangle){ (float)offsetX - 158, (float)hy + 34, 200, 28 }, hostNameInput,
+                   sizeof(hostNameInput), hostNameEdit)) hostNameEdit = !hostNameEdit;
+    I18n_DrawText("port", offsetX + 54, hy + 18, 13, (Color){ 150, 160, 200, 220 });
+    if (GuiTextBox((Rectangle){ (float)offsetX + 54, (float)hy + 34, 52, 28 }, hostPortInput,
+                   sizeof(hostPortInput), hostPortEdit)) hostPortEdit = !hostPortEdit;
+    I18n_DrawText("max players", offsetX + 114, hy + 18, 13, (Color){ 150, 160, 200, 220 });
+    if (GuiTextBox((Rectangle){ (float)offsetX + 114, (float)hy + 34, 44, 28 }, hostMaxInput,
+                   sizeof(hostMaxInput), hostMaxEdit)) hostMaxEdit = !hostMaxEdit;
+    I18n_DrawText("friends type  <your ip>:<port>  on their Login screen",
+                  offsetX - 158, hy + 74, 13, (Color){ 130, 130, 160, 255 });
 
 }
 

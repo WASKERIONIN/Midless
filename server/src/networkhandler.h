@@ -21,6 +21,7 @@ typedef struct IncomingPacket {
 void ServerNetwork_Init(void);
 void ServerNetwork_Shutdown(void);
 void ServerNetwork_Connect(void *playerData);
+int ServerNetwork_GetPlayerCount(void);   /* v65.7 */
 void ServerNetwork_Disconnect(void *playerData);
 int ServerNetwork_PlayerReadyForRemoval(void *playerData);
 void ServerNetwork_ProcessIncomingPackets(void);

@@ -65,7 +65,16 @@ void ServerNetwork_Shutdown(void) {
     pthread_mutex_destroy(&serverNetworkMutex);
 }
 
+/* v65.7: how many peers are attached - the host panel shows N/M */
+static int serverConnectedPlayers = 0;
+
+int ServerNetwork_GetPlayerCount(void) { return serverConnectedPlayers; }
+
 void ServerNetwork_Connect(void *playerData) {
+    (void)playerData;
+    pthread_mutex_lock(&serverNetworkMutex);
+    serverConnectedPlayers++;
+    pthread_mutex_unlock(&serverNetworkMutex);
 }
 
 void ServerNetwork_Disconnect(void *playerData) {
@@ -78,6 +87,7 @@ void ServerNetwork_Disconnect(void *playerData) {
         pthread_mutex_unlock(&serverNetworkMutex);
         return;
     }
+    if (serverConnectedPlayers > 0) serverConnectedPlayers--;
 
     ServerLogger_Log(TextFormat("%s disconnected.\n",
         player->name != NULL ? player->name : "Unidentified player"));

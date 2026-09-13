@@ -37,6 +37,18 @@ int main(void) {
 
     ServerLogger_Log("Started Server.");
 
+    /* v65.7: server.ini beside the exe - write a commented template on
+     * first run so it is obvious what a friend-host may tune */
+    ServerConfig_WriteTemplate("server.ini");
+    ServerConfig_Load("server.ini");
+    {
+        char cfgLog[160];
+        snprintf(cfgLog, sizeof(cfgLog), "Config: port=%d max_players=%d name='%s'",
+                 ServerConfig_Get()->port, ServerConfig_Get()->maxPlayers,
+                 ServerConfig_Get()->name);
+        ServerLogger_Log(cfgLog);
+    }
+
     Lua_Init();
     LuaBindings_Init();
 

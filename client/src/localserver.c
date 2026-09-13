@@ -9,7 +9,19 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>
+#if defined(OS_WINDOWS)
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+#else
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+#endif
+#include "raylib.h"
 #include "localserver.h"
+#include "i18n.h"
+#include "gui/chat.h"
+#include "../../server/src/server.h"      /* v65.7: ServerConfig */
 #include "../../server/src/world/world.h"
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
@@ -67,8 +79,96 @@ static void LocalServer_Send(unsigned char *packet, int length) {
     ServerNetwork_Receive(localPlayer, packet, length);
 }
 
+/* ---- v65.7 host config + address helpers ---- */
+static char hostLocalIp[46] = "127.0.0.1";
+
+static void LocalServer_ConfigPath(char *out, int outLen) {
+    const char *dir = GetApplicationDirectory();
+    snprintf(out, (size_t)outLen, "%sserver.ini", dir ? dir : "");
+}
+
+/* the LAN address of this machine: a UDP "connect" only picks the source
+ * address of the outgoing route - nothing is actually sent */
+static void LocalServer_DetectLocalIp(void) {
+#if defined(OS_WINDOWS)
+    SOCKET s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s == INVALID_SOCKET) return;
+    struct sockaddr_in dst; memset(&dst, 0, sizeof(dst));
+    dst.sin_family = AF_INET; dst.sin_port = htons(53);
+    inet_pton(AF_INET, "8.8.8.8", &dst.sin_addr);
+    if (connect(s, (struct sockaddr *)&dst, sizeof(dst)) == 0) {
+        struct sockaddr_in me; memset(&me, 0, sizeof(me));
+        int len = sizeof(me);
+        if (getsockname(s, (struct sockaddr *)&me, &len) == 0)
+            inet_ntop(AF_INET, &me.sin_addr, hostLocalIp, sizeof(hostLocalIp));
+    }
+    closesocket(s);
+#else
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) return;
+    struct sockaddr_in dst; memset(&dst, 0, sizeof(dst));
+    dst.sin_family = AF_INET; dst.sin_port = htons(53);
+    inet_pton(AF_INET, "8.8.8.8", &dst.sin_addr);
+    if (connect(s, (struct sockaddr *)&dst, sizeof(dst)) == 0) {
+        struct sockaddr_in me; memset(&me, 0, sizeof(me));
+        socklen_t len = sizeof(me);
+        if (getsockname(s, (struct sockaddr *)&me, &len) == 0)
+            inet_ntop(AF_INET, &me.sin_addr, hostLocalIp, sizeof(hostLocalIp));
+    }
+    close(s);
+#endif
+}
+
+void LocalServer_ReadHostConfig(char *name, int nameLen, int *port, int *maxPlayers) {
+    char path[256];
+    LocalServer_ConfigPath(path, sizeof(path));
+    ServerConfig_WriteTemplate(path);
+    ServerConfig_Load(path);
+    const ServerConfig *cfg = ServerConfig_Get();
+    if (name && nameLen > 0) snprintf(name, (size_t)nameLen, "%s", cfg->name);
+    if (port) *port = cfg->port;
+    if (maxPlayers) *maxPlayers = cfg->maxPlayers;
+}
+
+void LocalServer_WriteHostConfig(const char *portStr, const char *maxStr, const char *name) {
+    char path[256];
+    LocalServer_ConfigPath(path, sizeof(path));
+    FILE *f = fopen(path, "w");
+    if (f) {
+        fprintf(f,
+            "# Midless Cosmic Edition server config\n"
+            "# Friends type  <your address>:%s  into the Login screen to join.\n"
+            "# LAN: the address shown in the host panel (F6 in game).\n"
+            "# Internet: forward this port on your router to this PC.\n"
+            "port=%s\n"
+            "max_players=%s\n"
+            "name=%s\n",
+            portStr, portStr, maxStr, name);
+        fclose(f);
+    }
+    ServerConfig_Load(path);
+}
+
+const char *LocalServer_GetLocalIp(void) { return hostLocalIp; }
+int LocalServer_GetPort(void) { return ServerConfig_Get()->port; }
+int LocalServer_GetMaxPlayers(void) { return ServerConfig_Get()->maxPlayers; }
+const char *LocalServer_GetName(void) { return ServerConfig_Get()->name; }
+int LocalServer_GetPlayerCount(void) {
+    /* remote peers plus the host itself */
+    return ServerNetwork_GetPlayerCount() + 1;
+}
+
 bool LocalServer_Start(void) {
     if (LocalServer_IsRunning()) return true;
+
+    /* v65.7: host config + the address friends will type */
+    {
+        char path[256];
+        LocalServer_ConfigPath(path, sizeof(path));
+        ServerConfig_WriteTemplate(path);
+        ServerConfig_Load(path);
+        LocalServer_DetectLocalIp();
+    }
 
     Lua_Init();
     LuaBindings_Init();
@@ -106,6 +206,8 @@ bool LocalServer_Start(void) {
     }
     localServerThreadCreated = true;
     Network_Connect();
+    Chat_AddLine(TextFormat(Tr("Server '%s' listening on %s:%d - send this address to friends. F6 - host panel."),
+                            LocalServer_GetName(), hostLocalIp, LocalServer_GetPort()));
     return true;
 }
 

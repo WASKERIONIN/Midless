@@ -10,5 +10,8 @@
 #include <stdlib.h>
 
 void ServerLogger_Log(const char* message) {
-    printf(message);
+    /* v65.7: "%s\n", not printf(message) - server names come from
+     * server.ini and must never be format strings; logs get line ends */
+    printf("%s\n", message);
+    fflush(stdout);
 }

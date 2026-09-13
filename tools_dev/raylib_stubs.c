@@ -1,6 +1,7 @@
 /* Minimal raylib stubs so the server-core sources can run headless on Linux. */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -186,3 +187,9 @@ const char *GetFileExtension(const char *fileName) {
     if (!dot || dot == fileName) return NULL;
     return dot;
 }
+
+/* v65.7: stubs the headless dedicated server needs on Linux dev boxes
+ * (the Windows build links real raylib, which provides these) */
+bool ChangeDirectory(const char *dir) { return chdir(dir) == 0; }
+void SetTraceLogLevel(int logType) { (void)logType; }
+const char *GetApplicationDirectory(void) { return "./"; }

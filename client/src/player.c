@@ -15,6 +15,7 @@
 #include "world.h"
 #include "raycast.h"
 #include "screens.h"
+#include "localserver.h"   /* v65.7: F6 host panel */
 #include "chat.h"
 #include "block.h"
 #include "networkhandler.h"
@@ -584,6 +585,8 @@ void Player_CheckInputs() {
         if (IsKeyPressed(KEY_F3)) screenShowDebug = !screenShowDebug;
         /* v65.3: F4 - flora work view (chunk load patches on the ground) */
         if (IsKeyPressed(KEY_F4)) screenShowWorkView = !screenShowWorkView;
+        /* v65.7: F6 - host panel with the address friends join by */
+        if (IsKeyPressed(KEY_F6) && LocalServer_IsRunning()) Screens_HostPanelToggle();
         if (IsKeyPressed(KEY_F5))
             player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
         if (IsKeyPressed(KEY_M) && currentScreen == SCREEN_GAME) MapView_Toggle();
