@@ -57,3 +57,21 @@ Files in this folder:
   README.txt      this file
   textures\       terrain, skin and icon (used by the game)
   mods\           world generation (cosmic_islands.lua)
+
+
+============================================================
+SPRITE EDITOR / РЕДАКТОР СПРАЙТОВ
+============================================================
+Open sprite_editor/sprite_editor.html in any browser.
+Запустите sprite_editor/sprite_editor.html в любом браузере.
+
+Draw a plant or creature, save the PNG (1x for the game, 8x for preview),
+and send it to the developer - it will be wired into the game atlas.
+Нарисуйте растение или существо, сохраните PNG (1x - точный размер,
+8x - превью) и пришлите разработчику - спрайт будет добавлен в игру.
+
+Other pixel editors work too (Aseprite, Libresprite, Piskel, Pixilart,
+Paint.net): canvas exactly 16x16 or 32x32, transparent background,
+save PNG at scale 1:1.
+Подходят и другие пиксель-редакторы: холст ровно 16x16 или 32x32,
+прозрачный фон, PNG без увеличения.

@@ -1276,6 +1276,8 @@ typedef struct Grazer {
     unsigned char tint;    /* per-instance fur tint */
     float gaitPhase;       /* v63: advances with actual distance walked */
     float speedSm;         /* v63: smoothed speed -> gait amplitude */
+    float decide;          /* v63.4: slow decision tick while idle */
+    Vector3 fleeFrom;      /* v63.4: what scared it (player or eaten cell) */
 } Grazer;
 static Grazer grazers[GRAZER_MAX];
 static bool grazerAnnounced;
@@ -1420,6 +1422,8 @@ static void Grazer_SpawnTry(void) {
         g->age = 0.0f;
         g->grounded = true;
         g->tint = (unsigned char)(200 + GetRandomValue(0, 40));
+        g->decide = 0.5f + GetRandomValue(0, 50) / 100.0f;
+        g->fleeFrom = (Vector3){ 0 };
         if (!grazerAnnounced) {
             grazerAnnounced = true;
             Chat_AddLine(Tr("Something small is nibbling the meadow flowers."));
@@ -1442,6 +1446,7 @@ static void Grazer_Update(float deltaTime, double now) {
         if (pd < (g->state == 4 ? 5.5f : 3.4f) && g->state != 3) {
             g->state = 3;
             g->stateTimer = 1.7f;
+            g->fleeFrom = pc;
         }
 
         Vector3 move = { 0 };
@@ -1450,22 +1455,28 @@ static void Grazer_Update(float deltaTime, double now) {
             move = Vector3Subtract(g->walkTarget, g->pos);
             move.y = 0;
             if (g->stateTimer <= 0.0f || Vector3Length(move) < 0.4f) {
-                float ang = GetRandomValue(0, 3599) * 0.001745f;
-                float dist = 1.5f + GetRandomValue(0, 350) / 100.0f;
-                g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * dist, 0, sinf(ang) * dist));
-                g->stateTimer = 2.0f + GetRandomValue(0, 250) / 100.0f;
-            }
-            /* sleepy? a full grazer dozes off right there */
-            if (g->eats > 0 && GetRandomValue(0, 999) < 8) {
-                g->state = 4;
-                g->stateTimer = 7.0f + GetRandomValue(0, 800) / 100.0f;
-                continue;
-            }
-            /* hungry? look for flowers */
-            Vector3 flower;
-            if (GetRandomValue(0, 100) < 3 && Grazer_FindFlower(g->pos, &flower)) {
-                g->targetCell = flower;
-                g->state = 1;
+                /* v63.4: idle choices run on a slow tick, not every frame */
+                g->decide -= deltaTime;
+                if (g->decide <= 0.0f) {
+                    g->decide = 0.55f + GetRandomValue(0, 45) / 100.0f;
+                    int roll = GetRandomValue(0, 99);
+                    /* a fed grazer dozes off a lot - it is a rabbit, not a robot */
+                    if (g->eats > 0 && roll < 22) {
+                        g->state = 4;
+                        g->stateTimer = 8.0f + GetRandomValue(0, 1400) / 100.0f;
+                        continue;
+                    }
+                    Vector3 flower;
+                    if (roll < 60 && Grazer_FindFlower(g->pos, &flower)) {
+                        g->targetCell = flower;
+                        g->state = 1;
+                    } else {
+                        float ang = GetRandomValue(0, 3599) * 0.001745f;
+                        float dist = 1.5f + GetRandomValue(0, 350) / 100.0f;
+                        g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * dist, 0, sinf(ang) * dist));
+                        g->stateTimer = 2.0f + GetRandomValue(0, 250) / 100.0f;
+                    }
+                }
             }
         } else if (g->state == 1) {                            /* seek flower */
             move = Vector3Subtract(g->targetCell, g->pos);
@@ -1484,6 +1495,16 @@ static void Grazer_Update(float deltaTime, double now) {
             }
         } else if (g->state == 2) {                            /* eat */
             g->stateTimer -= deltaTime;
+            /* v63.4: the snack vanished mid-chew (laser-mined away) -
+             * never chew on void: startle and bolt */
+            if (!Grazer_IsDelicacy(World_GetBlock(g->targetCell))) {
+                g->state = 3;
+                g->stateTimer = 1.6f + GetRandomValue(0, 80) / 100.0f;
+                g->fleeFrom = (pd < 12.0f)
+                                  ? pc
+                                  : Vector3Add(g->targetCell, V3_(0.5f, 0, 0.5f));
+                continue;
+            }
             if (g->stateTimer <= 0.0f) {
                 Vector3 cell = g->targetCell;
                 int ate = World_GetBlock(cell);
@@ -1495,10 +1516,10 @@ static void Grazer_Update(float deltaTime, double now) {
                 }
                 g->state = 0;
                 g->stateTimer = 1.0f + GetRandomValue(0, 150) / 100.0f;
-                /* v63: after a meal, a nap in the sun */
-                if (GetRandomValue(0, 99) < 30) {
+                /* v63.4: after a meal, usually a nap in the sun */
+                if (GetRandomValue(0, 99) < 60) {
                     g->state = 4;
-                    g->stateTimer = 7.0f + GetRandomValue(0, 800) / 100.0f;
+                    g->stateTimer = 8.0f + GetRandomValue(0, 1400) / 100.0f;
                 }
             }
         } else if (g->state == 4) {                            /* sleep */
@@ -1512,7 +1533,7 @@ static void Grazer_Update(float deltaTime, double now) {
             continue;   /* no movement while asleep */
         } else {                                               /* flee */
             g->stateTimer -= deltaTime;
-            Vector3 away = Vector3Subtract(g->pos, pc);
+            Vector3 away = Vector3Subtract(g->pos, g->fleeFrom);
             away.y = 0;
             float ad = Vector3Length(away);
             if (ad > 0.05f) move = Vector3Scale(away, 1.0f / ad);

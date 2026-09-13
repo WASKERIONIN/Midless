@@ -49,7 +49,8 @@ void Settings_Load(void) {
         else if (sscanf(line, "drawdistance=%d", &value) == 1) {
             /* v63.3: real setting again (18/22/26 chunks) - smaller value
              * = faster world fill on the single-thread loader */
-            if (value >= 24) value = 26;
+            if (value >= 28) value = 30;
+            else if (value >= 24) value = 26;
             else if (value >= 20) value = 22;
             else if (value > 0) value = 18;
             else value = 26;

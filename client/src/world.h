@@ -32,6 +32,11 @@ void World_Init(void);
 void World_InvalidateBlockDefinitions(bool relight);
 //Load multiplayer world.
 void World_LoadMultiplayer(void);
+bool World_FillGateActive(void);   /* v63.4: grazer loading screen */
+void World_FillGateBegin(void);
+void World_FillGateEnd(void);
+double World_FillGateElapsed(void);
+float World_FillGateProgress(void);
 //Load singleplayer world.
 bool World_LoadSingleplayer(void);
 //Update World

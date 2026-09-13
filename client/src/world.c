@@ -52,9 +52,9 @@ void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
     /* v47.1: fixed draw distance - the user wants the whole sky visible */
-    /* v63.3: honor the saved draw distance (18/22/26; default 26) */
-    world.drawDistance = (gameSettings.drawDistance == 18 ||
-                          gameSettings.drawDistance == 22)
+    /* v63.4: honor the saved draw distance (18/22/26/30; default 26) */
+    world.drawDistance = (gameSettings.drawDistance >= 18 &&
+                          gameSettings.drawDistance <= 30)
                              ? gameSettings.drawDistance : 26;
     world.time = 0;
 
@@ -68,8 +68,44 @@ void World_Init(void) {
 
 void World_LoadMultiplayer(void) {
     player.position = (Vector3) { COSMIC_SPAWN_X, COSMIC_SPAWN_Y, COSMIC_SPAWN_Z };
-    Screen_Switch(SCREEN_GAME);
+    /* v63.4: do NOT drop the moth into an empty sky - hold the loading
+     * screen until the near-field disc has streamed in (see the grazer
+     * progress screen), then enter the world */
     world.loadChunks = true;
+    World_FillGateBegin();
+    Screen_Switch(SCREEN_LOADING);
+}
+
+/* v63.4: world-fill loading gate ------------------------------------- */
+static bool fillGateActive = false;
+static double fillGateStart = 0.0;
+
+bool World_FillGateActive(void) { return fillGateActive; }
+
+void World_FillGateBegin(void) {
+    fillGateActive = true;
+    fillGateStart = GetTime();
+}
+
+void World_FillGateEnd(void) { fillGateActive = false; }
+
+double World_FillGateElapsed(void) { return GetTime() - fillGateStart; }
+
+/* share of the near-field chunk disc (R=3 columns, y +-2) that arrived */
+float World_FillGateProgress(void) {
+    Vector3 pc = { floorf(player.position.x / CHUNK_SIZE_X),
+                   floorf(player.position.y / CHUNK_SIZE_Y),
+                   floorf(player.position.z / CHUNK_SIZE_Z) };
+    int total = 0, have = 0;
+    for (int dy = -2; dy <= 2; dy++)
+        for (int dx = -3; dx <= 3; dx++)
+            for (int dz = -3; dz <= 3; dz++) {
+                if (dx * dx + dz * dz > 10) continue;
+                total++;
+                Vector3 c = { pc.x + dx, pc.y + dy, pc.z + dz };
+                if (World_GetChunkAt(c) != NULL) have++;
+            }
+    return total > 0 ? (float)have / (float)total : 1.0f;
 }
 
 bool World_LoadSingleplayer(void) {

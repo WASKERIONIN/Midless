@@ -21,6 +21,7 @@
 #include "world.h"
 #include "block.h"
 #include "networkhandler.h"
+#include "textures.h"
 #include "packet.h"
 #include "client.h"
 #include "clientws.h"
@@ -786,7 +787,9 @@ void Screen_DrawOptions(void) {
      * the value automatically so islands still fade before the edge. */
     const char* drawDistanceTxt = TextFormat("Draw Distance: %d", world.drawDistance);
     if (CosmicButton((Rectangle) {offsetX, offsetY, 300, 42 }, drawDistanceTxt, true)) {
-        int dd = world.drawDistance == 26 ? 22 : (world.drawDistance == 22 ? 18 : 26);
+        int dd = world.drawDistance == 18 ? 22
+               : (world.drawDistance == 22 ? 26
+               : (world.drawDistance == 26 ? 30 : 18));
         world.drawDistance = dd;
         gameSettings.drawDistance = dd;
         Settings_Save();
@@ -977,7 +980,127 @@ void Screen_DrawLogin(void) {
 
 }
 
+/* v63.4: the world-fill loading screen - a grazer strolls along the
+ * progress bar munching flowers while the near-field chunks stream in */
+static void Screen_DrawWorldFill(float prog, double elapsed) {
+    int w = screenWidth, h = screenHeight;
+    /* dusk sky */
+    DrawRectangleGradientV(0, 0, w, h, (Color){22, 12, 44, 255}, (Color){8, 4, 18, 255});
+    for (int i = 0; i < 90; i++) {
+        int sx = (i * 4567 + 911) % w;
+        int sy = (i * 2803 + 173) % (h * 2 / 3);
+        float tw = 0.55f + 0.45f * sinf((float)elapsed * 2.0f + i * 1.7f);
+        DrawPixel(sx, sy, (Color){210, 220, 255, (unsigned char)(150 * tw)});
+    }
+
+    const char *title = "MIDLESS";
+    I18n_DrawText(title, w / 2 - I18n_MeasureText(title, 56) / 2, h / 5, 56,
+                  (Color){255, 226, 130, 255});
+    const char *sub = "Идёт загрузка мира...";
+    I18n_DrawText(sub, w / 2 - I18n_MeasureText(sub, 20) / 2, h / 5 + 66, 20,
+                  (Color){190, 190, 210, 255});
+
+    /* the bar doubles as the ground the grazer walks on */
+    int barW = w * 62 / 100, barH = 26;
+    int barX = w / 2 - barW / 2, barY = h * 74 / 100;
+    Texture2D atlas = ClientTextures_Get(1);
+    Rectangle soil = { 2 * 16, 0, 16, 16 };          /* tile 2: dirt */
+    Rectangle turf = { 3 * 16, 0, 16, 16 };          /* tile 3: turf */
+    for (int tx = 0; tx < barW; tx += 2 * 16) {
+        Rectangle dst = { barX + tx, barY, 32, 32 };
+        DrawTexturePro(atlas, soil, dst, (Vector2){0, 0}, 0, (Color){140, 130, 150, 255});
+    }
+    int fillW = (int)(barW * prog);
+    for (int tx = 0; tx < fillW; tx += 2 * 16) {
+        Rectangle dst = { barX + tx, barY, 32, 32 };
+        DrawTexturePro(atlas, turf, dst, (Vector2){0, 0}, 0, WHITE);
+    }
+    DrawRectangle(barX, barY - 4, fillW, 4, (Color){110, 214, 156, 255});
+    DrawRectangleLinesEx((Rectangle){barX - 2, barY - 2, barW + 4, barH + 6}, 2,
+                         (Color){70, 70, 95, 255});
+
+    /* flowers along the bar; the grazer eats them as it passes */
+    static float fracs[3] = { 0.22f, 0.47f, 0.72f };
+    static int eaten = 0;
+    static float chewT = 0.0f;
+    static float prevProg = 0.0f;
+    if (elapsed < 0.05f) { eaten = 0; chewT = 0; prevProg = 0; }
+    for (int i = 0; i < 3; i++) {
+        if (eaten & (1 << i)) continue;
+        float fx = barX + fracs[i] * barW;
+        if (prog >= fracs[i]) {          /* nom */
+            eaten |= (1 << i);
+            chewT = 0.7f;
+            for (int p = 0; p < 10; p++) {
+                DrawCircle(fx + (GetRandomValue(-18, 18)), barY - 34 + GetRandomValue(-12, 6),
+                           2, (Color){230, 150, 200, 220});
+            }
+            continue;
+        }
+        DrawLineEx((Vector2){fx, barY}, (Vector2){fx, barY - 22}, 3, (Color){80, 140, 100, 255});
+        Rectangle head = { 29 % 16 * 16, 29 / 16 * 16, 16, 16 };
+        DrawTexturePro(atlas, head, (Rectangle){fx - 13, barY - 46, 26, 26},
+                       (Vector2){0, 0}, 0, WHITE);
+    }
+    if (chewT > 0) chewT -= GetFrameTime();
+
+    /* the grazer itself, strolling right */
+    float gx = barX + barW * prog - 6;
+    float gy = barY + 4;
+    float gait = sinf((float)elapsed * 10.0f);
+    for (int leg = 0; leg < 4; leg++) {
+        float lo = (leg % 2 == 0) ? gait * 3.0f : -gait * 3.0f;
+        float lx = gx - 18 + leg * 12 + lo;
+        DrawRectangle((int)lx, (int)gy - 12, 6, 14, (Color){134, 116, 98, 255});
+    }
+    DrawEllipse(gx, gy - 26, 30, 20, (Color){176, 158, 138, 255});
+    DrawEllipse(gx, gy - 17, 23, 10, (Color){198, 182, 160, 255});
+    DrawCircle(gx - 30, gy - 28, 8, (Color){198, 180, 150, 255});
+    float rosette[5][2] = { {-16, -32}, {-4, -38}, {8, -30}, {14, -22}, {-10, -20} };
+    for (int r = 0; r < 5; r++)
+        DrawCircle(gx + rosette[r][0], gy + rosette[r][1], 3.5f, (Color){122, 142, 116, 255});
+    float chewBob = (chewT > 0) ? sinf((float)elapsed * 20.0f) * 3.0f : 0.0f;
+    DrawCircle(gx + 30, gy - 36 + chewBob, 14, (Color){186, 168, 146, 255});
+    DrawCircle(gx + 41, gy - 31 + chewBob, 8, (Color){204, 188, 162, 255});
+    DrawCircle(gx + 44, gy - 32 + chewBob, 2.5f, (Color){70, 52, 48, 255});
+    DrawEllipse(gx + 24, gy - 50 + chewBob, 5, 11, (Color){150, 132, 112, 255});
+    DrawEllipse(gx + 34, gy - 51 + chewBob, 5, 12, (Color){150, 132, 112, 255});
+    DrawCircle(gx + 33, gy - 39 + chewBob, 2.6f, (Color){24, 20, 26, 255});
+
+    int pct = (int)(prog * 100.0f + 0.5f);
+    const char *pctTxt = TextFormat("%d%%", pct);
+    I18n_DrawText(pctTxt, w / 2 - I18n_MeasureText(pctTxt, 22) / 2, barY + 44, 22,
+                  (Color){230, 230, 240, 255});
+    const char *esc = "ESC - отмена";
+    I18n_DrawText(esc, w / 2 - I18n_MeasureText(esc, 15) / 2, h - 34, 15,
+                  (Color){150, 150, 175, 255});
+}
+
 void Screen_DrawLoading(void) {
+    /* v63.4: the world-fill gate - hold here until the spawn disc exists */
+    if (World_FillGateActive()) {
+        float prog = World_FillGateProgress();
+        double elapsed = World_FillGateElapsed();
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            LocalServer_Stop();
+            loadingStarted = false;
+            loadingFailed = false;
+            EnableCursor();
+            World_FillGateEnd();
+            Screen_Switch(SCREEN_LOGIN);
+            return;
+        }
+        if ((prog >= 0.92f && elapsed > 1.2) || elapsed > 45.0) {
+            World_FillGateEnd();
+            Screen_Switch(SCREEN_GAME);
+            DisableCursor();
+            screenCursorEnabled = false;
+            return;
+        }
+        Screen_DrawWorldFill(prog, elapsed);
+        return;
+    }
+
     DrawRectangle(0, 0, screenWidth, screenHeight, (Color){10, 6, 24, 255});
 
     if (!loadingStarted) {

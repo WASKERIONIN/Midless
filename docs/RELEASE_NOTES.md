@@ -1,6 +1,13 @@
-# Midless: Cosmic Edition v63.3
+# Midless: Cosmic Edition v63.4
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.4 - loading screen with a grazing bunny, smarter grazers, draw distance up to 30
+
+- **Real loading screen**: entering a world now shows a dusk-sky screen where a little rosette grazer strolls along the progress bar and *eats flowers as it passes them* - like shader-compilation screens in big games. The game only drops you in once the chunk disc around spawn has actually streamed in (or after a 45 s safety timeout), so you never spawn into an empty sky and the moth never falls through unloaded terrain. Worlds with saved chunks skip through almost instantly - the bunny just sprints.
+- **Grazers sleep like rabbits now**: idle choices run on a slow decision tick - a fed grazer dozes off within seconds (naps 8-22 s), and after every meal it naps 60% of the time. Before, they almost never slept.
+- **Snack stolen mid-chew**: destroy the flower a grazer is eating - it notices instantly, never chews on void, and bolts (away from you if you are close, otherwise away from the vanishing flower).
+- **Draw distance setting now cycles 18 / 22 / 26 / 30** (30 is back as a choice for maximum horizon; note that with the classic v62 loader a bigger value simply means the world takes longer to fill - the fog follows the value either way). Fresh settings default to 26.
 
 ## v63.3 - draw distance is a real setting (faster world fill), sprite editor mirror toggle
 
