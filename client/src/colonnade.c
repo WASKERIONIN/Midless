@@ -225,10 +225,26 @@ void Colonnade_Init(void) {
     float col[3] = { 0.80f, 0.78f, 0.74f };
     SetShaderValue(mat.shader, locCol, col, SHADER_UNIFORM_VEC3);
     ready = mesh.vboId != NULL && mat.shader.id != 0;
+    /* v65.17: breadcrumbs - the v65.16 crossing crash has to be
+     * attributable from the client log if it ever returns */
+    TraceLog(LOG_INFO, "COLONNADE init: verts=%d tris=%d vao=%u shader=%d locCol=%d ready=%d",
+        mesh.vertexCount, mesh.triangleCount, mesh.vaoId, mat.shader.id, locCol, (int)ready);
 }
 
 void Colonnade_Draw(float pocketFactor) {
     if (!ready || pocketFactor <= 0.5f) return;
+    /* v65.17: the world renders through rlgl's deferred batch. The
+     * v65.16 DrawMesh switched VAO+shader with chunk vertices still
+     * pending in that batch - driver-side state corruption, crash on
+     * the crossing. Flush before AND after, like world.c does for its
+     * own special draws. */
+    static bool loggedFirst = false;
+    if (!loggedFirst) {
+        TraceLog(LOG_INFO, "COLONNADE: first draw at factor %.2f", pocketFactor);
+        loggedFirst = true;
+    }
+    rlDrawRenderBatchActive();
     Matrix xf = MatrixTranslate(POCKETFX_CX, 0.0f, POCKETFX_CZ);
     DrawMesh(mesh, mat, xf);
+    rlDrawRenderBatchActive();
 }

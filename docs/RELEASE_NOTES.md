@@ -1,6 +1,22 @@
-# Midless: Cosmic Edition v65.16
+# Midless: Cosmic Edition v65.17
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.17 - the crossing crash: batch flush around the peristyle
+
+v65.16 crashed the client at the moment of crossing into the pocket.
+The peristyle was the only new draw on that path, and it drew through
+DrawMesh - a VAO+shader switch - while the world's chunk vertices were
+still pending in rlgl's deferred render batch (world.c flushes that
+batch explicitly around its own special draws; the colonnade did not).
+Pending vertices meeting a foreign VAO is driver-side state
+corruption - a segfault on the first frame inside the pocket.
+
+- The colonnade now flushes the render batch before AND after its
+  DrawMesh call.
+- Client log breadcrumbs: COLONNADE init line (vert/tri/vao/shader
+  counts) and a first-draw line, so any future crash on this path is
+  attributable from midless_client.log.
 
 ## v65.16 - the cloud dream is over: blue sky and a marble peristyle
 

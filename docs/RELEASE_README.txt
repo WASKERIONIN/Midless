@@ -1,8 +1,14 @@
-=== Midless: Cosmic Edition v65.16 ===
+=== Midless: Cosmic Edition v65.17 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.17
+  - Fixes the v65.16 crash on crossing into the pocket: the colonnade
+    draw now flushes rlgl's render batch before and after its DrawMesh
+    (pending chunk vertices vs a foreign VAO was the segfault), plus
+    client-log breadcrumbs on the colonnade path.
 
 WHAT'S NEW IN v65.16
   - The cloud experiment is retired (sprites glitched at the camera).
