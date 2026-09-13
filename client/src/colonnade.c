@@ -214,5 +214,12 @@ void Colonnade_Draw(float pocketFactor) {
             rlVertex3f(vpos[3 * vi] + POCKETFX_CX, vpos[3 * vi + 1], vpos[3 * vi + 2] + POCKETFX_CZ);
         }
     rlEnd();
+    /* v65.20: the batch is DEFERRED - rlEnd only closes the CPU side,
+     * the GPU draw happens at the next flush. v65.19 re-enabled
+     * culling right after rlEnd, so everything flushed later (the
+     * tail of the stream: arch legs) drew single-sided again and
+     * vanished at grazing angles. Flush HERE, while culling is still
+     * off, then restore. */
+    rlDrawRenderBatchActive();
     rlEnableBackfaceCulling();
 }

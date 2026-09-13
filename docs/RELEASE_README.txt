@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.19 ===
+=== Midless: Cosmic Edition v65.20 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.20
+  - Arch legs no longer go transparent up close: the colonnade batch
+    is now flushed while backface culling is still off (the deferred
+    flush used to land after culling was restored).
+  - The invisible barrier widened to radius 63 - you can stand in the
+    colonnade itself, just not past it.
 
 WHAT'S NEW IN v65.19
   - The marble now renders double-sided (no more inverted/see-through

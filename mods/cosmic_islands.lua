@@ -902,7 +902,7 @@ end)
 -- a walker (or a flyer) from stepping between the columns and off the
 -- island. An invisible cylinder just inside the colonnade clamps the
 -- position every tick, from the lawn up to fly-mode heights.
-local BARRIER_R = 60.0
+local BARRIER_R = 63.0   -- v65.20: widened from 60 - walk up to the columns
 local BARRIER_TOP = POCKET_TOP + 200
 midless.register_on_step(function(dt)
     local players = midless.get_players()

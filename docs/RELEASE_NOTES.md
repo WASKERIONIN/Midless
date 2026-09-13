@@ -1,6 +1,22 @@
-# Midless: Cosmic Edition v65.19
+# Midless: Cosmic Edition v65.20
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.20 - culling off at FLUSH time, barrier widened
+
+v65.19 disabled backface culling around the colonnade batch - and it
+changed nothing for the arch legs: rlgl's batch is deferred, rlEnd
+only closes the CPU side, and the GPU draw happens at the next flush.
+The flush of the stream tail landed AFTER culling was re-enabled, so
+the last arches in the build order drew single-sided and their legs
+went transparent at grazing angles (exactly what the close-up
+screenshot showed).
+
+- The colonnade now forces rlDrawRenderBatchActive() while culling is
+  still off, then restores it - every marble vertex draws
+  double-sided, deterministically.
+- Invisible barrier widened from radius 60 to 63: you can walk right
+  up to the columns and stand in the colonnade, but not past it.
 
 ## v65.19 - solid marble and an invisible fence
 
