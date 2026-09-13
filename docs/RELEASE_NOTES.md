@@ -1,6 +1,12 @@
-# Midless: Cosmic Edition v63.8
+# Midless: Cosmic Edition v63.9
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v63.9 - the lawn rule: every biome block always wears its own grass, biome blooms actually appear
+
+- **New rule applied**: every surface of every biome now ALWAYS carries its own grass - classic turf is tufted with void grass, ember turf with ember blades, frost turf with icy blades. No more bare charcoal or bare hoarfrost; the lawn is everywhere, and flowers claim individual cells on top of it (never stacking).
+- **The six new biome blooms are finally encounterable**: the spawn patches were tuned far too rare (and two species silently shipped without block definitions - fixed, with a new generator check that forbids undefined blocks forever). Patch coverage roughly tripled: walk any ember isle and you will meet the Smolderhead, Cinder Buds and Ember Lantern; frost isles carry Frost Burst, Glacier Dewdrop and Ringbloom.
+- Rain mushrooms can sprout straight through their own biome's lawn - the grass politely parts, so a cloud still mushrooms everywhere it waters.
 
 ## v63.8 - the atlas is whole again, stemmed biome blooms, one proper mushroom cloud
 

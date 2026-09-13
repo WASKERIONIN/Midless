@@ -91,10 +91,18 @@ static void RainCloud_Grow(RainCloud *c, float x, float surfY, float z) {
     if (c->growBudget <= 0) return;
     Vector3 cell = { floorf(x) + 0.5f, surfY + 1.5f, floorf(z) + 0.5f };
     if (Vector3Equals(cell, c->lastGrow)) return;
-    if (World_GetBlock(cell) != 0) return;
     Vector3 groundP = { cell.x, surfY + 0.5f, cell.z };
-    int species = RainCloud_SpeciesFor(World_GetBlock(groundP));
+    int groundId = World_GetBlock(groundP);
+    int species = RainCloud_SpeciesFor(groundId);
     if (species == 0) return;
+    /* v63.9: the lawn is everywhere now - a mushroom may push aside
+     * exactly its own biome's grass, nothing else */
+    int existing = World_GetBlock(cell);
+    bool spot = existing == 0;
+    if (groundId == 57 && existing == 59) spot = true;
+    if (groundId == 58 && existing == 60) spot = true;
+    if (groundId == 3 && (existing == 39 || existing == 41)) spot = true;
+    if (!spot) return;
     World_SetBlock(cell, species, true);
     Network_Send(Packet_CreateSetBlock(species, cell));
     c->lastGrow = cell;

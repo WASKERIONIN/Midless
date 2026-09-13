@@ -7,6 +7,9 @@
 #include "raylib.h"
 #include "scripting/luaengine.h"
 #include "world/worldgen.h"
+#include "world.h"
+
+extern World serverWorld;
 
 void LuaBindings_Init(void);
 void LuaBindings_Shutdown(void);
@@ -176,6 +179,20 @@ int main(void) {
                     counts[74] + counts[75];
         printf("PROBE: worldgen mushrooms 64-66/73-75 (must be 0): %ld\n", mush);
         if (mush != 0) { printf("PROBE: FAIL mushrooms in worldgen\n"); return 1; }
+    }
+    /* v63.9: every non-default id the worldgen places MUST have a block
+     * definition - undefined ids slip past Worldgen_Freeze (the material
+     * field is not validated) and render invisibly in the client */
+    {
+        long undef = 0;
+        for (int i = 19; i < 256; i++) {
+            if (counts[i] > 0 && !serverWorld.hasBlockDefinition[i]) {
+                printf("PROBE: FAIL block %d used but not defined\n", i);
+                undef++;
+            }
+        }
+        if (undef) return 1;
+        printf("PROBE: all used blocks defined\n");
     }
     printf("PROBE: starter-island biome-block cells (must be 0): %d\n", bad);
     printf("PROBE: OK\n");

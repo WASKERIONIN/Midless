@@ -454,11 +454,13 @@ midless.define_block(75, {
     collider = block.collider.NONE,
 })
 
--- v63.6: unique low-growing biome blooms (no recolors, no tall stems).
--- Ember: smolderhead (layered coal bulb with a glowing core split),
--- cinder cluster (three smoldering nodes), ember lens (molten disc).
--- Frost: frost star (six-ray ice star), glacier bulb (fat ice onion
--- with a light seam), ringbloom (fairy ring of cold orbs).
+-- v63.9: stemmed biome blooms, one silhouette each, varied heights.
+-- Ember: Smolderhead (coal rosette on a curved stem), Cinder Buds
+-- (three pods on stems of three heights), Ember Lantern (tall arch
+-- with a hanging glow-lampion).
+-- Frost: Frost Burst (icy starburst on a straight stem), Glacier
+-- Dewdrop (arched stem with one hanging teardrop bud), Ringbloom
+-- (stem topped with a hollow halo of frost orbs).
 midless.define_block(67, {
     name = "Smolderhead",
     textures = { all = 67 },
@@ -467,28 +469,14 @@ midless.define_block(67, {
     collider = block.collider.NONE,
 })
 midless.define_block(68, {
-    name = "Cinder Cluster",
+    name = "Cinder Buds",
     textures = { all = 68 },
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
 })
-midless.define_block(69, {
-    name = "Ember Lens",
-    textures = { all = 69 },
-    model = block.model.SPRITE,
-    render = block.render.TRANSPARENT,
-    collider = block.collider.NONE,
-})
-midless.define_block(70, {
-    name = "Frost Star",
-    textures = { all = 70 },
-    model = block.model.SPRITE,
-    render = block.render.TRANSPARENT,
-    collider = block.collider.NONE,
-})
 midless.define_block(71, {
-    name = "Glacier Bulb",
+    name = "Glacier Dewdrop",
     textures = { all = 71 },
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
@@ -497,6 +485,20 @@ midless.define_block(71, {
 midless.define_block(72, {
     name = "Ringbloom",
     textures = { all = 72 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(76, {
+    name = "Ember Lantern",
+    textures = { all = 76 },
+    model = block.model.SPRITE,
+    render = block.render.TRANSPARENT,
+    collider = block.collider.NONE,
+})
+midless.define_block(77, {
+    name = "Frost Burst",
+    textures = { all = 77 },
     model = block.model.SPRITE,
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
@@ -511,23 +513,23 @@ classic_id = f.select(f.lt(0.965, fine_n), 49, classic_id)
 
 -- ember isles: smoldering grass lawn with flower PATCHES inside it
 -- (patch_n masks where blooms may appear) and rare lantern groves
-local ember_patch = f.lt(0.55, patch_n)
+local ember_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local ember_id = 59                                   -- ember tuft lawn
-ember_id = f.select(ember_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 67, ember_id)
-ember_id = f.select(ember_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 68, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.30), 76, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.30, which_n) * f.lt(which_n, 0.45), 31, ember_id)
-ember_id = f.select(ember_patch * f.lt(0.45, which_n), 33, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.50, which_n) * f.lt(which_n, -0.20), 67, ember_id)
+ember_id = f.select(ember_patch * f.lt(-0.20, which_n) * f.lt(which_n, 0.00), 68, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.20), 76, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.20, which_n) * f.lt(which_n, 0.35), 31, ember_id)
+ember_id = f.select(ember_patch * f.lt(0.35, which_n), 33, ember_id)
 ember_id = f.select(f.lt(0.90, fine_n), 50, ember_id) -- rare lantern tree
 
 -- frost isles: hoarfrost lawn with pale bloom patches, rare void groves
-local frost_patch = f.lt(0.55, patch_n)
+local frost_patch = f.lt(0.40, patch_n)  -- v63.9: actually encounterable (f.lt(a,b) = a < b!)
 local frost_id = 60                                   -- frost tuft lawn
-frost_id = f.select(frost_patch * f.lt(-0.30, which_n) * f.lt(which_n, -0.15), 77, frost_id)
-frost_id = f.select(frost_patch * f.lt(-0.15, which_n) * f.lt(which_n, 0.00), 71, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.45), 72, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.45, which_n) * f.lt(which_n, 0.65), 48, frost_id)
-frost_id = f.select(frost_patch * f.lt(0.65, which_n), 52, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.50, which_n) * f.lt(which_n, -0.20), 77, frost_id)
+frost_id = f.select(frost_patch * f.lt(-0.20, which_n) * f.lt(which_n, 0.00), 71, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.00, which_n) * f.lt(which_n, 0.40), 72, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.40, which_n) * f.lt(which_n, 0.60), 48, frost_id)
+frost_id = f.select(frost_patch * f.lt(0.60, which_n), 52, frost_id)
 frost_id = f.select(f.lt(0.90, fine_n), 49, frost_id) -- rare void tree
 
 local flower_id = f.select(classic_f, classic_id,
@@ -547,6 +549,16 @@ mid_body = f.select(frost_b, 19, mid_body)
 mid_body = f.select(starter_zone, 2, mid_body)
 local body = f.select(surface, top_block, f.select(f.lt(y, 46), 1, mid_body))
 local material = f.select(inside, body, 0)
+-- v63.9 RULE: every biome surface ALWAYS wears its own grass - the
+-- air cell resting on the ground (the same cell flora uses) carries
+-- the biome lawn: classic turf -> void tufts, ember turf -> ember
+-- blades, frost turf -> icy blades. Flowers claim individual cells on
+-- top of that lawn (they replace the tuft, never stack on it).
+local lawn_spot = solid_below * (1 - inside)
+local lawn_id = f.select(starter_zone, 39,
+                 f.select(ember_b, 59,
+                 f.select(frost_b, 60, 39)))
+material = f.select(lawn_spot, lawn_id, material)
 material = f.select(flora_cell, flower_id, material)
 
 ------------------------------------------- starter island decorations ----
@@ -582,7 +594,7 @@ material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 18,
+    id = "midless:cosmic", version = 19,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     material = material, density = f.max(inside, flora_cell),
