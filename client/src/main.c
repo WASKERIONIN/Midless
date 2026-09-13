@@ -28,6 +28,7 @@
 #include "localserver.h"
 #include "runtimepaths.h"
 #include "starfield.h"
+#include "pocketfx.h"   /* v65.8: pocket universe sky swap */
 #include "blackhole.h"
 #include "ship.h"
 #include "settings.h"
@@ -158,19 +159,26 @@ void Game_RunLoop(void) {
         SoundFx_Update();
     }
 
+    /* v65.8: pocket universe mood follows the player (menus stay cosmic) */
+    PocketFx_Update(inWorld ? player.camera.position : (Vector3){ 0, 0, 0 });
+
     Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
 
     BeginDrawing();
-        ClearBackground((Color){ 14, 4, 28, 255 });
+        ClearBackground(PocketFx_SkyColor());   /* v65.8: day sky in the pocket */
 
         if (inWorld) {
             PostFx_BeginScene();
-            ClearBackground((Color){ 14, 4, 28, 255 });
+            ClearBackground(PocketFx_SkyColor());   /* v65.8: day sky in the pocket */
             BeginMode3D(player.camera);
                 Starfield_Update(GetFrameTime());
-                Starfield_Draw(player.camera);
-                BlackHole_Draw(player.camera);
-                Ship_Draw((double)GetTime());   /* v62: the Void Runner */
+                /* v65.8: the pocket universe has no void - hide the nebulae,
+                 * the black-hole sun and the ship traffic while inside it */
+                if (PocketFx_Factor() < 0.5f) {
+                    Starfield_Draw(player.camera);
+                    BlackHole_Draw(player.camera);
+                    Ship_Draw((double)GetTime());   /* v62: the Void Runner */
+                }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Hunter_Draw();

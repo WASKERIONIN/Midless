@@ -344,6 +344,29 @@ local starter_bottom = 66 + sd * 0.9 + wobble * 1.2
 local starter = f.lt(f.abs(x - 8), 10.5) * f.lt(f.abs(z - 8), 10.5) *
                 f.lt(y, 76) * f.lt(starter_bottom, y)
 
+-- v65.8 POCKET UNIVERSE: a wide flat meadow far away from the cosmic
+-- noise, reached only through a warp gate. The zone box REPLACES all
+-- cosmic density inside it, so no island, ore or structure shares the
+-- pocket sky. The lawn sits at y=154 - above every structure max_y
+-- (150), so worldgen decorations can never intrude.
+-- NOTE: POCKET_CX / POCKET_CZ / 96.5 zone half must match the client-side
+-- sky swap in client/src/pocketfx.c.
+local POCKET_CX, POCKET_CZ = 1200, -1200
+local POCKET_HALF = 64           -- the field spans 129x129 blocks
+local POCKET_TOP  = 154          -- lawn surface cell
+local pocket_zone  = f.lt(f.abs(x - POCKET_CX), 96.5) * f.lt(f.abs(z - POCKET_CZ), 96.5)
+local pocket_field = f.lt(f.abs(x - POCKET_CX), POCKET_HALF + 0.5) *
+                     f.lt(f.abs(z - POCKET_CZ), POCKET_HALF + 0.5) *
+                     f.lt(y, POCKET_TOP + 0.5) * f.lt(POCKET_TOP - 6.5, y)
+local pocket_gate_cell = f.eq(x, POCKET_CX) * f.eq(z, POCKET_CZ) * f.eq(y, POCKET_TOP)
+-- turf wears the top cell (the centre one is the return gate), warm loam
+-- fills the six-block slab below. IMPORTANT: the material field IS the
+-- placed block (Worldgen_Generate writes it per cell, density never
+-- gates it), so the slab mask must be multiplied in - outside the field
+-- the pocket material is AIR (0), same as the material chain expects.
+local pocket_material = f.select(pocket_gate_cell, 80,
+                        f.select(f.eq(y, POCKET_TOP), 78, 79)) * pocket_field
+
 -- v62: biome noise - huge scale, so island CLUSTERS share a biome
 local biome_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.006,
@@ -394,7 +417,8 @@ local flora_cell = f.lt(3.0, f.max(f.abs(x - 8), f.abs(z - 8))) *
                    f.lt(0.4, solid_below * (1 - inside) * open_above) *
                    f.lt(0.92, open_above) *
                    (1 - f.lt(0.2, inside)) *
-                   f.lt(0.05, patch_n) * f.lt(0.1, fine_n)
+                   f.lt(0.05, patch_n) * f.lt(0.1, fine_n) *
+                   (1 - pocket_zone)  -- v65.8: the pocket meadow stays pure
 local which_n = f.noise2d({
     type = "opensimplex2s", fractal = "fbm", frequency = 0.09,
     octaves = 2, seed_offset = 555,
@@ -512,6 +536,27 @@ midless.define_block(77, {
     render = block.render.TRANSPARENT,
     collider = block.collider.NONE,
 })
+
+-- v65.8 POCKET UNIVERSE blocks. Fresh ids on purpose: every cosmic flora
+-- gate keys off the old ground ids, so the pocket lawn stays a pure,
+-- quiet meadow - no bells, no mushrooms, no embers.
+midless.define_block(78, {
+    name = "Pocket Turf",
+    textures = { top = 78, sides = 78, bottom = 79 },
+})
+midless.define_block(79, {
+    name = "Pocket Loam",
+    textures = { all = 79 },
+})
+-- 80 warp_gate: the BIG warp core. Four warp cores (22) placed in a 2x2
+-- square fuse into one of these (hook at the end of the file); step onto
+-- it and you cross into the pocket universe.
+midless.define_block(80, {
+    name = "Warp Gate",
+    textures = { all = 80 },
+    light = block.light.EMIT,
+    light_level = 10,
+})
 -- v61.2 giant ladder (classic biome only) - puffs, moon bells, star
 -- reeds, crystal stalks and (the rarest) void trees
 classic_id = f.select(f.lt(0.60, fine_n) * f.lt(fine_n, 0.70), 52, classic_id)
@@ -625,6 +670,10 @@ material = f.select(cores, 22, material)
 material = f.select(arch, 20, material)
 material = f.select(pad, 21, material)
 
+-- v65.8: inside the pocket zone NOTHING cosmic survives - the box is the
+-- meadow slab (with the return gate in its centre) and empty sky around it
+material = f.select(pocket_zone, pocket_material, material)
+
 wg.configure({
     id = "midless:cosmic", version = 21,
     min_y = 0, max_y = 160, bounded = true,
@@ -633,8 +682,10 @@ wg.configure({
     -- FindSurfaceHeight returned the plant cell instead of the ground: every
     -- structure then stood one block ABOVE the lawn (floating gates/trees)
     -- and the new ground filter compared against a flower, never the turf.
-    material = material, density = inside,
-    skylight = f.max(inside, flora_cell),
+    material = material,
+    -- v65.8: the pocket zone swaps cosmic density for the flat meadow slab
+    density = f.select(pocket_zone, pocket_field, inside),
+    skylight = f.max(f.max(inside, flora_cell), pocket_field),
 })
 
 -- turf keeps a skin of dirt, void rock holds the cones together
@@ -800,3 +851,77 @@ wg.define_structure("midless:memory_float", {
         { x = 0, y = 6, z = 1, block = 23 },
     },
 })
+
+--------------------------------------------- pocket universe hooks (v65.8) --
+-- 1) Four warp cores (22) in a 2x2 square FUSE into one warp gate (80):
+--    the anchor cell (lowest x/z of the square) becomes the gate, the
+--    other three cores are consumed. Everyone hears about it.
+-- 2) Stepping onto a gate swaps worlds:
+--      cosmic side -> pocket meadow spawn (a few blocks off the centre)
+--      pocket side -> back beside the gate you arrived from
+--    The spawn points are never ON a gate, and a 2.5s cooldown per player
+--    keeps the crossing one-shot.
+local WARP_CORE_ID, WARP_GATE_ID = 22, 80
+local pocket_clock = 0.0
+local pocket_origin, pocket_cooldown = {}, {}
+local morphing_gate = false
+
+midless.register_on_block_update(function(pos, newId, oldId)
+    if morphing_gate or newId ~= WARP_CORE_ID then return end
+    local gx, gy, gz = math.floor(pos.x), math.floor(pos.y), math.floor(pos.z)
+    local offs = { { 0, 0 }, { -1, 0 }, { 0, -1 }, { -1, -1 } }
+    for o = 1, 4 do
+        local ax, az = gx + offs[o][1], gz + offs[o][2]
+        local square = true
+        for dx = 0, 1 do
+            for dz = 0, 1 do
+                if midless.get_block({ x = ax + dx, y = gy, z = az + dz }) ~= WARP_CORE_ID then
+                    square = false
+                end
+            end
+        end
+        if square then
+            morphing_gate = true
+            midless.set_block({ x = ax,     y = gy, z = az     }, WARP_GATE_ID)
+            midless.set_block({ x = ax + 1, y = gy, z = az     }, 0)
+            midless.set_block({ x = ax,     y = gy, z = az + 1 }, 0)
+            midless.set_block({ x = ax + 1, y = gy, z = az + 1 }, 0)
+            morphing_gate = false
+            midless.broadcast("The warp cores fuse into a Warp Gate! Step onto it to cross over.")
+            return
+        end
+    end
+end)
+
+midless.register_on_step(function(dt)
+    pocket_clock = pocket_clock + dt
+    local players = midless.get_players()
+    for i = 1, #players do
+        local p = players[i]
+        local id = p:get_id()
+        local last = pocket_cooldown[id]
+        if not last or pocket_clock - last > 2.5 then
+            local pos = p:get_position()
+            local below = midless.get_block({ x = pos.x, y = pos.y - 0.5, z = pos.z })
+            if below == WARP_GATE_ID then
+                pocket_cooldown[id] = pocket_clock
+                local fx, fz = math.floor(pos.x), math.floor(pos.z)
+                local in_pocket = math.abs(fx - POCKET_CX) < 96 and math.abs(fz - POCKET_CZ) < 96
+                if in_pocket then
+                    local o = pocket_origin[id]
+                    if o then
+                        -- land BESIDE the home gate (its square is clear floor)
+                        p:teleport({ x = o.x + 1.5, y = o.y + 1.0, z = o.z + 1.5 })
+                    else
+                        p:teleport({ x = 8.5, y = 80.0, z = 8.5 })
+                    end
+                    p:send_message("The pocket universe folds away - welcome back.")
+                else
+                    pocket_origin[id] = { x = fx, y = math.floor(pos.y - 0.5), z = fz }
+                    p:teleport({ x = POCKET_CX + 4.5, y = POCKET_TOP + 2, z = POCKET_CZ + 4.5 })
+                    p:send_message("You cross into the pocket universe: a wide green field under a bright sky.")
+                end
+            end
+        end
+    end
+end)

@@ -38,6 +38,7 @@
 #include "soundfx.h"
 #include "dropshadow.h"
 #include "starfield.h"
+#include "pocketfx.h"
 #include "settings.h"
 #include "bird.h"
 #include "mapview.h"
@@ -936,8 +937,11 @@ void World_DrawWireAuras(void) {
 
 float World_GetSunlightStrength(void) {
     /* No sun — nebula ambient with a slow pulse. Never drop to night-black.
-     * v43.4: dialed back down after the overbright report. */
-    return 0.68f + 0.04f * sinf(world.time * 0.12f);
+     * v43.4: dialed back down after the overbright report.
+     * v65.8: the pocket universe HAS a sun - bright, calm daylight. */
+    float pocket = PocketFx_Factor();
+    float cosmic = 0.68f + 0.04f * sinf(world.time * 0.12f);
+    return cosmic * (1.0f - pocket) + 1.0f * pocket;
 }
 
 float World_GetBrightness(Vector3 position) {

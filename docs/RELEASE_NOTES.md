@@ -1,6 +1,30 @@
-# Midless: Cosmic Edition v65.7
+# Midless: Cosmic Edition v65.8
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.8 - the pocket universe: four cores, one gate, another world
+
+- **Build the gate.** Mine Warp Core blocks (they cap the obelisks, the
+  crystal spires and the ruined shrines) and set FOUR of them in a 2x2
+  square. They fuse into a single Warp Gate - the server announces it in
+  chat the moment the square closes.
+- **Step onto it.** You cross into the pocket universe: a wide flat
+  129x129 meadow of emerald turf over warm loam, floating far from the
+  cosmic archipelago under a bright DAY sky. The whole mood swaps with
+  it - no nebulae, no black-hole sun, no Void Runner traffic; the light
+  is full daylight and the colour grade turns warm and clean (sky,
+  ambient, postfx vignette and grain all follow you in).
+- **The pocket keeps its own rules.** Pure lawn by design: no cosmic
+  flora, no ores, no structures intrude (the meadow sits at y=154, above
+  everything worldgen decorates). A return Warp Gate stands dead centre
+  and drops you back beside the gate you came from. Friends in
+  multiplayer cross the same gates - positions are server-authoritative.
+- **A stage for what's next.** The pocket is an isolated, empty arena on
+  purpose: bosses and activities will move in in later releases.
+- One-time world regeneration on this update (the worldgen fingerprint
+  changed with the new fields).
+
+## v65.7 - multiplayer you can hand to a friend: server config, host panel, address on screen
 
 ## v65.7 - multiplayer you can hand to a friend: server config, host panel, address on screen
 

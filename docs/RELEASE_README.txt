@@ -1,8 +1,16 @@
-=== Midless: Cosmic Edition v65.7 ===
+=== Midless: Cosmic Edition v65.8 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.8
+  - THE POCKET UNIVERSE. Place four Warp Core blocks (mine them from
+    obelisks / spires / ruined shrines) in a 2x2 square: they fuse into
+    a Warp Gate. Step on it and you cross into a wide flat meadow under
+    a bright day sky - a whole different palette, no nebulae, no black
+    hole. The gate in the meadow centre brings you home. The world
+    regenerates ONCE on this update.
 
 WHAT'S NEW IN v65.7
   - Multiplayer made hand-off-able: server.ini (port / max players /

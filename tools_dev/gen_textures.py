@@ -408,6 +408,71 @@ def t_warp_core(index):
     return img
 
 
+def t_pocket_turf(index):
+    """v65.8 pocket universe lawn - warm emerald green with golden flecks.
+    Deliberately sunny: nothing in the cosmic palette looks like this."""
+    n = value_noise(index * 131 + 24, 4)
+    img = blank_tile()
+    px = img.load()
+    G = (96, 178, 92)
+    G_D = (68, 144, 74)
+    G_L = (142, 208, 122)
+    GOLD_F = (236, 208, 120)
+    for y in range(TILE):
+        for x in range(TILE):
+            v = n[y][x]
+            c = lerp(G, G_D, v)
+            if v > 0.62:
+                c = lerp(c, G_L, (v - 0.62) * 2.0)
+            px[x, y] = with_a(c, 255)
+    speckle(img, index * 137 + 25, GOLD_F, 4, 0.9)
+    return img
+
+
+def t_pocket_loam(index):
+    """v65.8 pocket underside - rich warm loam with amber grains."""
+    n = value_noise(index * 139 + 26, 4)
+    img = blank_tile()
+    px = img.load()
+    B = (128, 92, 58)
+    B_D = (100, 70, 44)
+    A = (196, 150, 86)
+    for y in range(TILE):
+        for x in range(TILE):
+            v = n[y][x]
+            c = lerp(B, B_D, v)
+            px[x, y] = with_a(c, 255)
+    speckle(img, index * 149 + 27, A, 5, 0.7)
+    return img
+
+
+def t_warp_gate(index):
+    """v65.8 the BIG warp core - four cores fused. Cream-hot centre, gold
+    ring, violet-magenta swirl outside: reads as the warp core's big
+    brother at a glance."""
+    img = blank_tile()
+    px = img.load()
+    cx, cy = 7.5, 7.5
+    for y in range(TILE):
+        for x in range(TILE):
+            d = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            ang = math.atan2(y - cy, x - cx)
+            swirl = (math.sin(ang * 4 - d * 2.8) + 1) / 2
+            if d < 2.6:
+                c = lerp((255, 248, 224), (255, 226, 150), d / 2.6)
+            elif d < 4.2:
+                c = lerp(GOLD, (255, 240, 190), swirl)
+            else:
+                c = lerp(lerp(VIOLET, MAGENTA, swirl), GOLD,
+                         max(0.0, 1.0 - abs(d - 5.6) * 0.9) * 0.5)
+                c = lerp((26, 10, 40), c, min(1.0, (d - 4.2) * 1.4))
+            px[x, y] = with_a(c, 255)
+    d = ImageDraw.Draw(img)
+    d.ellipse([3, 3, 12, 12], outline=with_a((255, 236, 170), 240))
+    d.ellipse([6, 6, 9, 9], outline=with_a(VIOLET, 200))
+    return img
+
+
 def t_lava(index):
     n = value_noise(index * 89 + 16, 4)
     img = blank_tile()
@@ -1280,6 +1345,9 @@ def build_atlas():
         72: t_ringbloom(72),
         76: t_ember_lantern(76),
         77: t_frost_burst(77),
+        78: t_pocket_turf(78),
+        79: t_pocket_loam(79),
+        80: t_warp_gate(80),
         73: t_glowcap_cluster(73),
         74: t_cinder_trumpet(74),
         75: t_frost_puffball(75),
@@ -1433,7 +1501,7 @@ def build_humanoid(path):
 # 110-230 pixels inside stone/ore/log tiles; the chunk shader discards
 # texels below a=0.5 and the GL blender always blends, so those pixels
 # punched visible holes and see-through specks into the cubes.
-CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26, 56, 57, 58}
+CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26, 56, 57, 58, 78, 79, 80}
 # (intentionally translucent/cutout tiles stay untouched: 10 leaves,
 # 14 water, 17 glass, 22 crystal, every SPRITE/flora tile)
 

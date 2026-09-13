@@ -116,6 +116,10 @@ static inline unsigned short VolGet(const Volume *vol, int x, int y, int z) {
 int main(int argc, char **argv) {
     int radius = argc > 1 ? atoi(argv[1]) : 4;
     int seed = argc > 2 ? atoi(argv[2]) : 20260913;
+    /* v65.8: optional chunk-space centre, so the pocket universe region
+     * (far from the origin) can be audited too: worldprobe R SEED CCX CCZ */
+    int ccx = argc > 3 ? atoi(argv[3]) : 0;
+    int ccz = argc > 4 ? atoi(argv[4]) : 0;
     if (radius < 1) radius = 1;
     if (radius > 12) radius = 12;
 
@@ -140,8 +144,8 @@ int main(int argc, char **argv) {
     vol.nx = nxc * CHUNK_SIZE_X;
     vol.nz = nxc * CHUNK_SIZE_Z;
     vol.ny = ny;
-    vol.ox = -radius * CHUNK_SIZE_X;
-    vol.oz = -radius * CHUNK_SIZE_Z;
+    vol.ox = (ccx - radius) * CHUNK_SIZE_X;
+    vol.oz = (ccz - radius) * CHUNK_SIZE_Z;
     vol.v = calloc((size_t)vol.nx * vol.nz * vol.ny, sizeof(unsigned short));
     if (!vol.v) { printf("PROBE: FAIL - out of memory\n"); return 1; }
 
@@ -152,8 +156,8 @@ int main(int argc, char **argv) {
     for (int cz = 0; cz < nxc; cz++) {
         for (int cx = 0; cx < nxc; cx++) {
             for (int cy = 0; cy < chunkYs; cy++) {
-                Chunk *chunk = ServerChunk_Create((Vector3){ (float)(cx - radius), (float)cy,
-                                                             (float)(cz - radius) });
+                Chunk *chunk = ServerChunk_Create((Vector3){ (float)(cx - radius + ccx), (float)cy,
+                                                             (float)(cz - radius + ccz) });
                 Worldgen_Generate(chunk);
                 chunkGens++;
                 /* mirror the client's flora collection pass (chunkmeshgeneration.c) */

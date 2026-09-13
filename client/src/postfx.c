@@ -8,6 +8,7 @@
 
 #include "postfx.h"
 #include "player.h"
+#include "pocketfx.h"   /* v65.8 */
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
@@ -20,6 +21,7 @@ static int locTime;
 static int locBhPos;
 static int locBhRadius;
 static int locBhStrength;
+static int locPocket;   /* v65.8: 0 = cosmos grade, 1 = pocket day grade */
 
 #if defined(PLATFORM_WEB)
 static const char *kFs =
@@ -32,6 +34,7 @@ static const char *kFs =
     "uniform vec2 bhPos;"
     "uniform float bhRadius;"
     "uniform float bhStrength;"
+    "uniform float pocket;"
     "float hash(vec2 p) {"
     "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);"
     "}"
@@ -59,9 +62,11 @@ static const char *kFs =
     "  acc += max(texture2D(texture0, uv + vec2( px.x * 2.0,  px.y * 2.0)).rgb - 0.50, 0.0);"
     "  acc += max(texture2D(texture0, uv + vec2(-px.x * 2.0, -px.y * 2.0)).rgb - 0.50, 0.0);"
     "  col += acc * 0.22;"
-    "  col = col * vec3(1.06, 0.92, 1.22) + vec3(0.020, 0.004, 0.052);"
-    "  vec3 shadows = vec3(0.10, 0.03, 0.16);"
-    "  vec3 mids = vec3(0.94, 1.04, 1.06);"
+    "  vec3 tint = mix(vec3(1.06, 0.92, 1.22), vec3(1.05, 1.01, 0.93), pocket);"
+    "  vec3 lift = mix(vec3(0.020, 0.004, 0.052), vec3(0.030, 0.026, 0.016), pocket);"
+    "  col = col * tint + lift;"
+    "  vec3 shadows = mix(vec3(0.10, 0.03, 0.16), vec3(0.04, 0.045, 0.06), pocket);"
+    "  vec3 mids = mix(vec3(0.94, 1.04, 1.06), vec3(1.0, 1.0, 0.98), pocket);"
     "  float luma = dot(col, vec3(0.299, 0.587, 0.114));"
     "  col += shadows * (1.0 - smoothstep(0.0, 0.45, luma));"
     "  col *= mix(vec3(1.0), mids, smoothstep(0.15, 0.8, luma));"
@@ -69,8 +74,8 @@ static const char *kFs =
     "  col += vec3(0.06, 0.03, 0.0) * hi;"
     "  col = col * (1.0 + 2.2 * luma) / (1.0 + luma * 1.9);"
     "  vec2 p = uv * 2.0 - 1.0;"
-    "  col *= 1.0 - dot(p, p) * 0.16;"
-    "  col += (hash(uv * resolution + fract(time) * 91.7) - 0.5) * 0.028;"
+    "  col *= 1.0 - dot(p, p) * mix(0.16, 0.05, pocket);"
+    "  col += (hash(uv * resolution + fract(time) * 91.7) - 0.5) * mix(0.028, 0.010, pocket);"
     "  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);"
     "}";
 #else
@@ -94,6 +99,7 @@ static const char *kFs =
     "uniform vec2 bhPos;"
     "uniform float bhRadius;"
     "uniform float bhStrength;"
+    "uniform float pocket;"
     "float hash(vec2 p) {"
     "  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);"
     "}"
@@ -123,9 +129,11 @@ static const char *kFs =
     "  acc += max(texture(texture0, uv + vec2( px.x * 5.0, 0.0)).rgb - 0.55, 0.0);"
     "  acc += max(texture(texture0, uv + vec2(-px.x * 5.0, 0.0)).rgb - 0.55, 0.0);"
     "  col += acc * 0.20;"
-    "  col = col * vec3(1.06, 0.92, 1.22) + vec3(0.020, 0.004, 0.052);"
-    "  vec3 shadows = vec3(0.10, 0.03, 0.16);"
-    "  vec3 mids = vec3(0.94, 1.04, 1.06);"
+    "  vec3 tint = mix(vec3(1.06, 0.92, 1.22), vec3(1.05, 1.01, 0.93), pocket);"
+    "  vec3 lift = mix(vec3(0.020, 0.004, 0.052), vec3(0.030, 0.026, 0.016), pocket);"
+    "  col = col * tint + lift;"
+    "  vec3 shadows = mix(vec3(0.10, 0.03, 0.16), vec3(0.04, 0.045, 0.06), pocket);"
+    "  vec3 mids = mix(vec3(0.94, 1.04, 1.06), vec3(1.0, 1.0, 0.98), pocket);"
     "  float luma = dot(col, vec3(0.299, 0.587, 0.114));"
     "  col += shadows * (1.0 - smoothstep(0.0, 0.45, luma));"
     "  col *= mix(vec3(1.0), mids, smoothstep(0.15, 0.8, luma));"
@@ -133,8 +141,8 @@ static const char *kFs =
     "  col += vec3(0.06, 0.03, 0.0) * hi;"
     "  col = col * (1.0 + 2.2 * luma) / (1.0 + luma * 1.9);"
     "  vec2 p = uv * 2.0 - 1.0;"
-    "  col *= 1.0 - dot(p, p) * 0.16;"
-    "  col += (hash(uv * resolution + fract(time) * 91.7) - 0.5) * 0.028;"
+    "  col *= 1.0 - dot(p, p) * mix(0.16, 0.05, pocket);"
+    "  col += (hash(uv * resolution + fract(time) * 91.7) - 0.5) * mix(0.028, 0.010, pocket);"
     "  finalColor = vec4(clamp(col, 0.0, 1.0), 1.0);"
     "}";
 #endif
@@ -161,6 +169,7 @@ void PostFx_Init(void) {
     locBhPos = GetShaderLocation(shader, "bhPos");
     locBhRadius = GetShaderLocation(shader, "bhRadius");
     locBhStrength = GetShaderLocation(shader, "bhStrength");
+    locPocket = GetShaderLocation(shader, "pocket");
     EnsureTarget();
 }
 
@@ -190,6 +199,8 @@ void PostFx_EndScene(Camera camera) {
     SetShaderValue(shader, locBhPos, bhPos, SHADER_UNIFORM_VEC2);
     SetShaderValue(shader, locBhRadius, &radius, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, locBhStrength, &strength, SHADER_UNIFORM_FLOAT);
+    float pocket = PocketFx_Factor();   /* v65.8 */
+    SetShaderValue(shader, locPocket, &pocket, SHADER_UNIFORM_FLOAT);
 
     BeginShaderMode(shader);
     DrawTextureRec(target.texture,
