@@ -12,6 +12,7 @@
 #include "raylib.h"
 
 void PocketDreams_Init(void);
+void PocketDreams_DrawSky(float pocketFactor);   /* v65.15 gradient */
 void PocketDreams_Draw(Camera camera, float pocketFactor);
 
 #endif

@@ -42,7 +42,7 @@ Color PocketFx_SkyColor(void) {
     /* v65.14: deeper dreamcore mauve - v65.13's pale wash read as white
      * and swallowed the pastel clouds (no contrast). This is the
      * saturated upper sky of the references; the clouds stay pale. */
-    const float pocket[3] = { 168.0f, 132.0f, 178.0f };
+    const float pocket[3] = { 214.0f, 178.0f, 204.0f };
     Color sky;
     sky.r = (unsigned char)(cosmic[0] + (pocket[0] - cosmic[0]) * pocketFactor);
     sky.g = (unsigned char)(cosmic[1] + (pocket[1] - cosmic[1]) * pocketFactor);

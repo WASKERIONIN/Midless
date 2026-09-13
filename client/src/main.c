@@ -192,6 +192,7 @@ void Game_RunLoop(void) {
         if (inWorld) {
             PostFx_BeginScene();
             ClearBackground(PocketFx_SkyColor());   /* v65.8: day sky in the pocket */
+            PocketDreams_DrawSky(PocketFx_Factor());  /* v65.15 dreamcore gradient */
             BeginMode3D(player.camera);
                 Starfield_Update(GetFrameTime());
                 /* v65.8: the pocket universe has no void - hide the nebulae,

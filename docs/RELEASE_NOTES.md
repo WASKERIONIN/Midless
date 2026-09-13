@@ -1,6 +1,30 @@
-# Midless: Cosmic Edition v65.14
+# Midless: Cosmic Edition v65.15
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.15 - the dream gets a SKY: gradient, cloud collar, no panels
+
+Screenshots from the rim showed why it read as "ужасно": a flat mauve
+bedsheet of a sky, and the near-opaque rim wall up close was a blinding
+white panel with hard edges - from fly mode the same wall lay across
+the lawn in streaks (it stood INSIDE the platform footprint).
+
+- **Gradient sky.** The pocket sky is no longer one flat colour: a
+  screen-space gradient paints the reference top to bottom -
+  periwinkle (150,156,208) melting through pink (214,178,204) into a
+  peach horizon glow (246,204,190) and cream - blended by the pocket
+  factor under the 3D world.
+- **Cloud collar, not a wall.** The rim ring moved OUTSIDE the
+  platform (radius 69-95 vs the lawn's 64) and dropped below the turf
+  line: from above it is a collar hugging the island, from eye level
+  its tops peek over the rim and cover the cut line - no streaks on
+  the lawn, no panels in your face.
+- **Softer puffs.** The cloud texture lost its boosted alpha core
+  (smoothstep falloff), alphas came down (collar 205, sea 175,
+  drifters 110) and the sea sank deeper (y ~108) and farther out
+  (radius 95-245): clouds read as clouds, not glowing paper.
+- Crossing flavour line now says "a meadow adrift in a sea of pastel
+  clouds".
 
 ## v65.14 - the dream gets contrast: real cloud sea, no rim, no lensing
 

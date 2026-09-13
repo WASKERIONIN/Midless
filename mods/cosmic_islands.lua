@@ -926,7 +926,7 @@ midless.register_on_step(function(dt)
                 else
                     pocket_origin[id] = { x = fx, y = math.floor(pos.y - 0.5), z = fz }
                     p:teleport({ x = POCKET_CX + 4.5, y = POCKET_TOP + 2, z = POCKET_CZ + 4.5 })
-                    p:send_message("You cross into the pocket universe: a wide green field under a bright sky.")
+                    p:send_message("You cross into the pocket universe: a meadow adrift in a sea of pastel clouds.")
                 end
             end
         end
