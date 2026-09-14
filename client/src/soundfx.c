@@ -21,6 +21,7 @@ static Sound hunterDieSnd;
 static Sound hurtSnd;
 static Sound webShootSnd;
 static Sound boomSnd;
+static Sound golemStepSnd, golemShootSnd, golemClangSnd, golemTearSnd, golemCoreSnd;   /* v65.22 */
 static Sound webAttachSnd;
 static Sound cocoonSnd;   /* v59.2: the special hatch bloom */
 static bool ready;
@@ -155,6 +156,69 @@ static void FillHurt(short *data, int frames) {
 }
 
 /* v51 explosion: deep boom with debris rumble */
+/* v65.22: the Warden's voice - stone footsteps, volley zap, arm
+ * clang, limb tear, core boom */
+static void FillGolemStep(short *data, int frames) {
+    float phase = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 16.0f);
+        float f = 62.0f * expf(-t * 9.0f) + 34.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        float v = sinf(phase) * 0.9f + NextNoise() * 0.35f * expf(-t * 30.0f);
+        data[i] = (short)(v * env * 11000.0f);
+    }
+}
+static void FillGolemShoot(short *data, int frames) {
+    float phase = 0.0f, ph2 = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 8.0f);
+        float f = 720.0f * expf(-t * 6.0f) + 140.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        ph2 += 2.0f * PI * (f * 2.02f) / 22050.0f;
+        float v = sinf(phase) * 0.6f + sinf(ph2) * 0.2f + NextNoise() * 0.25f * expf(-t * 14.0f);
+        data[i] = (short)(v * env * 10000.0f);
+    }
+}
+static void FillGolemClang(short *data, int frames) {
+    float p1 = 0.0f, p2 = 0.0f, p3 = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 11.0f);
+        p1 += 2.0f * PI * 418.0f / 22050.0f;
+        p2 += 2.0f * PI * 689.0f / 22050.0f;
+        p3 += 2.0f * PI * 1137.0f / 22050.0f;
+        float v = sinf(p1) * 0.5f + sinf(p2) * 0.3f + sinf(p3) * 0.18f
+                + NextNoise() * 0.4f * expf(-t * 60.0f);
+        data[i] = (short)(v * env * 11000.0f);
+    }
+}
+static void FillGolemTear(short *data, int frames) {
+    float phase = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 5.0f);
+        float f = 120.0f * expf(-t * 3.0f) + 40.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        float crack = (NextNoise() * 0.7f) * expf(-t * 7.0f) * (0.5f + 0.5f * sinf(t * 90.0f));
+        float v = sinf(phase) * 0.7f + crack;
+        data[i] = (short)(v * env * 12000.0f);
+    }
+}
+static void FillGolemCore(short *data, int frames) {
+    float phase = 0.0f, ph2 = 0.0f;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / 22050.0f;
+        float env = expf(-t * 6.5f);
+        float f = 96.0f * expf(-t * 4.0f) + 42.0f;
+        phase += 2.0f * PI * f / 22050.0f;
+        ph2 += 2.0f * PI * (f * 1.5f) / 22050.0f;
+        float v = sinf(phase) * 0.85f + sinf(ph2) * 0.3f + NextNoise() * 0.3f * expf(-t * 12.0f);
+        data[i] = (short)(v * env * 12000.0f);
+    }
+}
+
 static void FillExplosion(short *data, int frames) {
     float phase = 0.0f, phase2 = 0.0f;
     for (int i = 0; i < frames; i++) {
@@ -746,6 +810,11 @@ void SoundFx_Init(void) {
     hurtSnd = MakeSound(1700, FillHurt);
     webShootSnd = MakeSound(1800, FillWebShoot);
     boomSnd = MakeSound(22050 * 2, FillExplosion);
+    golemStepSnd = MakeSound(4400, FillGolemStep);      /* v65.22 */
+    golemShootSnd = MakeSound(7700, FillGolemShoot);
+    golemClangSnd = MakeSound(8800, FillGolemClang);
+    golemTearSnd = MakeSound(13200, FillGolemTear);
+    golemCoreSnd = MakeSound(15400, FillGolemCore);
     webAttachSnd = MakeSound(900, FillWebAttach);
     ready = true;
     if (ready && IsAudioDeviceReady()) {
@@ -770,6 +839,11 @@ void SoundFx_Shutdown(void) {
     UnloadSound(webShootSnd);
     UnloadSound(webAttachSnd);
     UnloadSound(boomSnd);
+    UnloadSound(golemStepSnd);
+    UnloadSound(golemShootSnd);
+    UnloadSound(golemClangSnd);
+    UnloadSound(golemTearSnd);
+    UnloadSound(golemCoreSnd);
     CloseAudioDevice();
     ready = false;
 }
@@ -810,6 +884,12 @@ void SoundFx_PlayPlayerHurt(void) { if (ready) PlaySound(hurtSnd); }
 void SoundFx_PlayWebShoot(void) { if (ready) PlaySound(webShootSnd); }
 void SoundFx_PlayWebAttach(void) { if (ready) PlaySound(webAttachSnd); }
 void SoundFx_PlayExplosion(void) { if (ready) PlaySound(boomSnd); }
+/* v65.22: the Warden */
+void SoundFx_PlayGolemStep(void) { if (ready) PlaySound(golemStepSnd); }
+void SoundFx_PlayGolemShoot(void) { if (ready) PlaySound(golemShootSnd); }
+void SoundFx_PlayGolemClang(void) { if (ready) PlaySound(golemClangSnd); }
+void SoundFx_PlayGolemTear(void) { if (ready) PlaySound(golemTearSnd); }
+void SoundFx_PlayGolemCore(void) { if (ready) PlaySound(golemCoreSnd); }
 
 void SoundFx_SetVolume(float volume01) {
     volume = Clamp(volume01, 0.0f, 1.0f);

@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.21 ===
+=== Midless: Cosmic Edition v65.22 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.22
+  - Warden polish from playtest: a true kneel (not a squat), heels on
+    the turf, no more colour-wrap glitch quads on hands/chest, eased
+    arm lowering, white hit flash + recoil + sparks at the hit point,
+    fatter hit volumes, footsteps/volley/clang/tear/explosion sounds,
+    and the cores condense in the death explosion itself.
 
 WHAT'S NEW IN v65.21
   - BOSS: the Warden of the Meadow - a giant cube golem kneeling in

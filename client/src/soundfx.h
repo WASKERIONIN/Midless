@@ -17,6 +17,12 @@ void SoundFx_PlayPlayerHurt(void);
 void SoundFx_PlayWebShoot(void);
 void SoundFx_PlayWebAttach(void);
 void SoundFx_PlayExplosion(void);
+/* v65.22: the Warden of the Meadow */
+void SoundFx_PlayGolemStep(void);
+void SoundFx_PlayGolemShoot(void);
+void SoundFx_PlayGolemClang(void);
+void SoundFx_PlayGolemTear(void);
+void SoundFx_PlayGolemCore(void);
 void SoundFx_SetVolume(float volume01);
 float SoundFx_GetVolume(void);
 void SoundFx_SetMusicEnabled(bool on);   /* v59: dungeon-synth radio */

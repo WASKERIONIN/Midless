@@ -1,6 +1,31 @@
-# Midless: Cosmic Edition v65.21
+# Midless: Cosmic Edition v65.22
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.22 - the Warden polish pass, from playtest footage
+
+Every note from the first boss fight landed:
+
+- **A real kneel.** Shins folded back, knees in the grass, hands
+  forward - the v65.21 pose read as a squat. Standing heels now sit
+  exactly on the turf (pelvis 5.2 -> 5.6) instead of sinking half a
+  block.
+- **The blue/pale glitch quads are gone.** The glow boost multiplied
+  colour past 255 and the unsigned char WRAPPED (255*1.25 -> 62),
+  which is exactly what turned hands and chest into blue-yellow
+  confetti. All channels clamp now.
+- **Arms lower gently** after the volley on an eased blend instead
+  of snapping down.
+- **Hit feedback.** The struck part flashes white and recoils
+  (arm jerks back, torso staggers), sparks fly at the exact hit
+  point, and hit volumes are fatter (capsule 1.1 -> 1.35, torso
+  +0.25). Shoulder and knee caps keep the joints solid mid-stride.
+- **Sound.** Stone footsteps per stride, a zap per volley orb, a
+  metallic clang per arm hit, a deep boom on core hits, a crack-tear
+  when a limb goes, and a full explosion at the end.
+- **The death blow.** The Warden kneels and DETONATES; the four warp
+  cores condense in that blast, not after you walk over the empty
+  spot (death also shortened 2.6 -> 2.0 s).
 
 ## v65.21 - THE WARDEN OF THE MEADOW: a cube golem boss
 
