@@ -1,6 +1,26 @@
-# Midless: Cosmic Edition v65.22
+# Midless: Cosmic Edition v65.23
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.23 - the Warden learns to fear the laser
+
+Second playtest, second pass:
+
+- **Shoulders out of the torso.** Arm pivots moved from +-1.6 to
+  +-1.95 (the torso wall is at 1.3, so the upper arm and shoulder
+  cap used to live INSIDE the chest), and the arm ends slimmed
+  down (forearm 0.44 -> 0.36, hand 0.6 -> 0.48): lowered arms no
+  longer sweep through the body.
+- **The laser rifle now hits him.** The beam chain in player.c
+  (hunter -> mobs -> cocoons) never asked the Warden, so shots
+  passed clean through. Golem_LaserHit joins the chain: sparks at
+  the beam stop, white flash, recoil flinch, clang/core sounds
+  rate-limited for the laser's tick rate.
+- **A detonation you can see.** The v65.22 death burst was a fistful
+  of tiny sparks - invisible. Now: 40+ textured gold core chunks fly
+  (block-break debris), two shockwave bursts, the boom, the cores
+  condense in the blast, and the husk sinks into the meadow
+  afterwards (death 2.0 -> 2.6 s to let it all read).
 
 ## v65.22 - the Warden polish pass, from playtest footage
 

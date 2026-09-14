@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.22 ===
+=== Midless: Cosmic Edition v65.23 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.23
+  - Warden pass two: arm pivots moved outside the torso and the arm
+    ends slimmed (no more interpenetration), the laser rifle now
+    stops in him with sparks/flash/recoil/sound, and his death is a
+    visible detonation - gold core chunks flying - before the husk
+    sinks into the meadow.
 
 WHAT'S NEW IN v65.22
   - Warden polish from playtest: a true kneel (not a squat), heels on

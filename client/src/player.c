@@ -342,6 +342,9 @@ static void Player_FireLaserShot(Vector3 eyePosition, Vector3 forward, float cx9
         laserTo = mobHitPoint;
     } else if (Mobs_CocoonLaser(eyePosition, forward, (float)range, &mobHitPoint)) {
         laserTo = mobHitPoint;   /* pops cocoons and volatile barrels in flight */
+    } else if (Golem_LaserHit(eyePosition, forward, (float)range, &mobHitPoint)) {
+        /* v65.23: the beam stops in the Warden, with sparks and recoil */
+        laserTo = mobHitPoint;
     } else {
         laserTo = Vector3Add(eyePosition, Vector3Scale(forward, (float)range));
     }

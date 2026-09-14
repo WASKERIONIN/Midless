@@ -203,7 +203,10 @@ static void hurtArm(int i, float dmg, Vector3 hp) {
     G.flash[i] = 1.0f;
     G.flinch[i] = 1.0f;
     for (int k = 0; k < 4; k++) Particle_SpawnImpact(hp);   /* v65.22: sparks WHERE you hit */
-    SoundFx_PlayGolemClang();
+    {   /* v65.23: rate-limit - the laser ticks many hits a second */
+        static double lastClang = 0.0;
+        if (GetTime() - lastClang > 0.12) { lastClang = GetTime(); SoundFx_PlayGolemClang(); }
+    }
     if (G.armHP[i] <= 0.0f) {
         G.armGone[i] = true;
         for (int k = 0; k < 10; k++) Particle_SpawnImpact(G.elbow[i]);
@@ -222,7 +225,10 @@ static void hurtTorso(float dmg, Vector3 hp) {
     G.flashT = 1.0f;
     G.flinchT = 1.0f;
     for (int k = 0; k < 4; k++) Particle_SpawnImpact(hp);
-    SoundFx_PlayGolemCore();
+    {
+        static double lastCore = 0.0;
+        if (GetTime() - lastCore > 0.15) { lastCore = GetTime(); SoundFx_PlayGolemCore(); }
+    }
     if (G.torsoHP <= 0.0f) {
         G.state = G_DYING;
         G.tState = 0.0f;
@@ -261,6 +267,47 @@ bool Golem_MeleeHit(Vector3 origin, Vector3 dir, float maxDist) {
             float dx = p.x - G.torsoC.x, dy = p.y - G.torsoC.y, dz = p.z - G.torsoC.z;
             if (fabsf(dx) < 1.95f && fabsf(dy) < 2.15f && fabsf(dz) < 1.95f) {
                 hurtTorso(10.0f, p);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/* v65.23: the laser rifle used to pass clean through the Warden -
+ * the beam chain in player.c never asked him. Same feedback as the
+ * blade: flash, recoil, sparks at the hit point, sound (rate-limited
+ * because the laser ticks fast). */
+bool Golem_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitOut) {
+    if (!Golem_Active() || G.state == G_DORMANT || G.state == G_RISING) return false;
+    for (int s = 1; s <= 48; s++) {
+        float t = maxDist * (float)s / 48.0f;
+        Vector3 p = { origin.x + dir.x * t, origin.y + dir.y * t, origin.z + dir.z * t };
+        for (int i = 0; i < 2; i++) {
+            if (G.armGone[i]) continue;
+            const Vector3 *seg[2][2] = { { &G.shoulder[i], &G.elbow[i] }, { &G.elbow[i], &G.hand[i] } };
+            for (int k = 0; k < 2; k++) {
+                Vector3 a = *seg[k][0], b = *seg[k][1];
+                Vector3 ab = { b.x - a.x, b.y - a.y, b.z - a.z };
+                float apx = p.x - a.x, apy = p.y - a.y, apz = p.z - a.z;
+                float ab2 = ab.x * ab.x + ab.y * ab.y + ab.z * ab.z;
+                float u = ab2 > 1e-6f ? (apx * ab.x + apy * ab.y + apz * ab.z) / ab2 : 0.0f;
+                if (u < 0.0f) u = 0.0f;
+                if (u > 1.0f) u = 1.0f;
+                Vector3 c = { a.x + ab.x * u, a.y + ab.y * u, a.z + ab.z * u };
+                float dx = p.x - c.x, dy = p.y - c.y, dz = p.z - c.z;
+                if (dx * dx + dy * dy + dz * dz < 1.35f * 1.35f) {
+                    hurtArm(i, 6.0f, p);
+                    *hitOut = p;
+                    return true;
+                }
+            }
+        }
+        if (G.armsDead) {
+            float dx = p.x - G.torsoC.x, dy = p.y - G.torsoC.y, dz = p.z - G.torsoC.z;
+            if (fabsf(dx) < 1.95f && fabsf(dy) < 2.15f && fabsf(dz) < 1.95f) {
+                hurtTorso(5.0f, p);
+                *hitOut = p;
                 return true;
             }
         }
@@ -383,15 +430,20 @@ void Golem_Update(float dt) {
         if (G.tState > G.cooldown) { G.state = G_CHASE; G.tState = 0.0f; }
         break;
     case G_DYING:
-        G.tState += dt / 2.0f;
-        /* v65.22: it kneels, then DETONATES - cores condense in the
-         * blast instead of waiting for you to walk over */
-        if (!G.boomed && G.tState >= 0.6f) {
+        G.tState += dt / 2.6f;
+        /* v65.23: a detonation you can SEE - gold core chunks fly
+         * (textured block-break debris), two shockwave bursts, the
+         * boom, and the cores condense in the blast */
+        if (!G.boomed && G.tState >= 0.45f) {
             G.boomed = true;
+            for (int k = 0; k < 30; k++) Particle_SpawnBlockBreak(G.torsoC, 22);
+            for (int k = 0; k < 12; k++) Particle_SpawnBlockBreak(G.headC, 22);
             for (int k = 0; k < 24; k++) Particle_SpawnImpact(G.torsoC);
-            for (int k = 0; k < 12; k++) Particle_SpawnImpact(G.headC);
             SoundFx_PlayExplosion();
             placeCores();
+        }
+        if (G.boomed && G.tState >= 0.62f && G.tState - dt / 2.6f < 0.62f) {
+            for (int k = 0; k < 16; k++) Particle_SpawnBlockBreak(G.pos, 22);
         }
         if (G.tState >= 1.0f) G.state = G_GONE;
         break;
@@ -449,7 +501,7 @@ void Golem_Draw(void) {
             if (az > 1.2f) az = 1.2f;
             if (az < -1.2f) az = -1.2f;
             p.shP[i] = p.shP[i] * (1.0f - aimK) + (-(1.35f - elev * 0.8f)) * aimK;
-            p.shY[i] = p.shY[i] * (1.0f - aimK) + (az * 0.5f + (i ? -0.10f : 0.10f)) * aimK;
+            p.shY[i] = p.shY[i] * (1.0f - aimK) + (az * 0.35f + (i ? -0.12f : 0.12f)) * aimK;
             p.elP[i] = p.elP[i] * (1.0f - aimK) + (-0.15f) * aimK;
         }
     }
@@ -463,7 +515,12 @@ void Golem_Draw(void) {
         p.shP[0] -= 0.22f * s * moving * (1.0f - aimK);
         p.shP[1] += 0.22f * s * moving * (1.0f - aimK);
     }
-    if (G.state == G_DYING) p.spineP += ease(G.tState) * 0.5f;
+    if (G.state == G_DYING) {
+        p.spineP += ease(G.tState) * 0.5f;
+        /* v65.23: after the blast the husk sinks into the meadow */
+        float sk = (G.tState - 0.45f) / 0.55f;
+        p.pelvisY -= ease(sk) * 3.2f;
+    }
     /* v65.22: recoil - struck arm jerks back, struck torso staggers */
     for (int i = 0; i < 2; i++) {
         float fl = G.flinch[i] > 0.0f ? G.flinch[i] : 0.0f;
@@ -503,7 +560,9 @@ void Golem_Draw(void) {
 
     /* arms */
     for (int i = 0; i < 2; i++) {
-        float sx = i ? -1.6f : 1.6f;
+        /* v65.23: pivots at +-1.95 - at +-1.6 the upper arm and the
+         * shoulder cap lived inside the torso wall (half 1.3) */
+        float sx = i ? -1.95f : 1.95f;
         float fl = i ? f1 : f0;
         B3 sh = b3At(&spine, (Vector3){ sx, 2.6f, 0 });
         sh = b3Yaw(&sh, p.shY[i]);
@@ -516,18 +575,18 @@ void Golem_Draw(void) {
             continue;
         }
         /* v65.22: shoulder cap hides the swing gap */
-        gqBox(&sh, (Vector3){ 0, 0, 0 }, (Vector3){ 0.58f, 0.58f, 0.58f }, dark[0], dark[1], dark[2], 0.0f, fl);
-        gqBox(&sh, (Vector3){ 0, -1.1f, 0 }, (Vector3){ 0.5f, 1.1f, 0.5f }, stone[0], stone[1], stone[2], 0.0f, fl);
+        gqBox(&sh, (Vector3){ 0, 0, 0 }, (Vector3){ 0.55f, 0.55f, 0.55f }, dark[0], dark[1], dark[2], 0.0f, fl);
+        gqBox(&sh, (Vector3){ 0, -1.1f, 0 }, (Vector3){ 0.45f, 1.1f, 0.45f }, stone[0], stone[1], stone[2], 0.0f, fl);
         B3 el = b3At(&sh, (Vector3){ 0, -2.2f, 0 });
         el = b3Pitch(&el, p.elP[i]);
-        gqBox(&el, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.42f, 0.62f, 0.42f }, dark[0], dark[1], dark[2], 0.0f, fl);
-        gqBox(&el, (Vector3){ 0, -1.0f, 0 }, (Vector3){ 0.44f, 1.0f, 0.44f }, stone[0] - 6, stone[1] - 6, stone[2] - 6, 0.0f, fl);
+        gqBox(&el, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.38f, 0.55f, 0.38f }, dark[0], dark[1], dark[2], 0.0f, fl);
+        gqBox(&el, (Vector3){ 0, -1.0f, 0 }, (Vector3){ 0.36f, 1.0f, 0.36f }, stone[0] - 6, stone[1] - 6, stone[2] - 6, 0.0f, fl);
         B3 hd = b3At(&el, (Vector3){ 0, -2.0f, 0 });
         float g = aimK > 0.3f ? 1.0f : 0.55f;
-        gqBox(&hd, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.6f, 0.6f, 0.6f },
+        gqBox(&hd, (Vector3){ 0, -0.45f, 0 }, (Vector3){ 0.48f, 0.48f, 0.48f },
               aimK > 0.3f ? hotC[0] : glowC[0], aimK > 0.3f ? hotC[1] : glowC[1], aimK > 0.3f ? hotC[2] : glowC[2], g, fl);
         G.elbow[i] = el.o;
-        G.hand[i] = b3P(&hd, (Vector3){ 0, -0.6f, 0 });
+        G.hand[i] = b3P(&hd, (Vector3){ 0, -0.5f, 0 });
     }
 
     /* legs */

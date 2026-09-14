@@ -25,6 +25,7 @@ void Golem_DrawHUD(void);
 
 /* player offence hooks (blade swing / blast) */
 bool Golem_MeleeHit(Vector3 origin, Vector3 dir, float maxDist);
+bool Golem_LaserHit(Vector3 origin, Vector3 dir, float maxDist, Vector3 *hitOut);
 void Golem_ExplosionDamage(Vector3 center, float radius, int damage);
 
 bool Golem_Active(void);        /* inside the pocket & not finished */
