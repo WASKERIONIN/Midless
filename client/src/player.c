@@ -18,6 +18,7 @@
 #include "localserver.h"   /* v65.7: F6 host panel */
 #include "chat.h"
 #include "block.h"
+#include "golem.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "particle.h"
@@ -975,6 +976,9 @@ void Player_CheckInputs() {
             if (Hunter_TryHit(eyePosition, forward, 4.5f)) {
                 SoundFx_PlayClick();
             } else if (Mobs_MeleeHit(eyePosition, forward, 4.5f)) {
+                SoundFx_PlayClick();
+            } else if (Golem_MeleeHit(eyePosition, forward, 6.0f)) {
+                /* v65.21: blade swings reach the Warden's arms (6 blocks) */
                 SoundFx_PlayClick();
             } else if (player.rayResult.hitblockId != -1) {
                 Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);

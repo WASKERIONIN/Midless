@@ -13,6 +13,7 @@
 #include "raylib.h"
 #include "i18n.h"
 #include "raygui.h"
+#include "golem.h"
 #include "screens.h"
 #include "chat.h"
 #include "player.h"
@@ -401,6 +402,7 @@ void Screen_DrawGame(void) {
         const char *bountyText = TextFormat(Tr("VOID HUNTERS FELLED: %d"), Hunter_GetBounty());
         I18n_DrawText(bountyText, bx + 1, by + 22, 21, BLACK);
         I18n_DrawText(bountyText, bx, by + 21, 21, (Color){200, 160, 255, 220});
+        Golem_DrawHUD();   /* v65.21: Warden boss bar */
 
         /* v48: shard counter with a tiny wireframe diamond */
         int shards = Player_GetShards();

@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.20 ===
+=== Midless: Cosmic Edition v65.21 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.21
+  - BOSS: the Warden of the Meadow - a giant cube golem kneeling in
+    the pocket. It rises when seen, walks you down, volleys orbs
+    from its hands. Blade and blasts tear its arms off first, then
+    the chest core; on death it drops four warp cores - enough for
+    another 2x2 gate square (the second pocket comes in v65.22).
 
 WHAT'S NEW IN v65.20
   - Arch legs no longer go transparent up close: the colonnade batch

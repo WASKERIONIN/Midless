@@ -29,7 +29,8 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "pocketfx.h"
-#include "colonnade.h"   /* v65.8: pocket universe sky swap */
+#include "colonnade.h"
+#include "golem.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
 #include "atlasheal.h"   /* v65.11 */
 #include "blackhole.h"
@@ -105,6 +106,7 @@ int main(void) {
     MapView_Init();
     Bird_Init();
     Colonnade_Init();      /* v65.16: the pocket peristyle */
+    Golem_Init();          /* v65.21: the Warden of the Meadow */
     Hunter_Init();
     Mobs_Init();
     Ship_Init();   /* v62: sky traffic */
@@ -168,6 +170,7 @@ void Game_RunLoop(void) {
             Mobs_Update(GetFrameTime());
         }
         SoundFx_PocketUpdate(PocketFx_Factor());
+        Golem_Update(GetFrameTime());
         Ship_Update((double)GetTime());   /* v62 */
         MapView_Update();
         SoundFx_Update();
@@ -204,6 +207,7 @@ void Game_RunLoop(void) {
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
                 Colonnade_Draw(PocketFx_Factor());   /* v65.16 peristyle */
+                Golem_Draw();                        /* v65.21 the Warden */
                 /* v65.13: no overworld threats or auras bleed into the pocket */
                 if (PocketFx_Factor() < 0.5f) {
                     Hunter_Draw();

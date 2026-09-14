@@ -1,6 +1,32 @@
-# Midless: Cosmic Edition v65.20
+# Midless: Cosmic Edition v65.21
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.21 - THE WARDEN OF THE MEADOW: a cube golem boss
+
+The pocket had a peristyle but no guardian. Now it has one: a giant
+cube golem, client-side like all combat in this game (hunters and
+mobs always were), with a small forward-kinematics rig of cuboid
+parts and hand-keyed poses - our own public-domain "animation
+asset", because the cube is this world's native format.
+
+- **The script.** It kneels dormant in the north-east of the meadow.
+  Come within 26 blocks and it opens its eyes and RISES (2.8 s).
+  Then it walks you down, stops, aims, and volleys three hot orbs
+  from its hands (they hurt, they break on blocks), cools down,
+  repeats. It turns to face you and its walk cycle swings legs and
+  arms.
+- **The fight.** Blade swings (6-block reach) and blasts tear the
+  ARMS off first - 60 hp each, stump left behind, chat line per arm.
+  Only with both arms gone does the chest plate open and the torso
+  (160 hp) become vulnerable. A boss bar shows the arms, then the
+  core.
+- **The reward.** On death it kneels again and crumbles; approach
+  the wreckage and four warp cores condense in the grass (2x2 worth
+  - exactly a new gate square). The second pocket dimension those
+  cores open is v65.22.
+- Drawn through the proven immediate-batch path (culling off, flush,
+  restore); frozen while you are outside the pocket.
 
 ## v65.20 - culling off at FLUSH time, barrier widened
 

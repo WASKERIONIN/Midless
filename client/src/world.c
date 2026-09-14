@@ -18,6 +18,7 @@
 #include <time.h>
 #include "raylib.h"
 #include "stb_ds.h"
+#include "golem.h"
 #include "rlgl.h"
 #include "raymath.h"
 #include "world.h"
@@ -593,6 +594,7 @@ void World_ExplodeAt(Vector3 blockPos) {
     /* hurt everything nearby */
     Hunter_ExplosionDamage(center, 3.0f, 2);
     Mobs_ExplosionDamage(center, 3.0f, 2);
+    Golem_ExplosionDamage(center, 3.0f, 2);   /* v65.21: blasts tear arms */
     Vector3 playerC = { player.position.x + 0.5f, player.position.y + 0.9f, player.position.z + 0.5f };
     float pd = Vector3Distance(playerC, center);
     if (pd < 3.2f) {
