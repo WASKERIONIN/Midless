@@ -909,21 +909,26 @@ midless.register_on_step(function(dt)
     for i = 1, #players do
         local p = players[i]
         local pos = p:get_position()
-        if pos.y > POCKET_TOP - 4 and pos.y < BARRIER_TOP then
-            local dx = pos.x - (POCKET_CX + 0.5)
-            local dz = pos.z - (POCKET_CZ + 0.5)
-            local r = math.sqrt(dx * dx + dz * dz)
-            if r > BARRIER_R then
-                local k = BARRIER_R / r
-                p:teleport({ x = POCKET_CX + 0.5 + dx * k, y = pos.y, z = POCKET_CZ + 0.5 + dz * k })
-            end
-            -- v65.24: rescue net - however you ended up UNDER the pocket
-            -- floor (a blast crater punch-through, a jump into a hole),
-            -- the meadow catches you and puts you back on top
-            if math.abs(pos.x - POCKET_CX) < 96 and math.abs(pos.z - POCKET_CZ) < 96
-               and pos.y < POCKET_TOP - 4 then
+        -- v65.25: the barrier used to test only HEIGHT against the whole
+        -- world: anyone above y=150 anywhere (the tallest islands reach
+        -- that) was yanked to r=63 from the pocket centre - straight
+        -- INTO the lawn slab, and the physics squeezed them out under
+        -- the floor. The clamp and the rescue now only ever look at
+        -- players actually inside the pocket zone footprint.
+        local dx = pos.x - (POCKET_CX + 0.5)
+        local dz = pos.z - (POCKET_CZ + 0.5)
+        if math.abs(dx) < 96 and math.abs(dz) < 96 then
+            if pos.y < POCKET_TOP - 4 then
+                -- rescue net: however you ended up UNDER the pocket
+                -- floor, the meadow catches you and puts you back on top
                 p:teleport({ x = pos.x, y = POCKET_TOP + 2, z = pos.z })
                 p:send_message("The meadow catches you.")
+            elseif pos.y < BARRIER_TOP then
+                local r = math.sqrt(dx * dx + dz * dz)
+                if r > BARRIER_R then
+                    local k = BARRIER_R / r
+                    p:teleport({ x = POCKET_CX + 0.5 + dx * k, y = pos.y, z = POCKET_CZ + 0.5 + dz * k })
+                end
             end
         end
     end

@@ -488,6 +488,12 @@ static const float chordsGhost[] = {
 };
 
 #define MUS_NTRACKS 8
+/* v65.25: explicit station ids. Deriving the pocket station from
+ * MUS_NTRACKS-1 silently became the battle station when track 7 was
+ * added - the pocket played battle music and the Warden's awakening
+ * changed nothing. */
+#define MUS_POCKET_TRACK 6
+#define MUS_BOSS_TRACK   7
 
 static const MusTrack tracks[MUS_NTRACKS] = {
     /* 0: dorian stride, SOFT LUTE lead, warm pad. L'homme arme (15th c.). */
@@ -782,7 +788,7 @@ static int musBossPrev = 0;
 void SoundFx_BossUpdate(bool on) {
     if (on) {
         if (!musInBoss) { musInBoss = true; musBossPrev = musTrack; }
-        if (musTrack != MUS_NTRACKS - 1) { musTrack = MUS_NTRACKS - 1; musSample = 0; musLastCycle = 0; }
+        if (musTrack != MUS_BOSS_TRACK) { musTrack = MUS_BOSS_TRACK; musSample = 0; musLastCycle = 0; }
     } else if (musInBoss) {
         musInBoss = false;
         musTrack = musBossPrev;
@@ -799,7 +805,7 @@ void SoundFx_PocketUpdate(float factor) {
     bool inPocket = factor > 0.5f;
     if (inPocket == musInPocket) return;
     musInPocket = inPocket;
-    if (inPocket) { musPocketPrev = musTrack; musTrack = MUS_NTRACKS - 1; }
+    if (inPocket) { musPocketPrev = musTrack; musTrack = MUS_POCKET_TRACK; }
     else { musTrack = musPocketPrev; }
     musSample = 0;
     musLastCycle = 0;

@@ -1,8 +1,19 @@
-=== Midless: Cosmic Edition v65.24 ===
+=== Midless: Cosmic Edition v65.25 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.25
+  - The under-the-floor bug, for real this time: the pocket barrier
+    used to yank ANY player above y=150 - including jumpers on the
+    tallest islands - into the pocket slab. It now only touches
+    players inside the pocket zone, and the under-floor rescue net
+    actually fires (in v65.24 it was dead code).
+  - Battle music fixed: the pocket was wrongly claiming the new
+    battle station, so the Warden's awakening changed nothing. The
+    pocket plays "Pocket of Clouds" again, and "The Warden Wakes"
+    starts when he rises and ends when he falls.
 
 WHAT'S NEW IN v65.24
   - Battle music: the Warden fight now plays "The Warden Wakes", a

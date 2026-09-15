@@ -1,6 +1,36 @@
-# Midless: Cosmic Edition v65.24
+# Midless: Cosmic Edition v65.25
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.25 - the real under-the-floor culprit, and the pocket gets its dream back
+
+Playtest verdict on v65.24: both fixes missed the mark. Corrected:
+
+- **The yank is gone.** The reported bug had nothing to do with
+  blasts: the invisible pocket barrier (v65.19) tested only HEIGHT
+  against the whole world - anyone above y=150, anywhere, was
+  teleported to 63 blocks from the pocket centre. Jump on the
+  tallest island (its top clears 150) and mid-jump you were yanked
+  into the pocket zone AT YOUR JUMP HEIGHT - i.e. inside the lawn
+  slab itself - and the physics squeezed you out under the floor.
+  The barrier and the rescue net now only ever look at players
+  physically inside the pocket zone footprint; islands are yours
+  again, jump as high as you like.
+- **The rescue net actually works now.** In v65.24 it was nested
+  inside the "above the floor" branch, so the "below the floor"
+  condition could never fire - dead code. It now lives outside it:
+  end up under the meadow however it happened, and it catches you
+  ("The meadow catches you.").
+- **The battle music was never heard because the POCKET was already
+  playing it.** The pocket station was derived as "the last track"
+  (MUS_NTRACKS-1); adding the battle track moved the pocket onto
+  station 7 - dreamcore was silently replaced, and the Warden's
+  awakening changed nothing. Stations are now explicit ids: pocket
+  = 6 "Pocket of Clouds", battle = 7 "The Warden Wakes", claimed
+  only while the golem fights and handed back when he falls.
+- Kept from v65.24 as extra insurance: the pocket's bottom shell
+  is blast-proof (a crater can no longer be punched through the
+  thin slab either).
 
 ## v65.24 - battle music for the Warden, and the floor holds
 
