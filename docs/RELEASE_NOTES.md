@@ -1,6 +1,23 @@
-# Midless: Cosmic Edition v65.23
+# Midless: Cosmic Edition v65.24
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.24 - battle music for the Warden, and the floor holds
+
+- **The Warden Wakes.** When the golem opens its eyes the radio
+  hands over to an eighth station: a dungeon-synth battle march in
+  the same generative family - fast Dm-Bb-F-C bars, pulsing bass,
+  string pad, choir lead, a war bell every two bars. It holds for
+  the whole fight and hands back to the pocket dream when he falls
+  (the overworld radio never touches stations 6-7).
+- **The floor holds.** A blast column could punch clean through the
+  thin pocket slab - a crater straight through the bottom - and a
+  jump into that crater put you under the floor in the void (the
+  reported bug, screenshot confirmed). Two fixes: the pocket's
+  bottom shell (lawn-3 and below) is now blast-proof, and a
+  server-side rescue net teleports anyone who ends up under the
+  pocket floor back on top ("The meadow catches you."), for LAN
+  guests too.
 
 ## v65.23 - the Warden learns to fear the laser
 

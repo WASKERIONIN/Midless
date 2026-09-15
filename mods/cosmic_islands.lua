@@ -917,6 +917,14 @@ midless.register_on_step(function(dt)
                 local k = BARRIER_R / r
                 p:teleport({ x = POCKET_CX + 0.5 + dx * k, y = pos.y, z = POCKET_CZ + 0.5 + dz * k })
             end
+            -- v65.24: rescue net - however you ended up UNDER the pocket
+            -- floor (a blast crater punch-through, a jump into a hole),
+            -- the meadow catches you and puts you back on top
+            if math.abs(pos.x - POCKET_CX) < 96 and math.abs(pos.z - POCKET_CZ) < 96
+               and pos.y < POCKET_TOP - 4 then
+                p:teleport({ x = pos.x, y = POCKET_TOP + 2, z = pos.z })
+                p:send_message("The meadow catches you.")
+            end
         end
     end
 end)

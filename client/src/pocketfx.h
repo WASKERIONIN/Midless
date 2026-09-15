@@ -18,6 +18,8 @@
 #define POCKETFX_CX 1200.0f
 #define POCKETFX_CZ (-1200.0f)
 #define POCKETFX_ZONE_HALF 96.0f
+/* v65.24: lawn surface cell (mirrors POCKET_TOP in cosmic_islands.lua) */
+#define POCKETFX_TOP 154.0f
 
 /* Call once per frame with the player position (camera is fine). */
 void PocketFx_Update(Vector3 playerPosition);

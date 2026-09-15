@@ -371,6 +371,7 @@ static const float NOTE_A2 = 110.0f, NOTE_C3 = 130.81f, NOTE_D3 = 146.83f,
     NOTE_B3 = 246.94f, NOTE_C4 = 261.63f, NOTE_D4 = 293.66f, NOTE_E4 = 329.63f,
     NOTE_F4 = 349.23f, NOTE_G4 = 392.0f, NOTE_A4 = 440.0f, NOTE_C5 = 523.25f,
     NOTE_D5 = 587.33f, NOTE_F5 = 698.46f, NOTE_BB3 = 233.08f, NOTE_GS4 = 415.30f, NOTE_E2 = 82.41f,
+    NOTE_BB4 = 466.16f,   /* v65.24: the battle motif needs the flat seventh */
     NOTE_D2 = 73.42f, NOTE_B4 = 493.88f, NOTE_E5 = 659.26f, NOTE_G5 = 783.99f;
 
 typedef struct MusTrack {
@@ -440,6 +441,16 @@ static const float motifChapel[] = {
     NOTE_C5, NOTE_B4, NOTE_A4, NOTE_G4, NOTE_A4, 0, NOTE_E4, 0
 };
 
+/* v65.24: Dm - Bb - F - C battle march for the Warden fight */
+static const float chordsBattle[] = {
+    NOTE_D4, NOTE_F4, NOTE_A4,  NOTE_BB3, NOTE_D4, NOTE_F4,
+    NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_C4, NOTE_E4, NOTE_G4,
+};
+/* v65.24: a driving dungeon-synth war motif */
+static const float motifBattle[] = {
+    NOTE_D5, NOTE_C5, NOTE_BB4, NOTE_A4, NOTE_BB4, NOTE_C5, NOTE_D5, 0,
+    NOTE_F5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, NOTE_BB4, 0
+};
 /* v65.13: F - Am - C - G, the pocket dream drift */
 static const float chordsDream[] = {
     NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_A3, NOTE_C4, NOTE_E4,
@@ -476,7 +487,7 @@ static const float chordsGhost[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_E3, NOTE_GS4, NOTE_B3,
 };
 
-#define MUS_NTRACKS 7
+#define MUS_NTRACKS 8
 
 static const MusTrack tracks[MUS_NTRACKS] = {
     /* 0: dorian stride, SOFT LUTE lead, warm pad. L'homme arme (15th c.). */
@@ -497,6 +508,10 @@ static const MusTrack tracks[MUS_NTRACKS] = {
      * a music-box lullaby, dark lowpass, a far bell. Never on the
      * overworld radio - the pocket claims it through SoundFx_PocketUpdate. */
     { "Pocket of Clouds",  chordsDream,  motifDream,  16, 87.31f,  0, 7.6f, 0.0f, 0.30f, 0.0f, 0.34f, 0.45f, 0.20f, 1.0f, 0.10f, 4, 1320.0f, 0, 5, 2 },
+    /* 7: v65.24 "The Warden Wakes" - dungeon-synth battle: fast bar,
+     * pulsing bass, string pad, choir lead, a war bell every 2 bars.
+     * Claimed by SoundFx_BossUpdate while the Warden fights. */
+    { "The Warden Wakes",  chordsBattle, motifBattle, 16, NOTE_D2, 0, 2.6f, 2.0f, 0.50f, 6.0f, 0.30f, 0.35f, 0.22f, 1.0f, 0.22f, 2, 660.0f, 0, 3, 3 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -605,8 +620,9 @@ static float Mus_NextSample(void) {
     if (cycle > 0 && cycle != musLastCycle) {
         /* v63.5: auto switching is a setting now (default OFF) - the
          * radio stays on the chosen station unless you press N */
-        /* v65.13: the pocket dream is never swept away by the radio */
-        if (gameSettings.autoTrack && musTrack != MUS_NTRACKS - 1) {
+        /* v65.13/24: the pocket dream and the battle march are never
+         * swept away by the radio (stations 6 and 7 are zone-owned) */
+        if (gameSettings.autoTrack && musTrack < 6) {
             musTrack = Mus_PickDifferent();
             T = &tracks[musTrack];
             BAR = (float)MUS_SR * T->barSec;
@@ -756,6 +772,23 @@ void SoundFx_NextTrack(void) {
     musTrack = Mus_PickDifferent();
     musSample = 0;
     musLastCycle = 0;
+}
+
+/* v65.24: the Warden fight claims the battle station; the previous
+ * station (the pocket dream inside the pocket) is restored when he
+ * falls. Re-asserts itself if the pocket re-claims station 6 first. */
+static bool musInBoss = false;
+static int musBossPrev = 0;
+void SoundFx_BossUpdate(bool on) {
+    if (on) {
+        if (!musInBoss) { musInBoss = true; musBossPrev = musTrack; }
+        if (musTrack != MUS_NTRACKS - 1) { musTrack = MUS_NTRACKS - 1; musSample = 0; musLastCycle = 0; }
+    } else if (musInBoss) {
+        musInBoss = false;
+        musTrack = musBossPrev;
+        musSample = 0;
+        musLastCycle = 0;
+    }
 }
 
 /* v65.13: crossing into/out of the pocket swaps the station. The

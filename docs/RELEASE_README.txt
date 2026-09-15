@@ -1,8 +1,16 @@
-=== Midless: Cosmic Edition v65.23 ===
+=== Midless: Cosmic Edition v65.24 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.24
+  - Battle music: the Warden fight now plays "The Warden Wakes", a
+    dungeon-synth march from the same generative radio, until he
+    falls.
+  - The under-the-floor bug is dead: blasts can no longer punch
+    through the pocket slab, and anyone who ends up under the
+    pocket floor is caught and put back on top.
 
 WHAT'S NEW IN v65.23
   - Warden pass two: arm pivots moved outside the torso and the arm

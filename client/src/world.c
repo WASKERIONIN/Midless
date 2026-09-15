@@ -579,6 +579,13 @@ void World_ExplodeAt(Vector3 blockPos) {
         Vector3 p = { bx, by + dy, bz };
         int id = World_GetBlock(p);
         if (id == 0) continue;
+        /* v65.24: the pocket platform is a thin slab - a blast column
+         * used to punch clean through it and drop the player into the
+         * void under the floor. The bottom shell (lawn-3 and below)
+         * is blast-proof. */
+        if (fabsf(p.x - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
+            fabsf(p.z - POCKETFX_CZ) < POCKETFX_ZONE_HALF &&
+            p.y <= POCKETFX_TOP - 3.0f) continue;
         if (id == 26 && dy != 0) {
             /* v51: another barrel caught in the column cooks off; its own
              * blast clears its cell first, so the chain always terminates */

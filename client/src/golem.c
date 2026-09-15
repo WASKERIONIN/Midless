@@ -451,6 +451,9 @@ void Golem_Update(float dt) {
         break;
     }
 
+    /* v65.24: dungeon-synth battle station while the Warden fights */
+    SoundFx_BossUpdate(G.state != G_DORMANT && G.state != G_GONE && G.state != G_DYING);
+
     /* orbs */
     for (int i = 0; i < 10; i++) {
         if (!orbs[i].on) continue;
