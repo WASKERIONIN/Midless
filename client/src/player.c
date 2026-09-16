@@ -999,7 +999,11 @@ void Player_CheckInputs() {
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(1));
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
-            
+            /* v65.26: grass is not a pedestal - when the ray hits a
+             * plant, the block takes the plant's OWN cell and breaks
+             * it, instead of floating on top of the turf */
+            if (Block_IsPlant(player.rayResult.hitblockId)) placePos = player.rayResult.hitPos;
+
             if (player.rayResult.hitblockId != -1) {
                 int bottomblockId = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
                 if (Block_IsOverridden(player.blockSelected)) {
@@ -1065,6 +1069,10 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockId)
         if (Block_IsPlant(World_GetBlock(below))) return false;
     }
     int oldBlock = World_GetBlock(pos);
+    /* v65.26: breaking through grass - a leafy burst acknowledges it
+     * (also covers placing INTO a plant cell from a side face) */
+    if (Block_IsPlant(oldBlock) && !Block_IsPlant(blockId))
+        Particle_SpawnBlockBreak(pos, oldBlock);
     World_SetBlock(pos, blockId, true);
     if (Player_TestCollision((Vector3){ 0 }))
     {

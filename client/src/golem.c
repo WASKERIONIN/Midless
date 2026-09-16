@@ -555,11 +555,14 @@ void Golem_Draw(void) {
         gqBox(&spine, (Vector3){ 0, 1.6f, 1.15f }, (Vector3){ 0.55f, 0.55f, 0.25f }, hotC[0], hotC[1], hotC[2], 1.0f, fT);
     else
         gqBox(&spine, (Vector3){ 0, 1.6f, 1.12f }, (Vector3){ 0.55f, 0.55f, 0.18f }, dark[0], dark[1], dark[2], 0.0f, fT);
+    /* v65.26: the head sat exactly ON the torso's top plane - two
+     * coplanar faces fighting around the neck. It now bites 0.12 into
+     * the chest; the eye visor follows down. */
     B3 head = b3At(&spine, (Vector3){ 0, 3.0f, 0 });
-    gqBox(&head, (Vector3){ 0, 0.8f, 0 }, (Vector3){ 0.8f, 0.8f, 0.8f }, stone[0] - 8, stone[1] - 8, stone[2] - 8, 0.0f, fT);
-    gqBox(&head, (Vector3){ 0, 0.85f, 0.78f }, (Vector3){ 0.5f, 0.18f, 0.1f }, glowC[0], glowC[1], glowC[2], 0.9f, 0.0f);
+    gqBox(&head, (Vector3){ 0, 0.68f, 0 }, (Vector3){ 0.8f, 0.8f, 0.8f }, stone[0] - 8, stone[1] - 8, stone[2] - 8, 0.0f, fT);
+    gqBox(&head, (Vector3){ 0, 0.73f, 0.78f }, (Vector3){ 0.5f, 0.18f, 0.1f }, glowC[0], glowC[1], glowC[2], 0.9f, 0.0f);
     G.torsoC = b3P(&spine, (Vector3){ 0, 1.5f, 0 });
-    G.headC = b3P(&head, (Vector3){ 0, 0.8f, 0 });
+    G.headC = b3P(&head, (Vector3){ 0, 0.68f, 0 });
 
     /* arms */
     for (int i = 0; i < 2; i++) {
@@ -582,7 +585,10 @@ void Golem_Draw(void) {
         gqBox(&sh, (Vector3){ 0, -1.1f, 0 }, (Vector3){ 0.45f, 1.1f, 0.45f }, stone[0], stone[1], stone[2], 0.0f, fl);
         B3 el = b3At(&sh, (Vector3){ 0, -2.2f, 0 });
         el = b3Pitch(&el, p.elP[i]);
-        gqBox(&el, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.38f, 0.55f, 0.38f }, dark[0], dark[1], dark[2], 0.0f, fl);
+        /* v65.26: caps must clear BOTH neighbours by >=0.07 or their
+         * side faces z-fight into a striped moire (0.38 vs forearm 0.36
+         * left 0.02 - the elbow flickered) */
+        gqBox(&el, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.54f, 0.60f, 0.54f }, dark[0], dark[1], dark[2], 0.0f, fl);
         gqBox(&el, (Vector3){ 0, -1.0f, 0 }, (Vector3){ 0.36f, 1.0f, 0.36f }, stone[0] - 6, stone[1] - 6, stone[2] - 6, 0.0f, fl);
         B3 hd = b3At(&el, (Vector3){ 0, -2.0f, 0 });
         float g = aimK > 0.3f ? 1.0f : 0.55f;
@@ -600,11 +606,16 @@ void Golem_Draw(void) {
         gqBox(&hip, (Vector3){ 0, -1.15f, 0 }, (Vector3){ 0.6f, 1.15f, 0.6f }, stone[0], stone[1], stone[2], 0.0f, 0.0f);
         B3 kn = b3At(&hip, (Vector3){ 0, -2.3f, 0 });
         kn = b3Pitch(&kn, p.knP[i]);
-        /* v65.22: fatter knee cap keeps the joint solid mid-stride */
-        gqBox(&kn, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.5f, 0.62f, 0.62f }, dark[0], dark[1], dark[2], 0.0f, 0.0f);
+        /* v65.22: fatter knee cap keeps the joint solid mid-stride
+         * v65.26: ...and it must be WIDER than both thigh (0.6) and
+         * shin (0.5) - at 0.5 the cap's x faces were exactly coplanar
+         * with the shin's and the legs flickered into a diagonal mesh */
+        gqBox(&kn, (Vector3){ 0, -0.5f, 0 }, (Vector3){ 0.70f, 0.66f, 0.70f }, dark[0], dark[1], dark[2], 0.0f, 0.0f);
         gqBox(&kn, (Vector3){ 0, -1.1f, 0 }, (Vector3){ 0.5f, 1.1f, 0.5f }, stone[0] - 6, stone[1] - 6, stone[2] - 6, 0.0f, 0.0f);
         B3 ft = b3At(&kn, (Vector3){ 0, -2.2f, 0 });
-        gqBox(&ft, (Vector3){ 0, -0.2f, 0.45f }, (Vector3){ 0.6f, 0.35f, 0.95f }, dark[0], dark[1], dark[2], 0.0f, 0.0f);
+        /* v65.26: heel moved off the shin's back plane (-0.5 was exactly
+         * coplanar with it); toes reach the same 1.4 as before */
+        gqBox(&ft, (Vector3){ 0, -0.2f, 0.5f }, (Vector3){ 0.6f, 0.35f, 0.9f }, dark[0], dark[1], dark[2], 0.0f, 0.0f);
     }
 
     rlDisableBackfaceCulling();

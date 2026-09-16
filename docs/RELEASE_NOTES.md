@@ -1,6 +1,23 @@
-# Midless: Cosmic Edition v65.25
+# Midless: Cosmic Edition v65.26
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.26 - the Warden stops flickering, and grass no longer blocks building
+
+- **Z-fighting exorcised.** The golem's segments were nested with
+  faces in the SAME plane - the knee cap's sides exactly matched the
+  shin's, the heel exactly matched the shin's back, the elbow cap
+  left only 0.02 against the forearm, and the head's bottom lay
+  exactly on the torso's top. Coplanar faces fight for the depth
+  buffer and paint a striped diagonal moire that crawls as he moves.
+  Every joint now keeps a clear margin: knee cap 0.70 (thigh 0.6,
+  shin 0.5), heel moved off the shin plane, elbow cap 0.54 (upper
+  arm 0.45, forearm 0.36), head bites 0.12 into the chest. Same
+  silhouette, steady stone.
+- **Build through grass.** The ray used to land on the grass tuft
+  and the block was placed ON TOP of it (or rejected) - you had to
+  clear the lawn by hand first. Now a placement aimed at grass
+  breaks the tuft (with a leafy burst) and takes its cell.
 
 ## v65.25 - the real under-the-floor culprit, and the pocket gets its dream back
 

@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.25 ===
+=== Midless: Cosmic Edition v65.26 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.26
+  - The Warden no longer flickers: every nested segment pair that
+    shared a plane (knees, heels, elbows, neck) now keeps a clear
+    depth margin - the striped moire is gone.
+  - Building on grass: placing a block at a grass tuft breaks the
+    tuft and takes its cell instead of demanding you clear it first.
 
 WHAT'S NEW IN v65.25
   - The under-the-floor bug, for real this time: the pocket barrier
