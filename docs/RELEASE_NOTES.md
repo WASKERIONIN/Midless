@@ -1,6 +1,20 @@
-# Midless: Cosmic Edition v65.26
+# Midless: Cosmic Edition v65.27
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.27 - depth precision at range, and flora follows its support
+
+- **Depth precision.** The projection near plane was 0.01, so at
+  100-200 blocks the 24-bit depth buffer resolved coarser (0.06-0.24
+  blocks) than any geometry clearance - nested meshes shimmered at
+  range even after the margins were fixed. The near plane is now 0.1
+  (10x finer depth at distance), patched into the pinned raylib
+  config at build time. Close-range rendering is unchanged; nothing
+  in the game draws closer than 0.1 to the eye.
+- **Flora never dangles.** Removing a block now also removes the
+  plant standing on it (cascade included), with a leaf burst. The
+  same rule runs on the client and on the server, so the authoritative
+  world and every peer stay in sync without extra packets.
 
 ## v65.26 - the Warden stops flickering, and grass no longer blocks building
 

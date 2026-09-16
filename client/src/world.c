@@ -40,6 +40,7 @@
 #include "dropshadow.h"
 #include "starfield.h"
 #include "pocketfx.h"
+#include "block.h"
 #include "settings.h"
 #include "bird.h"
 #include "mapview.h"
@@ -531,6 +532,16 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
     Chunk_SetBlock(chunk, blockPosInChunk, blockId);
 
     if (blockId == 0) {
+        /* v65.27: plants never dangle - when the block a plant stands
+         * on goes away, the plant goes with it (recursion also catches
+         * stacked flora). Every machine applies the same rule to the
+         * same packet, so no extra network traffic is needed. */
+        Vector3 above = { floorf(blockPos.x), floorf(blockPos.y) + 1.0f, floorf(blockPos.z) };
+        int aboveId = World_GetBlock(above);
+        if (Block_IsPlant(aboveId)) {
+            Particle_SpawnBlockBreak(above, aboveId);
+            World_SetBlock(above, 0, immediate);
+        }
         World_QueueChunk(chunk, immediate);
         for (int i = 0; i < 26; i++) {
             if (chunk->neighbours[i] == NULL) continue;

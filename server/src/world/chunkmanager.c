@@ -372,4 +372,14 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
     ServerChunk_SetBlock(chunk, localPosition, blockId);
     if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
     if (callCallbacks) LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);
+    /* v65.27: plants never dangle - the server mirrors the client rule
+     * so its authoritative copy (chunk sync for joiners) stays clean */
+    if (blockId == 0 && previousBlock != 0) {
+        Vector3 above = { floorf(blockPosition.x), floorf(blockPosition.y) + 1.0f, floorf(blockPosition.z) };
+        int aboveId = ServerWorld_GetBlock(above);
+        if (aboveId > 0 && aboveId < 256 &&
+            serverWorld.blockDefinitions[aboveId].modelType == BLOCK_MODEL_SPRITE) {
+            ServerWorld_SetBlock(above, 0, broadcast, byPlayer, callCallbacks);
+        }
+    }
 }

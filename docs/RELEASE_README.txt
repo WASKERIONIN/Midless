@@ -1,8 +1,15 @@
-=== Midless: Cosmic Edition v65.26 ===
+=== Midless: Cosmic Edition v65.27 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.27
+  - Depth precision at range: the projection near plane moved from
+    0.01 to 0.1, so the depth buffer is 10x finer at 100+ blocks and
+    distant geometry no longer shimmers.
+  - Flora follows its support: breaking the block under a plant
+    breaks the plant too, on every machine.
 
 WHAT'S NEW IN v65.26
   - The Warden no longer flickers: every nested segment pair that

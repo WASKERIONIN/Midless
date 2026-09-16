@@ -38,6 +38,13 @@ jobs:
         if [ ! -f /d/a/raylib45/src/libraylib.a ]; then
           git clone --depth 1 --branch 4.5.0 https://github.com/raysan5/raylib.git raylib45
           cd raylib45/src
+          # v65.27: projection near plane 0.01 -> 0.1. With near=0.01 the
+          # 24-bit depth buffer resolves ~0.06-0.24 blocks at 100-200
+          # blocks - coarser than any sane geometry clearance, so nested
+          # meshes shimmer at range. 10x finer depth, nothing renders
+          # closer than 0.1 to the eye anyway (icon camera sits at ~2.6).
+          sed -i -E 's/(#define RL_CULL_DISTANCE_NEAR[[:space:]]+)0\.01/\10.1/' config.h
+          grep -E 'RL_CULL_DISTANCE_NEAR[[:space:]]+0\.1([^0-9]|$)' config.h || { echo "near-plane patch missed"; exit 1; }
           mingw32-make PLATFORM=PLATFORM_DESKTOP -j4 > build.log 2>&1 || { tail -50 build.log; exit 1; }
         fi
         ls -la /d/a/raylib45/src/libraylib.a
@@ -123,7 +130,7 @@ jobs:
         TAG="cosmic-v$(date +%Y%m%d%H%M%S)"
         gh release create "$TAG" \
           --target "$GITHUB_SHA" \
-          --title "Midless: Cosmic Edition v65.26" \
+          --title "Midless: Cosmic Edition v65.27" \
           --notes-file docs/RELEASE_NOTES.md \
           release/Midless-Cosmic-Windows-x64.zip \
           release/SHA256SUMS
