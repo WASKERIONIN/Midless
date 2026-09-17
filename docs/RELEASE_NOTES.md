@@ -2,6 +2,28 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.37
+
+- MAP EDITOR field is now 384 x 128 x 384 cells (was 192 x 64 x 192) - long
+  courses fit; grid draws to the new bounds, box clamps follow.
+- MAP EDITOR view controls are now VISIBLE: "Fly" and "Zoom" sliders in the
+  right dock; Ctrl+mouse-wheel changes FOV 20..90 (plain wheel = fly speed);
+  the status line shows the current FOV. The camera starts over the field
+  centre. (Anchor moved with the field - maps saved before v65.37 land
+  shifted by (-96, -96) on the grid.)
+- WALL-KICK actually throws now: after leaving a wall with a direction key
+  held, horizontal push is RE-APPLIED every frame for 0.34 s (up to ~18
+  blocks/s) instead of one decaying impulse that the air drag ate - you fly
+  to the opposite wall instead of hopping. The direction indicator stays
+  lit for that window.
+- music/ FOLDER: extensions now match case-insensitively (Track.MP3 counts);
+  the Foundry HUD label diagnoses the folder live: track name when playing,
+  "Foundry (music/ folder empty)" when nothing was found, "(cannot play)"
+  when a file failed to load. Pressing N inside the Foundry rescans music/
+  immediately if the playlist is empty.
+- The cosmic pocket zone radius grew to +-192 blocks to cover the bigger
+  Foundry field.
+
 ## v65.36 - cosmic parkour sky, directional wall-kick, editor mouse fix
 
 - **The parkour instance is cosmic now.** Zone 2 kept the warm concrete
