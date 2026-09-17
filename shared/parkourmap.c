@@ -207,9 +207,9 @@ const char *ParkourMapActiveName(void) { return activeName; }
 const PMap *ParkourMapActive(void) { return activeValid ? &activeMap : NULL; }
 
 void ParkourMapAnchor(int *x, int *y, int *z) {
-    /* the second pocket zone centre, west-shifted like the built-in
-     * course start court, floor top at 118 */
-    *x = -1200 - 96;
+    /* v65.37: the field is 384x384x128 centred on the second pocket
+     * zone centre (-1200, 1200), floor top at 118 - anchor = centre - 192 */
+    *x = -1200 - 192;
     *y = 118;
-    *z = 1200 - 96;
+    *z = 1200 - 192;
 }

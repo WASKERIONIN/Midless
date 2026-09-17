@@ -3,8 +3,8 @@
 /* v65.32: user-authored parkour maps. The editor (client) writes .pmap
  * files into maps/ next to the executable; the server overlays the chosen
  * map onto the second pocket zone at chunk-generation time, replacing the
- * built-in course. Local coordinates: x/z 0..191, y 0..63 - the overlay
- * anchors them at (P2 anchor - 96, floor top, P2 anchor - 96). */
+ * built-in course. Local coordinates: x/z 0..383, y 0..127 - the overlay
+ * anchors them at (zone centre - 192, floor top 118, zone centre - 192). */
 #include <stdbool.h>
 
 #define PMAP_MAX_BOXES 4096

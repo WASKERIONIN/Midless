@@ -13,6 +13,7 @@ void UserMusic_LeaveParkour(void);    /* zone 2 exit: stop + unload */
 void UserMusic_Next(void);
 void UserMusic_Prev(void);
 bool UserMusic_Playing(void);         /* user playlist owns the moment */
+bool UserMusic_InParkour(void);       /* inside zone 2 (for diagnostics) */
 bool UserMusic_Ducking(void);         /* synth station must stay silent */
 const char *UserMusic_TrackName(void);
 int  UserMusic_Count(void);

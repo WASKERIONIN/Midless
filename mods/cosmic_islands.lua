@@ -383,7 +383,9 @@ local P2_CX, P2_CZ = -1200, 1200
 -- chimney 181, finish 184) clipped out of existence - the instance looked
 -- empty. Lowered by 36, the beacon tops out at 151, safely under 160.
 local P2_TOP = 118
-local pocket_zone2 = f.lt(f.abs(x - P2_CX), 96.5) * f.lt(f.abs(z - P2_CZ), 96.5)
+-- v65.37: the parkour field doubles to 384x384 (editor builds longer
+-- courses); the mask and the barrier box grow with it
+local pocket_zone2 = f.lt(f.abs(x - P2_CX), 192.5) * f.lt(f.abs(z - P2_CZ), 192.5)
 
 -- course helper: a solid box centred on (x0,y0,z0) with half extents;
 -- half-integer centres + (n-1)/2 half extents give exact n-cell spans
@@ -857,7 +859,7 @@ material = f.select(pocket_zone, pocket_material, material)
 material = f.select(pocket_zone2, parkour_material, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 27,
+    id = "midless:cosmic", version = 28,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     -- v65: density is the ISLANDS only. It used to include flora_cell, so
@@ -1116,7 +1118,7 @@ end)
 -- itself has no collision traps of any kind.
 local pocket_zones = {
     { cx = POCKET_CX, cz = POCKET_CZ, top = POCKET_TOP, r = 63, catch = "The meadow catches you." },
-    { cx = P2_CX,     cz = P2_CZ,     top = P2_TOP, hx = 93, hz = 93, catch = "The slab catches you." },
+    { cx = P2_CX,     cz = P2_CZ,     top = P2_TOP, hx = 189, hz = 189, catch = "The slab catches you." },
 }
 midless.register_on_step(function(dt)
     local players = midless.get_players()

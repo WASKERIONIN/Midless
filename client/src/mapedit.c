@@ -45,8 +45,9 @@ static int wallHeight = 8, wallThickness = 1, boxHeight = 1, gridLevel = 0;
 static bool showGrid = true;
 static float flySpeed = 24.0f;
 
-static Vector3 camPos = { 96, 46, 40 };
+static Vector3 camPos = { 192, 64, 36 };
 static float camYaw = -0.6f, camPitch = -0.5f;
+static float camFov = 55.0f;   /* v65.37: Ctrl+wheel zoom */
 static bool looking = false;
 
 static bool hasA = false;
@@ -106,12 +107,13 @@ static void AddBox(int x, int y, int z, int hx, int hy, int hz, int id) {
         snprintf(statusText, sizeof(statusText), "Box limit (%d) reached", PMAP_MAX_BOXES);
         return;
     }
+    /* v65.37: the field is 384 x 128 x 384 - long courses fit */
     if (x - hx < 0) hx = x;
     if (z - hz < 0) hz = z;
-    if (x + hx > 191) hx = 191 - x;
-    if (z + hz > 191) hz = 191 - z;
+    if (x + hx > 383) hx = 383 - x;
+    if (z + hz > 383) hz = 383 - z;
     if (y - hy < 0) hy = y;
-    if (y + hy > 63) hy = 63 - y;
+    if (y + hy > 127) hy = 127 - y;
     PMapBox *b = &map.boxes[map.boxCount++];
     b->x = x; b->y = y; b->z = z;
     b->hx = hx; b->hy = hy; b->hz = hz; b->id = id;
@@ -136,14 +138,14 @@ static bool GridCellAtMouse(int out[3]) {
         { camPos.x + cosf(camPitch) * sinf(camYaw),
           camPos.y + sinf(camPitch),
           camPos.z + cosf(camPitch) * cosf(camYaw) },
-        { 0, 1, 0 }, 55.0f, 0 };
+        { 0, 1, 0 }, camFov, 0 };
     Ray ray = GetMouseRay(GetMousePosition(), cam);
     if (fabsf(ray.direction.y) < 1e-5f) return false;
     float t = ((float)gridLevel + 0.5f - ray.position.y) / ray.direction.y;
     if (t <= 0.0f) return false;
     Vector3 hit = Vector3Add(ray.position, Vector3Scale(ray.direction, t));
     int x = (int)floorf(hit.x), z = (int)floorf(hit.z);
-    if (x < 0 || x > 191 || z < 0 || z > 191) return false;
+    if (x < 0 || x > 383 || z < 0 || z > 383) return false;
     out[0] = x; out[1] = gridLevel; out[2] = z;
     return true;
 }
@@ -179,8 +181,8 @@ void MapEdit_Enter(void) {
     undoCount = redoCount = 0;
     hasA = false;
     dirty = false;
-    camPos = (Vector3){ 96, 46, 40 };
-    camYaw = -0.6f; camPitch = -0.5f;
+    camPos = (Vector3){ 192, 64, 36 };
+    camYaw = -0.6f; camPitch = -0.5f; camFov = 55.0f;
     RefreshMapList();
     /* one-time professional dark theme */
     static bool themed = false;
@@ -233,7 +235,17 @@ void MapEdit_Frame(void) {
         if (IsKeyDown(KEY_Q)) camPos.y -= speed;
     }
     float wheel = GetMouseWheelMove();
-    if (wheel != 0.0f) { flySpeed += wheel * 4.0f; if (flySpeed < 4) flySpeed = 4; if (flySpeed > 160) flySpeed = 160; }
+    if (wheel != 0.0f) {
+        if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
+            camFov -= wheel * 4.0f;      /* Ctrl+wheel = zoom */
+            if (camFov < 20.0f) camFov = 20.0f;
+            if (camFov > 90.0f) camFov = 90.0f;
+        } else {
+            flySpeed += wheel * 4.0f;    /* wheel = fly speed */
+            if (flySpeed < 4) flySpeed = 4;
+            if (flySpeed > 160) flySpeed = 160;
+        }
+    }
 
     hoverValid = GridCellAtMouse(hoverCell);
 
@@ -289,13 +301,13 @@ void MapEdit_Frame(void) {
     /* ---- 3D viewport ---- */
     ClearBackground((Color){ 18, 21, 26, 255 });
     Camera cam = { camPos,
-        { camPos.x + fwd.x, camPos.y + fwd.y, camPos.z + fwd.z }, { 0, 1, 0 }, 55.0f, 0 };
+        { camPos.x + fwd.x, camPos.y + fwd.y, camPos.z + fwd.z }, { 0, 1, 0 }, camFov, 0 };
     BeginMode3D(cam);
     if (showGrid) {
-        for (int i = 0; i <= 192; i += 8) {
-            Color gc = (i % 32 == 0) ? (Color){ 70, 84, 92, 255 } : (Color){ 40, 47, 54, 255 };
-            DrawLine3D((Vector3){ i, gridLevel, 0 }, (Vector3){ i, gridLevel, 192 }, gc);
-            DrawLine3D((Vector3){ 0, gridLevel, i }, (Vector3){ 192, gridLevel, i }, gc);
+        for (int i = 0; i <= 384; i += 8) {
+            Color gc = (i % 64 == 0) ? (Color){ 70, 84, 92, 255 } : (Color){ 40, 47, 54, 255 };
+            DrawLine3D((Vector3){ i, gridLevel, 0 }, (Vector3){ i, gridLevel, 384 }, gc);
+            DrawLine3D((Vector3){ 0, gridLevel, i }, (Vector3){ 384, gridLevel, i }, gc);
         }
     }
     for (int i = 0; i < map.boxCount; i++) {
@@ -359,12 +371,12 @@ void MapEdit_Frame(void) {
     GuiStatusBar((Rectangle){ 0, (float)sh - 24, (float)sw, 24 }, statusText);
     if (hoverValid)
         snprintf(statusText, sizeof(statusText),
-                 "cell %d,%d,%d | %s | boxes %d | fly %.0f | %s",
+                 "cell %d,%d,%d | %s | boxes %d | fly %.0f fov %.0f (wheel / Ctrl+wheel) | %s",
                  hoverCell[0], hoverCell[1], hoverCell[2], TOOL_NAMES[tool], map.boxCount,
-                 flySpeed, hasA ? "corner A set - click B (ESC cancels)" : TOOL_HINTS[tool]);
+                 flySpeed, camFov, hasA ? "corner A set - click B (ESC cancels)" : TOOL_HINTS[tool]);
     else
-        snprintf(statusText, sizeof(statusText), "%s | boxes %d | fly %.0f",
-                 TOOL_HINTS[tool], map.boxCount, flySpeed);
+        snprintf(statusText, sizeof(statusText), "%s | boxes %d | field 384x128x384",
+                 TOOL_HINTS[tool], map.boxCount);
 
     /* top toolbar: explicit actions, no hidden menus */
     DrawRectangle(0, 0, sw, 30, (Color){ 24, 28, 33, 255 });
@@ -448,10 +460,13 @@ void MapEdit_Frame(void) {
     GuiValueBox((Rectangle){ px, 60, 120, 24 }, "Wall H", &wallHeight, 1, 40, false);
     GuiValueBox((Rectangle){ px + 128, 60, 112, 24 }, "Thick", &wallThickness, 1, 7, false);
     GuiValueBox((Rectangle){ px, 92, 120, 24 }, "Box H", &boxHeight, 1, 40, false);
-    GuiValueBox((Rectangle){ px + 128, 92, 112, 24 }, "Grid Y", &gridLevel, 0, 63, false);
-    GuiGroupBox((Rectangle){ px - 4, 124, 248, 138 }, "MAP LIBRARY");
-    GuiListView((Rectangle){ px, 144, 240, 76 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive);
-    if (GuiButton((Rectangle){ px, 226, 76, 22 }, "LOAD")) {
+    GuiValueBox((Rectangle){ px + 128, 92, 112, 24 }, "Grid Y", &gridLevel, 0, 127, false);
+    /* v65.37: explicit view controls - the wheel alone was invisible */
+    GuiSlider((Rectangle){ px, 126, 240, 18 }, "Fly ", TextFormat("%.0f", flySpeed), &flySpeed, 4.0f, 160.0f);
+    GuiSlider((Rectangle){ px, 150, 240, 18 }, "Zoom ", TextFormat("%.0f", camFov), &camFov, 20.0f, 90.0f);
+    GuiGroupBox((Rectangle){ px - 4, 176, 248, 138 }, "MAP LIBRARY");
+    GuiListView((Rectangle){ px, 196, 240, 76 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive);
+    if (GuiButton((Rectangle){ px, 278, 76, 22 }, "LOAD")) {
         if (mapCount > 0 && ParkourMapLoad(mapNames[mapListActive], &map)) {
             snprintf(saveName, sizeof(saveName), "%s", mapNames[mapListActive]);
             undoCount = redoCount = 0;
@@ -459,13 +474,13 @@ void MapEdit_Frame(void) {
             snprintf(statusText, sizeof(statusText), "Loaded map '%s'", map.name);
         }
     }
-    if (GuiButton((Rectangle){ px + 82, 226, 76, 22 }, "DELETE")) {
+    if (GuiButton((Rectangle){ px + 82, 278, 76, 22 }, "DELETE")) {
         if (mapCount > 0) {
             ParkourMapDelete(mapNames[mapListActive]);
             RefreshMapList();
         }
     }
-    if (GuiButton((Rectangle){ px + 164, 226, 76, 22 }, "SAVE")) {
+    if (GuiButton((Rectangle){ px + 164, 278, 76, 22 }, "SAVE")) {
         snprintf(map.name, sizeof(map.name), "%s", saveName);
         saveBannerUntil = GetTime() + 4.0f;
         if (ParkourMapSave(&map)) {
@@ -482,10 +497,10 @@ void MapEdit_Frame(void) {
             snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
         }
     }
-    if (GuiTextBox((Rectangle){ px, 268, 240, 26 }, saveName, sizeof(saveName), nameEdit))
+    if (GuiTextBox((Rectangle){ px, 320, 240, 26 }, saveName, sizeof(saveName), nameEdit))
         nameEdit = !nameEdit;
-    DrawText("map file name - saves to maps/ next to game.exe", px, 300, 10, (Color){ 130, 140, 150, 255 });
-    if (GuiButton((Rectangle){ px, 320, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
+    DrawText("map file name - saves to maps/ next to game.exe", px, 352, 10, (Color){ 130, 140, 150, 255 });
+    if (GuiButton((Rectangle){ px, 372, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
 
     /* loud save feedback with the FULL path - no more "did it save?" */
     if (GetTime() < saveBannerUntil) {

@@ -418,6 +418,7 @@ void Player_Init(void) {
     player.airJumpsUsed = 0;
     player.dashReadyTime = 0.0;
     player.dashActiveUntil = 0.0;
+    player.wallKickUntil = 0.0;   /* v65.37 */
     player.dashDir = (Vector3){ 0 };
     player.entityModel = (EntityModel){0};
     EntityAnimation_Init(&player.animation, player.position);
@@ -719,6 +720,11 @@ void Player_CheckInputs() {
                     if (kl > 0.01f) {
                         player.velocity.x += (kx / kl) * WALLRUN_DIR_KICK;
                         player.velocity.z += (kz / kl) * WALLRUN_DIR_KICK;
+                        /* v65.37: the throw is a WINDOW, not an impulse -
+                         * like the dash, it keeps feeding the direction
+                         * until it expires, so damping cannot eat it */
+                        player.wallKickDir = (Vector3){ kx / kl, 0.0f, kz / kl };
+                        player.wallKickUntil = GetTime() + 0.34;
                     }
                     /* keep the launch punchy but bounded */
                     float hsp = sqrtf(player.velocity.x * player.velocity.x +
@@ -799,6 +805,22 @@ void Player_CheckInputs() {
         if (nowDash < player.dashActiveUntil) {
             player.velocity.x += player.dashDir.x * player.speed * 2.6f;
             player.velocity.z += player.dashDir.z * player.speed * 2.6f;
+        }
+        /* v65.37: wall-kick throw sustain - equilibrium ~0.33 b/frame
+         * (18+ b/s) across the whole window: a real throw to the
+         * opposite wall, not a 2-block hop */
+        if (nowDash < player.wallKickUntil && !player.flying &&
+            player.wallRunSide == 0 && !player.canJump &&
+            player.liquidSubmersion <= 0.0f && !player.webActive) {
+            player.velocity.x += player.wallKickDir.x * 0.055f;
+            player.velocity.z += player.wallKickDir.z * 0.055f;
+            float kh = sqrtf(player.velocity.x * player.velocity.x +
+                             player.velocity.z * player.velocity.z);
+            if (kh > WALLRUN_KICK_MAX) {
+                float kk = WALLRUN_KICK_MAX / kh;
+                player.velocity.x *= kk;
+                player.velocity.z *= kk;
+            }
         }
 
         /* v47: warp network ------------------------------------------------

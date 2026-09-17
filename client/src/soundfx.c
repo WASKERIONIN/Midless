@@ -785,7 +785,12 @@ static void MusicCallback(void *bufferData, unsigned int frames) {
 
 /* v59.7: the HUD station label */
 const char *SoundFx_TrackName(void) {
-    if (UserMusic_Playing()) return UserMusic_TrackName();
+    /* v65.37: honest diagnostics - inside the parkour zone the label
+     * says WHY the built-in station is playing */
+    if (UserMusic_InParkour()) {
+        if (UserMusic_Count() == 0) return "Foundry (music/ folder empty)";
+        return UserMusic_TrackName();   /* playing name, or "X (cannot play)" */
+    }
     return tracks[musTrack].name;
 }
 
@@ -793,8 +798,9 @@ const char *SoundFx_TrackName(void) {
  * Called on the main thread; every write is a single word, and the
  * audio thread re-reads the state each sample. */
 void SoundFx_NextTrack(void) {
-    /* v65.35: inside the parkour zone N cycles the USER playlist */
-    if (UserMusic_Playing()) { UserMusic_Next(); return; }
+    /* v65.35: inside the parkour zone N cycles the USER playlist
+     * (v65.37: and rescans music/ when the playlist is still empty) */
+    if (UserMusic_InParkour()) { UserMusic_Next(); return; }
     musTrack = Mus_PickDifferent();
     musSample = 0;
     musLastCycle = 0;

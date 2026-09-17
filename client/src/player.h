@@ -58,6 +58,11 @@ typedef struct Player{
     double dashReadyTime;      /* time the dash becomes available again */
     double dashActiveUntil;    /* burst window end */
     Vector3 dashDir;           /* normalized horizontal dash direction */
+    /* v65.37: directional wall-kick throw window (dash-style sustain -
+     * the global air damping ate the one-shot impulse in ~0.2s, which
+     * read as "just a hop") */
+    double wallKickUntil;
+    Vector3 wallKickDir;
     /* v65.28: wall run + wall kick (VHOLUME-school movement) */
     int wallRunSide;           /* 0 = off, +1 wall on the right, -1 left */
     float wallRunTime;         /* seconds on the current wall */

@@ -13,11 +13,11 @@ static float pocketFactor2;
 /* Chebyshev distance matches the mod's square pocket_zone boxes, with a
  * soft 16-block fade so flying to the zone edge dissolves the cosmos
  * instead of flipping it; teleport arrivals start deep inside. */
-static float Zone_Target(Vector3 pos, float cx, float cz) {
+static float Zone_Target(Vector3 pos, float cx, float cz, float half) {
     float dx = fabsf(pos.x - cx);
     float dz = fabsf(pos.z - cz);
     float distance = fmaxf(dx, dz);
-    return 1.0f - fminf(fmaxf((distance - (POCKETFX_ZONE_HALF - 16.0f)) / 16.0f, 0.0f), 1.0f);
+    return 1.0f - fminf(fmaxf((distance - (half - 16.0f)) / 16.0f, 0.0f), 1.0f);
 }
 
 static void Zone_Smooth(float *factor, float target) {
@@ -32,8 +32,8 @@ static void Zone_Smooth(float *factor, float target) {
 void PocketFx_Update(Vector3 playerPosition) {
     float previous = pocketFactor;
     float previous2 = pocketFactor2;
-    Zone_Smooth(&pocketFactor, Zone_Target(playerPosition, POCKETFX_CX, POCKETFX_CZ));
-    Zone_Smooth(&pocketFactor2, Zone_Target(playerPosition, POCKETFX2_CX, POCKETFX2_CZ));
+    Zone_Smooth(&pocketFactor, Zone_Target(playerPosition, POCKETFX_CX, POCKETFX_CZ, POCKETFX_ZONE_HALF));
+    Zone_Smooth(&pocketFactor2, Zone_Target(playerPosition, POCKETFX2_CX, POCKETFX2_CZ, POCKETFX2_ZONE_HALF));
     /* v65.9.1: log the crossing so remote debugging knows where we are */
     if ((previous < 0.5f) != (pocketFactor < 0.5f)) {
         TraceLog(LOG_INFO, "pocketfx: meadow factor crossed %.2f at pos %.1f %.1f %.1f",
@@ -66,8 +66,8 @@ int PocketFx_ViewZone(void) {
 bool PocketFx_ChunkVisible(float chunkCenterX, float chunkCenterZ) {
     bool in1 = fabsf(chunkCenterX - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
                fabsf(chunkCenterZ - POCKETFX_CZ) < POCKETFX_ZONE_HALF;
-    bool in2 = fabsf(chunkCenterX - POCKETFX2_CX) < POCKETFX_ZONE_HALF &&
-               fabsf(chunkCenterZ - POCKETFX2_CZ) < POCKETFX_ZONE_HALF;
+    bool in2 = fabsf(chunkCenterX - POCKETFX2_CX) < POCKETFX2_ZONE_HALF &&
+               fabsf(chunkCenterZ - POCKETFX2_CZ) < POCKETFX2_ZONE_HALF;
     int view = PocketFx_ViewZone();
     if (view == 1) return in1;
     if (view == 2) return in2;

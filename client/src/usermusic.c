@@ -28,6 +28,7 @@ static bool umLoaded = false;
 static bool umActive = false;     /* inside the parkour zone with tracks */
 static bool umPlaying = false;    /* stream actually running */
 static bool umDuck = false;       /* silence the built-in synth station */
+static bool umInZone = false;     /* inside the parkour zone (diag label) */
 static char umLabel[80] = "";
 
 void UserMusic_Dir(char *out, int outLen);
@@ -43,10 +44,20 @@ void UserMusic_Dir(char *out, int outLen) {
 }
 
 static bool HasMusicExt(const char *f) {
+    /* v65.37: case-insensitive - "Track.MP3" must count too */
     size_t n = strlen(f);
     for (int e = 0; e < UM_EXT_COUNT; e++) {
         size_t el = strlen(UM_EXTS[e]);
-        if (n > el && strcmp(f + n - el, UM_EXTS[e]) == 0) return true;
+        if (n <= el) continue;
+        const char *tail = f + n - el;
+        size_t k = 0;
+        for (; k < el; k++) {
+            char a = tail[k], b = UM_EXTS[e][k];
+            if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+            if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+            if (a != b) break;
+        }
+        if (k == el) return true;
     }
     return false;
 }
@@ -129,6 +140,7 @@ static void LoadTrack(int i) {
 }
 
 void UserMusic_EnterParkour(void) {
+    umInZone = true;
     Scan();   /* picks up files dropped since launch */
     if (umCount == 0) { umActive = false; umDuck = false; return; }
     umActive = true;
@@ -136,6 +148,7 @@ void UserMusic_EnterParkour(void) {
 }
 
 void UserMusic_LeaveParkour(void) {
+    umInZone = false;
     umActive = false;
     umDuck = false;
     if (umLoaded) {
@@ -167,7 +180,16 @@ void UserMusic_Update(void) {
 }
 
 void UserMusic_Next(void) {
-    if (!umActive || umCount == 0) return;
+    /* v65.37: N doubles as a live retry - drop a file in while inside
+     * the zone and press N, the playlist picks it up without a restart */
+    if (!umActive || umCount == 0) {
+        if (!umInZone) return;
+        Scan();
+        if (umCount == 0) return;
+        umActive = true;
+        LoadTrack(0);
+        return;
+    }
     LoadTrack((umIndex + 1) % umCount);
 }
 
@@ -177,6 +199,7 @@ void UserMusic_Prev(void) {
 }
 
 bool UserMusic_Playing(void) { return umActive && umCount > 0 && umDuck; }
+bool UserMusic_InParkour(void) { return umInZone; }
 bool UserMusic_Ducking(void) { return umDuck; }
 const char *UserMusic_TrackName(void) { return umLabel; }
 int UserMusic_Count(void) { return umCount; }

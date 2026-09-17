@@ -40,13 +40,14 @@ int main(int argc, char **argv) {
         PMap m;
         memset(&m, 0, sizeof(m));
         snprintf(m.name, sizeof(m.name), "test");
-        /* crest landmark: local (126,9,96) -> world (-1170,127,1200) */
-        m.boxes[m.boxCount++] = (PMapBox){ 126, 9, 96, 2, 2, 2, 83 };
+        /* v65.37 anchor (-1392,118,1008), field 384x128x384:
+         * crest landmark: local (222,9,192) -> world (-1170,127,1200) */
+        m.boxes[m.boxCount++] = (PMapBox){ 222, 9, 192, 2, 2, 2, 83 };
         /* high platform away from the old course: (-1126,138,1244) */
-        m.boxes[m.boxCount++] = (PMapBox){ 170, 20, 140, 3, 1, 3, 82 };
-        m.gate[0] = 24; m.gate[1] = 0; m.gate[2] = 96; m.hasGate = true;
-        m.start[0] = 30; m.start[1] = 0; m.start[2] = 100; m.hasStart = true;
-        m.finish[0] = 170; m.finish[1] = 21; m.finish[2] = 140; m.hasFinish = true;
+        m.boxes[m.boxCount++] = (PMapBox){ 266, 20, 236, 3, 1, 3, 82 };
+        m.gate[0] = 120; m.gate[1] = 0; m.gate[2] = 192; m.hasGate = true;
+        m.start[0] = 126; m.start[1] = 0; m.start[2] = 196; m.hasStart = true;
+        m.finish[0] = 266; m.finish[1] = 21; m.finish[2] = 236; m.hasFinish = true;
         ParkourMapSetSession(&m);
     }
 
