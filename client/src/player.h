@@ -63,6 +63,7 @@ typedef struct Player{
      * read as "just a hop") */
     double wallKickUntil;
     Vector3 wallKickDir;
+    double lastWallContactTime;   /* v65.38: wall-coyote throw window */
     /* v65.28: wall run + wall kick (VHOLUME-school movement) */
     int wallRunSide;           /* 0 = off, +1 wall on the right, -1 left */
     float wallRunTime;         /* seconds on the current wall */

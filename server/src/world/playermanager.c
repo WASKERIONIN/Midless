@@ -32,6 +32,25 @@ void ServerPlayerManager_Update(void) {
             ServerWorld_RemovePlayer(player);
             continue;
         }
+        /* v65.38: kill plane - falling out of the Foundry course drops you
+         * back on the START pad. Before this the runner fell out of the
+         * pocket entirely and landed in the ordinary world below. */
+        if (player->entityId >= 0) {
+            Vector3 pp = serverWorld.entities[player->entityId].position;
+            if (pp.x > -1392.0f && pp.x < -1008.0f &&
+                pp.z >  1008.0f && pp.z <  1392.0f && pp.y < 110.0f) {
+                Vector3 dest = { -1271.5f, 121.0f, 1200.5f };  /* built-in course gate */
+                const PMap *pm = ParkourMapActive();
+                if (pm && pm->hasStart) {
+                    int ax, ay, az;
+                    ParkourMapAnchor(&ax, &ay, &az);
+                    dest = (Vector3){ ax + pm->start[0] + 0.5f,
+                                      ay + pm->start[1] + 2.0f,
+                                      az + pm->start[2] + 0.5f };
+                }
+                ServerPlayer_Teleport(player, dest);
+            }
+        }
         ServerPlayer_LoadChunks(player);
     }
 }

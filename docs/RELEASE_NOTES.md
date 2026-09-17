@@ -2,6 +2,30 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.38
+
+- WALL-KICK WITH A HELD DIRECTION IS NOW STRICTLY SIDEWAYS: the vertical
+  pop is removed entirely and the vertical speed stays pinned for the whole
+  0.45 s throw window - under no circumstances can a directional wall jump
+  go up or arc; the double jump is blocked while a throw is active. With no
+  key held the classic vertical wall jump remains.
+- Wall-coyote throw: pressing jump + direction within 0.3 s AFTER the
+  wall-run ended (slid off / sank out) throws sideways too, instead of
+  falling back to a vertical double jump.
+- Stickier walls: attach reach 0.9 (was 0.75), min speed lowered to 0.05
+  b/frame, and rising after a jump no longer blocks the grab (old gate
+  rejected attach while vy > 0.10); re-grab cooldowns shortened
+  (0.25 s after a drop, 0.15 s after a kick).
+- FOUNDRY KILL PLANE: falling below the course (y < 110 inside the pocket
+  zone) returns the runner to the START pad - the custom map start marker
+  or the built-in course gate - instead of dropping out of the pocket into
+  the ordinary world.
+- MAP EDITOR: all dock sections are now separated - TOOLS / BLOCKS /
+  MARKERS on the left, SIZES / VIEW / MAP LIBRARY / FILE NAME on the right,
+  each with a header and a divider, laid out by one running cursor. The
+  raygui side labels that used to draw over the neighbouring control
+  ("Thick", "Grid Y", "Zoom") are gone - labels are hand-placed.
+
 ## v65.37
 
 - MAP EDITOR field is now 384 x 128 x 384 cells (was 192 x 64 x 192) - long

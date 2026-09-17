@@ -435,38 +435,75 @@ void MapEdit_Frame(void) {
         }
     }
 
-    /* left dock: tools + palette */
-    GuiPanel((Rectangle){ 4, 34, 216, sh - 62 }, "TOOLS");
+    /* left dock: tools + palette.
+     * v65.38: sections are SEPARATED - headers, dividers and one running
+     * cursor, so nothing can ever pile up on anything else again. */
+    const Color SEC_COL = { 140, 200, 190, 255 };
+    const Color LBL_COL = { 150, 160, 170, 255 };
+    const Color HINT_COL = { 108, 118, 128, 255 };
+    const Color DIV_COL = { 62, 72, 80, 255 };
+    GuiPanel((Rectangle){ 4, 34, 216, sh - 62 }, NULL);
+    int ly = 44;
+    DrawText("TOOLS", 12, ly, 12, SEC_COL); ly += 16;
+    DrawRectangle(12, ly, 200, 1, DIV_COL); ly += 10;
     for (int i = 0; i < TOOL_COUNT; i++) {
-        Rectangle r = { 12 + (i % 2) * 104, 58 + (i / 2) * 28, 100, 24 };
+        Rectangle r = { 12 + (i % 2) * 104, (float)ly + (i / 2) * 28, 100, 24 };
         bool on = ((int)tool == i);
         if (on) DrawRectangleRec(r, (Color){ 52, 84, 78, 255 });
         if (GuiButton(r, TOOL_NAMES[i])) tool = (EditTool)i;
     }
+    ly += ((TOOL_COUNT + 1) / 2) * 28 + 4;
+    DrawRectangle(12, ly, 200, 1, DIV_COL); ly += 12;
     /* row pitch = LIST_ITEMS_HEIGHT(24) + SPACING(2); six rows fit the
      * list without a scrollbar, swatches sit clear of the text column */
-    GuiGroupBox((Rectangle){ 12, 176, 200, 190 }, "BLOCKS");
-    GuiListView((Rectangle){ 16, 198, 168, 158 }, PALETTE_NAMES, &paletteScroll, &paletteIndex);
+    GuiGroupBox((Rectangle){ 12, (float)ly, 200, 190 }, "BLOCKS");
+    GuiListView((Rectangle){ 16, (float)ly + 22, 168, 158 }, PALETTE_NAMES, &paletteScroll, &paletteIndex);
     for (int p = 0; p < 6; p++)
-        DrawRectangle(190, 205 + p * 26, 16, 16, PALETTE_COLORS[p]);
-    GuiGroupBox((Rectangle){ 12, 374, 200, 88 }, "MARKERS");
-    DrawText(map.hasGate ? "GATE set" : "GATE -", 20, 396, 12, (Color){ 186, 120, 255, 255 });
-    DrawText(map.hasStart ? "START set" : "START -", 20, 416, 12, (Color){ 120, 255, 160, 255 });
-    DrawText(map.hasFinish ? "FINISH set" : "FINISH -", 20, 436, 12, (Color){ 255, 210, 90, 255 });
+        DrawRectangle(190, ly + 29 + p * 26, 16, 16, PALETTE_COLORS[p]);
+    ly += 200;
+    GuiGroupBox((Rectangle){ 12, (float)ly, 200, 92 }, "MARKERS");
+    DrawText(map.hasGate ? "GATE set" : "GATE -", 20, ly + 22, 12, (Color){ 186, 120, 255, 255 });
+    DrawText(map.hasStart ? "START set" : "START -", 20, ly + 42, 12, (Color){ 120, 255, 160, 255 });
+    DrawText(map.hasFinish ? "FINISH set" : "FINISH -", 20, ly + 62, 12, (Color){ 255, 210, 90, 255 });
+    ly += 104;
+    DrawText("RMB drag: look | wheel: fly speed", 12, ly, 9, HINT_COL);
+    DrawText("Ctrl+wheel: zoom | field 384x128x384", 12, ly + 12, 9, HINT_COL);
 
-    /* right dock: properties + map library */
-    GuiPanel((Rectangle){ sw - 260, 34, 256, sh - 62 }, "PROPERTIES / MAPS");
-    int px = sw - 252;
-    GuiValueBox((Rectangle){ px, 60, 120, 24 }, "Wall H", &wallHeight, 1, 40, false);
-    GuiValueBox((Rectangle){ px + 128, 60, 112, 24 }, "Thick", &wallThickness, 1, 7, false);
-    GuiValueBox((Rectangle){ px, 92, 120, 24 }, "Box H", &boxHeight, 1, 40, false);
-    GuiValueBox((Rectangle){ px + 128, 92, 112, 24 }, "Grid Y", &gridLevel, 0, 127, false);
-    /* v65.37: explicit view controls - the wheel alone was invisible */
-    GuiSlider((Rectangle){ px, 126, 240, 18 }, "Fly ", TextFormat("%.0f", flySpeed), &flySpeed, 4.0f, 160.0f);
-    GuiSlider((Rectangle){ px, 150, 240, 18 }, "Zoom ", TextFormat("%.0f", camFov), &camFov, 20.0f, 90.0f);
-    GuiGroupBox((Rectangle){ px - 4, 176, 248, 138 }, "MAP LIBRARY");
-    GuiListView((Rectangle){ px, 196, 240, 76 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive);
-    if (GuiButton((Rectangle){ px, 278, 76, 22 }, "LOAD")) {
+    /* right dock: sizes / view / library / file.
+     * v65.38: raygui's built-in left labels are NOT used any more - they
+     * drew OUTSIDE the control and piled onto the neighbours ("Thick" over
+     * the Wall-H box, "Zoom" over the Fly slider). Every label is placed
+     * by hand; sections have headers + dividers; one running cursor. */
+    GuiPanel((Rectangle){ sw - 260, 34, 256, sh - 62 }, NULL);
+    int px = sw - 248;
+    int ry = 44;
+    DrawText("SIZES", px, ry, 12, SEC_COL); ry += 16;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 10;
+    {
+        const char *sizeNames[4] = { "Wall height", "Wall thickness", "Box height", "Grid level Y" };
+        int *sizeVals[4] = { &wallHeight, &wallThickness, &boxHeight, &gridLevel };
+        const int sizeMin[4] = { 1, 1, 1, 0 };
+        const int sizeMax[4] = { 40, 7, 40, 127 };
+        for (int i = 0; i < 4; i++) {
+            DrawText(sizeNames[i], px, ry + 6, 10, LBL_COL);
+            GuiValueBox((Rectangle){ px + 140, (float)ry, 92, 22 }, NULL, sizeVals[i], sizeMin[i], sizeMax[i], false);
+            ry += 28;
+        }
+    }
+    ry += 4;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 12;
+    DrawText("VIEW", px, ry, 12, SEC_COL); ry += 16;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 10;
+    DrawText(TextFormat("Fly speed  %.0f", flySpeed), px, ry, 10, LBL_COL); ry += 14;
+    GuiSlider((Rectangle){ px, (float)ry, 232, 16 }, NULL, NULL, &flySpeed, 4.0f, 160.0f); ry += 24;
+    DrawText(TextFormat("Zoom (FOV)  %.0f", camFov), px, ry, 10, LBL_COL); ry += 14;
+    GuiSlider((Rectangle){ px, (float)ry, 232, 16 }, NULL, NULL, &camFov, 20.0f, 90.0f); ry += 20;
+    DrawText("wheel = fly speed, Ctrl+wheel = zoom", px, ry, 9, HINT_COL); ry += 14;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 12;
+    DrawText("MAP LIBRARY", px, ry, 12, SEC_COL); ry += 16;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 10;
+    GuiListView((Rectangle){ px, (float)ry, 232, 84 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive); ry += 90;
+    if (GuiButton((Rectangle){ px, (float)ry, 74, 22 }, "LOAD")) {
         if (mapCount > 0 && ParkourMapLoad(mapNames[mapListActive], &map)) {
             snprintf(saveName, sizeof(saveName), "%s", mapNames[mapListActive]);
             undoCount = redoCount = 0;
@@ -474,13 +511,13 @@ void MapEdit_Frame(void) {
             snprintf(statusText, sizeof(statusText), "Loaded map '%s'", map.name);
         }
     }
-    if (GuiButton((Rectangle){ px + 82, 278, 76, 22 }, "DELETE")) {
+    if (GuiButton((Rectangle){ px + 79, (float)ry, 74, 22 }, "DELETE")) {
         if (mapCount > 0) {
             ParkourMapDelete(mapNames[mapListActive]);
             RefreshMapList();
         }
     }
-    if (GuiButton((Rectangle){ px + 164, 278, 76, 22 }, "SAVE")) {
+    if (GuiButton((Rectangle){ px + 158, (float)ry, 74, 22 }, "SAVE")) {
         snprintf(map.name, sizeof(map.name), "%s", saveName);
         saveBannerUntil = GetTime() + 4.0f;
         if (ParkourMapSave(&map)) {
@@ -497,10 +534,15 @@ void MapEdit_Frame(void) {
             snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
         }
     }
-    if (GuiTextBox((Rectangle){ px, 320, 240, 26 }, saveName, sizeof(saveName), nameEdit))
+    ry += 28;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 12;
+    DrawText("FILE NAME", px, ry, 12, SEC_COL); ry += 16;
+    DrawRectangle(px, ry, 232, 1, DIV_COL); ry += 10;
+    if (GuiTextBox((Rectangle){ px, (float)ry, 232, 24 }, saveName, sizeof(saveName), nameEdit))
         nameEdit = !nameEdit;
-    DrawText("map file name - saves to maps/ next to game.exe", px, 352, 10, (Color){ 130, 140, 150, 255 });
-    if (GuiButton((Rectangle){ px, 372, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
+    ry += 28;
+    DrawText("saves to maps/ next to game.exe", px, ry, 9, HINT_COL); ry += 16;
+    if (GuiButton((Rectangle){ px, (float)ry, 232, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
 
     /* loud save feedback with the FULL path - no more "did it save?" */
     if (GetTime() < saveBannerUntil) {

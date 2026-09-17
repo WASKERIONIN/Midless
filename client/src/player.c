@@ -419,6 +419,7 @@ void Player_Init(void) {
     player.dashReadyTime = 0.0;
     player.dashActiveUntil = 0.0;
     player.wallKickUntil = 0.0;   /* v65.37 */
+    player.lastWallContactTime = -100.0;   /* v65.38 */
     player.dashDir = (Vector3){ 0 };
     player.entityModel = (EntityModel){0};
     EntityAnimation_Init(&player.animation, player.position);
@@ -532,7 +533,7 @@ void Player_Draw(void) {
 
 /* v65.28: wall run + wall kick tuning (used by CheckInputs AND Update,
  * so the defines live up here, above both) */
-#define WALLRUN_MIN_SPEED   0.075f
+#define WALLRUN_MIN_SPEED   0.05f   /* v65.38: stickier - jogging speed is enough */
 #define WALLRUN_STICK_SPEED 0.05f
 #define WALLRUN_MAX_TIME    2.8f
 #define WALLRUN_ROLL        0.16f      /* rad, banked into the wall */
@@ -540,7 +541,8 @@ void Player_Draw(void) {
 #define WALLRUN_KICK_AWAY   0.30f
 #define WALLRUN_DIR_KICK    0.30f   /* v65.36: throw toward the held direction */
 #define WALLRUN_KICK_MAX    0.42f   /* horizontal clamp right after the kick */
-#define WALLRUN_PROBE       0.75f      /* sideways reach from the body centre */
+#define WALLRUN_PROBE       0.9f       /* v65.38: wider reach - walls grab reliably */
+#define WALLRUN_KICK_WINDOW 0.45       /* v65.38: seconds of sustained sideways throw */
 #define WEB_DETACH_DIST 1.5f
 
 static void Player_WebDetach(void) {
@@ -686,6 +688,14 @@ void Player_CheckInputs() {
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
+        /* v65.38: held horizontal direction, pre-computed - it decides
+         * whether a wall jump is a SIDEWAYS throw or a vertical jump */
+        float jkx = 0.0f, jkz = 0.0f;
+        if (IsKeyDown(KEY_W)) { jkz += sx; jkx += cx; }
+        if (IsKeyDown(KEY_S)) { jkz -= sx; jkx -= cx; }
+        if (IsKeyDown(KEY_D)) { jkz += sx90; jkx += cx90; }
+        if (IsKeyDown(KEY_A)) { jkz -= sx90; jkx -= cx90; }
+        float jkl = sqrtf(jkx * jkx + jkz * jkz);
         if (player.flying) {
             player.velocity.y = 0;
             if (IsKeyDown(KEY_SPACE)) player.velocity.y = 0.22f;
@@ -697,47 +707,66 @@ void Player_CheckInputs() {
                     if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
                 }
             } else if (player.wallRunSide != 0) {
-                /* v65.28: wall kick - off the wall, momentum kept and
-                 * the double jump + dash charges refreshed for chains */
-                player.velocity.y = WALLRUN_KICK_UP;
-                /* v65.30: the kick carries the run speed AND gets the
-                 * Titanfall-style jump-off boost along it (the horizontal
-                 * velocity here IS the tangent, so scale both axes) */
+                /* v65.38: THE DIRECTION DECIDES THE PLANE. With a movement
+                 * key held the kick is a pure SIDEWAYS throw - the vertical
+                 * pop is removed ENTIRELY (a directional wall jump must
+                 * never, under any circumstances, go up). With no key held
+                 * it stays the classic vertical wall jump (v65.28/v65.30:
+                 * momentum kept, tangent boost, charges refreshed). */
                 player.velocity.x *= 1.12f;
                 player.velocity.z *= 1.12f;
                 player.velocity.x += player.wallNormal.x * WALLRUN_KICK_AWAY;
                 player.velocity.z += player.wallNormal.z * WALLRUN_KICK_AWAY;
-                /* v65.36: DIRECTIONAL wall-kick - a held movement key throws
-                 * the runner across toward the opposite wall (the canyon
-                 * chimney verb) instead of a little vertical hop in place */
-                {
-                    float kx = 0.0f, kz = 0.0f;
-                    if (IsKeyDown(KEY_W)) { kz += sx; kx += cx; }
-                    if (IsKeyDown(KEY_S)) { kz -= sx; kx -= cx; }
-                    if (IsKeyDown(KEY_D)) { kz += sx90; kx += cx90; }
-                    if (IsKeyDown(KEY_A)) { kz -= sx90; kx -= cx90; }
-                    float kl = sqrtf(kx * kx + kz * kz);
-                    if (kl > 0.01f) {
-                        player.velocity.x += (kx / kl) * WALLRUN_DIR_KICK;
-                        player.velocity.z += (kz / kl) * WALLRUN_DIR_KICK;
-                        /* v65.37: the throw is a WINDOW, not an impulse -
-                         * like the dash, it keeps feeding the direction
-                         * until it expires, so damping cannot eat it */
-                        player.wallKickDir = (Vector3){ kx / kl, 0.0f, kz / kl };
-                        player.wallKickUntil = GetTime() + 0.34;
-                    }
-                    /* keep the launch punchy but bounded */
-                    float hsp = sqrtf(player.velocity.x * player.velocity.x +
-                                      player.velocity.z * player.velocity.z);
-                    if (hsp > WALLRUN_KICK_MAX) {
-                        float k = WALLRUN_KICK_MAX / hsp;
-                        player.velocity.x *= k;
-                        player.velocity.z *= k;
-                    }
+                if (jkl > 0.01f) {
+                    player.velocity.y = 0.05f;   /* sideways, NOT up */
+                    player.velocity.x += (jkx / jkl) * WALLRUN_DIR_KICK;
+                    player.velocity.z += (jkz / jkl) * WALLRUN_DIR_KICK;
+                    /* the throw is a WINDOW: it keeps feeding the direction
+                     * AND pins the vertical speed until it expires, so
+                     * neither damping nor gravity can turn it into a hop */
+                    player.wallKickDir = (Vector3){ jkx / jkl, 0.0f, jkz / jkl };
+                    player.wallKickUntil = GetTime() + WALLRUN_KICK_WINDOW;
+                } else {
+                    player.velocity.y = WALLRUN_KICK_UP;
+                }
+                /* keep the launch punchy but bounded */
+                float hsp = sqrtf(player.velocity.x * player.velocity.x +
+                                  player.velocity.z * player.velocity.z);
+                if (hsp > WALLRUN_KICK_MAX) {
+                    float k = WALLRUN_KICK_MAX / hsp;
+                    player.velocity.x *= k;
+                    player.velocity.z *= k;
                 }
                 player.wallRunSide = 0;
                 player.wallRunTime = 0.0f;
-                player.wallRunCooldownUntil = GetTime() + 0.22;
+                player.wallRunCooldownUntil = GetTime() + 0.15;
+                player.lastWallContactTime = -100.0;
+                player.airJumpsUsed = 0;
+                player.dashChargesUsed = 0;
+                lastGroundedTime = -100.0;
+                jumpPressedTime = -100.0;
+                SoundFx_PlayJump();
+            } else if (!player.canJump &&
+                       GetTime() - lastGroundedTime >= PLAYER_COYOTE_SECONDS &&
+                       GetTime() >= player.wallKickUntil &&
+                       GetTime() - player.lastWallContactTime < 0.30 &&
+                       jkl > 0.01f) {
+                /* v65.38: wall-coyote throw - the run JUST ended (slid off,
+                 * sank out, cooldown); jump + direction within 0.3 s of the
+                 * wall still throws SIDEWAYS instead of double-jumping up */
+                player.velocity.y = 0.05f;
+                player.velocity.x += (jkx / jkl) * WALLRUN_DIR_KICK;
+                player.velocity.z += (jkz / jkl) * WALLRUN_DIR_KICK;
+                float hsp2 = sqrtf(player.velocity.x * player.velocity.x +
+                                   player.velocity.z * player.velocity.z);
+                if (hsp2 > WALLRUN_KICK_MAX) {
+                    float k2 = WALLRUN_KICK_MAX / hsp2;
+                    player.velocity.x *= k2;
+                    player.velocity.z *= k2;
+                }
+                player.wallKickDir = (Vector3){ jkx / jkl, 0.0f, jkz / jkl };
+                player.wallKickUntil = GetTime() + WALLRUN_KICK_WINDOW;
+                player.lastWallContactTime = -100.0;
                 player.airJumpsUsed = 0;
                 player.dashChargesUsed = 0;
                 lastGroundedTime = -100.0;
@@ -750,7 +779,8 @@ void Player_CheckInputs() {
                 lastGroundedTime = -100.0;
                 jumpPressedTime = -100.0;
                 SoundFx_PlayJump();
-            } else if (player.airJumpsUsed < 1 && IsKeyPressed(KEY_SPACE)) {
+            } else if (player.airJumpsUsed < 1 && IsKeyPressed(KEY_SPACE) &&
+                       GetTime() >= player.wallKickUntil) {   /* v65.38: no vertical during a throw */
                 /* v44: double jump - one extra mid-air jump on a fresh press */
                 player.velocity.y = 0.22f;
                 player.airJumpsUsed++;
@@ -806,14 +836,16 @@ void Player_CheckInputs() {
             player.velocity.x += player.dashDir.x * player.speed * 2.6f;
             player.velocity.z += player.dashDir.z * player.speed * 2.6f;
         }
-        /* v65.37: wall-kick throw sustain - equilibrium ~0.33 b/frame
-         * (18+ b/s) across the whole window: a real throw to the
-         * opposite wall, not a 2-block hop */
+        /* v65.37/v65.38: wall-kick throw sustain - equilibrium ~0.33
+         * b/frame (18+ b/s) across the whole 0.45 s window, and the
+         * vertical speed is PINNED: the throw is a straight sideways
+         * line, gravity cannot arc it and no key can make it vertical */
         if (nowDash < player.wallKickUntil && !player.flying &&
             player.wallRunSide == 0 && !player.canJump &&
             player.liquidSubmersion <= 0.0f && !player.webActive) {
             player.velocity.x += player.wallKickDir.x * 0.055f;
             player.velocity.z += player.wallKickDir.z * 0.055f;
+            player.velocity.y = 0.0f;
             float kh = sqrtf(player.velocity.x * player.velocity.x +
                              player.velocity.z * player.velocity.z);
             if (kh > WALLRUN_KICK_MAX) {
@@ -1230,6 +1262,7 @@ static void Player_WallRunUpdate(float frameScale) {
 
     if (player.wallRunSide != 0) {
         player.wallRunTime += GetFrameTime();
+        player.lastWallContactTime = now;   /* v65.38: feeds the coyote throw */
         Vector3 toWall = { -player.wallNormal.x, 0.0f, -player.wallNormal.z };
         bool wallThere = false;
         {   /* maintain needs only ONE of the two body heights */
@@ -1244,7 +1277,7 @@ static void Player_WallRunUpdate(float frameScale) {
         if (!wallThere || hs < WALLRUN_STICK_SPEED || player.wallRunTime > WALLRUN_MAX_TIME) {
             player.wallRunSide = 0;
             player.wallRunTime = 0.0f;
-            player.wallRunCooldownUntil = now + 0.35;
+            player.wallRunCooldownUntil = now + 0.25;   /* v65.38: re-grab sooner */
         } else {
             /* press into the wall so turns keep contact; gravity is
              * replaced by the floaty sink in Player_Update */
@@ -1258,7 +1291,9 @@ static void Player_WallRunUpdate(float frameScale) {
      * climbing hard (a rising jump next to a wall must not snag -
      * the auto-grab complaint that plagues the genre) */
     if (hs < WALLRUN_MIN_SPEED || now < player.wallRunCooldownUntil) return;
-    if (player.velocity.y > 0.10f) return;
+    /* v65.38: attach even while RISING (0.30 covers a full jump launch) -
+     * the old 0.10 gate made jumps toward a wall refuse to stick */
+    if (player.velocity.y > 0.30f) return;
     Vector3 dir = { hx / hs, 0.0f, hz / hs };
     Vector3 right = { -dir.z, 0.0f, dir.x };
     for (int s = 1; s >= -1; s -= 2) {
@@ -1268,6 +1303,7 @@ static void Player_WallRunUpdate(float frameScale) {
             player.wallRunSide = s;
             player.wallNormal = normal;
             player.wallRunTime = 0.0f;
+            player.lastWallContactTime = now;   /* v65.38 */
             /* v65.29: convert the approach into a run ALONG the wall.
              * v65.30: and make the contact a BOOST, Titanfall-style: the
              * grab instantly lifts you to ~1.45x sprint speed along the
