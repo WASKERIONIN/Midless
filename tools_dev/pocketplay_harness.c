@@ -101,22 +101,38 @@ int main(void) {
     ServerWorld_TeleportEntity(player->entityId, (Vector3){ 1211.5f, 156.0f, -1196.5f }, entity->rotation);
     for (int i = 0; i < 400; i++) { ServerWorld_Update(); usleep(12000); }  /* > 2.5s cooldown */
     entity = &serverWorld.entities[player->entityId];
-    printf("POCKETPLAY: after meadow gate pos = %.1f %.1f %.1f (expect ~-1195.5 120 1204.5, the Foundry)\n",
+    printf("POCKETPLAY: after meadow gate pos = %.1f %.1f %.1f (expect ~-1235.5 120 1212.5, the Foundry)\n",
            entity->position.x, entity->position.y, entity->position.z);
 
     /* ---- act 4: the Foundry spawns its chunks around the player ---- */
     for (int i = 0; i < 800; i++) { ServerWorld_Update(); usleep(4000); }
     printf("FOUNDRY: chunk alive = %d\n", ServerWorld_GetChunkAt((Vector3){ -75, 7, 75 }) != NULL);
-    printf("FOUNDRY: centre gate(-1200,118,1200)=%d (expect 80)\n", BlockAt(-1200, 118, 1200));
-    printf("FOUNDRY: plaza(-1196,118,1204)=%d (expect 81), below(-1196,114,1204)=%d (expect 82), air(-1196,122,1204)=%d (expect 0)\n",
-           BlockAt(-1196, 118, 1204), BlockAt(-1196, 114, 1204), BlockAt(-1196, 122, 1204));
-    printf("FOUNDRY: lamp path(-1197,118,1203)=%d (expect 83)\n", BlockAt(-1197, 118, 1203));
+    printf("FOUNDRY: centre gate(-1240,118,1208)=%d (expect 80)\n", BlockAt(-1240, 118, 1208));
+    printf("FOUNDRY: plaza(-1236,118,1212)=%d (expect 81), below(-1236,114,1212)=%d (expect 82), air(-1236,122,1212)=%d (expect 0)\n",
+           BlockAt(-1236, 118, 1212), BlockAt(-1236, 114, 1212), BlockAt(-1236, 122, 1212));
+    printf("FOUNDRY: lamp path(-1237,118,1211)=%d (expect 83)\n", BlockAt(-1237, 118, 1211));
+    /* chunk-level leak scan: real generated chunks around the spawn plaza */
+    {
+        int counts[256] = { 0 };
+        for (int x = -1272; x < -1208; x++)
+            for (int z = 1184; z < 1248; z++)
+                for (int y = 119; y <= 145; y++) {
+                    int id = BlockAt(x, y, z);
+                    if (id > 0 && id != 80 && id != 81 && id != 82 && id != 83)
+                        counts[id & 255]++;
+                }
+        printf("FOUNDRY CHUNK SCAN (leaks): ");
+        int any = 0;
+        for (int i = 0; i < 256; i++)
+            if (counts[i]) { printf("id%d x%d  ", i, counts[i]); any = 1; }
+        printf("%s\n", any ? "" : "clean");
+    }
     /* the high course is validated cell-by-cell by tools_dev/foundryprobe.c
      * (frozen material field) - chunk reach here covers the spawn plaza */
 
     /* ---- act 5: the Foundry centre gate returns beside the meadow gate ---- */
     entity = &serverWorld.entities[player->entityId];
-    ServerWorld_TeleportEntity(player->entityId, (Vector3){ -1199.5f, 119.0f, 1200.5f }, entity->rotation);
+    ServerWorld_TeleportEntity(player->entityId, (Vector3){ -1239.5f, 119.0f, 1208.5f }, entity->rotation);
     for (int i = 0; i < 400; i++) { ServerWorld_Update(); usleep(12000); }
     entity = &serverWorld.entities[player->entityId];
     printf("POCKETPLAY: after foundry gate pos = %.1f %.1f %.1f (expect ~1212.5 156 -1195.5 beside the meadow gate)\n",

@@ -404,6 +404,7 @@ void Player_Init(void) {
     player.crouchT = 0.0f;
     player.wallRunSide = 0;          /* v65.28 */
     player.wallRunTime = 0.0f;
+    player.wallRunSpeed = 0.0f;      /* v65.30 */
     player.wallRunCooldownUntil = 0.0;
     player.wallNormal = (Vector3){ 0, 0, 0 };
     player.camRoll = 0.0f;
@@ -695,6 +696,11 @@ void Player_CheckInputs() {
                 /* v65.28: wall kick - off the wall, momentum kept and
                  * the double jump + dash charges refreshed for chains */
                 player.velocity.y = WALLRUN_KICK_UP;
+                /* v65.30: the kick carries the run speed AND gets the
+                 * Titanfall-style jump-off boost along it (the horizontal
+                 * velocity here IS the tangent, so scale both axes) */
+                player.velocity.x *= 1.12f;
+                player.velocity.z *= 1.12f;
                 player.velocity.x += player.wallNormal.x * WALLRUN_KICK_AWAY;
                 player.velocity.z += player.wallNormal.z * WALLRUN_KICK_AWAY;
                 player.wallRunSide = 0;
@@ -1213,18 +1219,23 @@ static void Player_WallRunUpdate(float frameScale) {
             player.wallNormal = normal;
             player.wallRunTime = 0.0f;
             /* v65.29: convert the approach into a run ALONG the wall.
-             * Without this a head-on jump stuck you in place while the
-             * sink dragged you down - "I run, but it pulls me downward".
-             * Now the contact launches you along the surface (a touch
-             * faster than you arrived), whichever way you were heading. */
+             * v65.30: and make the contact a BOOST, Titanfall-style: the
+             * grab instantly lifts you to ~1.45x sprint speed along the
+             * surface (clamped), so the wall is a speed tool, not a trap.
+             * The pinned speed lives in wallRunSpeed; the physics branch
+             * holds it there - input drift and the global 1/6 damping can
+             * no longer eat the run ("runs slow along the wall"). */
             Vector3 tangent = { -sideVec.z, 0.0f, sideVec.x };
             if (hx * tangent.x + hz * tangent.z < 0.0f)
                 tangent = Vector3Scale(tangent, -1.0f);
-            float run = hs * 1.08f;
-            if (run < 0.16f) run = 0.16f;
-            player.velocity.x = tangent.x * run;
-            player.velocity.z = tangent.z * run;
-            if (player.velocity.y < 0.0f) player.velocity.y *= 0.3f;
+            float base = hs > 0.125f ? hs : 0.125f;
+            float target = base * 1.45f;
+            if (target < 0.17f) target = 0.17f;
+            if (target > 0.24f) target = 0.24f;
+            player.wallRunSpeed = target;
+            player.velocity.x = tangent.x * target;
+            player.velocity.z = tangent.z * target;
+            if (player.velocity.y < 0.0f) player.velocity.y *= 0.25f;
             break;
         }
     }
@@ -1243,11 +1254,37 @@ void Player_Update(void) {
     if (player.flying) {
         /* Tab fly: no gravity */
     } else if (player.wallRunSide != 0) {
-        /* v65.28: on the wall you barely fall - a floaty sink.
-         * v65.29: the old clamp (-0.045/frame = 2.7 blocks/s) read as
-         * "dragged downward"; now it is a whisper (~0.7 blocks/s) */
-        player.velocity.y -= 0.0006f * frameScale;
-        if (player.velocity.y < -0.012f) player.velocity.y = -0.012f;
+        /* v65.30: the wall-run velocity curve, shaped after Titanfall's
+         * run and the playtest note ("runs slow and always sinks; it must
+         * run FORWARD first, and only at the end lose speed and arc"):
+         *  phase A (first 55% of the run): FLAT and FAST - the vertical
+         *    velocity decays to zero and the pinned speed eases UP 10%;
+         *  phase B: gravity ramps in quadratically while the speed eases
+         *    down to 75% - the run closes with a downward arc off the wall.
+         * The horizontal velocity is re-pinned to the wall tangent every
+         * frame, so neither input drift nor the global damping eats it. */
+        float p = player.wallRunTime / WALLRUN_MAX_TIME;
+        if (p > 1.0f) p = 1.0f;
+        float speed;
+        if (p < 0.55f) {
+            speed = player.wallRunSpeed * (1.0f + 0.10f * (p / 0.55f));
+            player.velocity.y -= player.velocity.y * (1.0f - powf(0.02f, frameScale));
+            if (player.velocity.y < -0.004f) player.velocity.y = -0.004f;
+        } else {
+            float q = (p - 0.55f) / 0.45f;
+            speed = player.wallRunSpeed * (1.10f - 0.35f * q * q);
+            player.velocity.y -= 0.0068f * q * q * frameScale;
+            if (player.velocity.y < -0.30f) player.velocity.y = -0.30f;
+        }
+        Vector3 n = player.wallNormal;
+        float nl = sqrtf(n.x * n.x + n.z * n.z);
+        if (nl > 0.0001f) {
+            Vector3 tangent = { -n.z / nl, 0.0f, n.x / nl };
+            if (player.velocity.x * tangent.x + player.velocity.z * tangent.z < 0.0f)
+                tangent = Vector3Scale(tangent, -1.0f);
+            player.velocity.x = tangent.x * speed;
+            player.velocity.z = tangent.z * speed;
+        }
     } else if (player.liquidSubmersion > 0.0f) {
         player.velocity.y -= WATER_GRAVITY * frameScale;
         if (player.velocity.y < -WATER_MAX_FALL_SPEED) {
@@ -1334,7 +1371,9 @@ void Player_Update(void) {
     if (player.liquidSubmersion > 0.0f) {
         float drag = powf(WATER_DRAG, frameScale);
         player.velocity = Vector3Scale(player.velocity, drag);
-    } else {
+    } else if (player.wallRunSide == 0) {
+        /* v65.30: the wall-run pins its own speed curve; the global 1/6
+         * damping used to eat it alive ("runs slow along the wall") */
         player.velocity.x -= player.velocity.x / 6.0f;
         player.velocity.z -= player.velocity.z / 6.0f;
     }

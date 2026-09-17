@@ -1,6 +1,47 @@
-# Midless: Cosmic Edition v65.29
+# Midless: Cosmic Edition v65.30
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.30 - the parkour instance, rebuilt on parkour-game rules
+
+The second instance was rebuilt after studying how FPS parkour games build
+levels (KZ/climb maps, Mirror's Edge flow chains, Titanfall's wall-run
+levels, Red Eclipse, VHOLUME): a compact arena with visible bounds instead
+of a horizon-wide slab; one readable chain of obstacles with rest beats
+between them; every mass carried on a support tower (floating pads read as
+mistakes); light strips as the only signposting; one shortcut monolith that
+pays for route knowledge. Spacings follow the game's own jump physics
+(flow gaps 4 with +1 rises, precision gaps 4 onto 3x3 pads).
+
+- **Wall-run feel, fixed at the root.** Contact now gives an instant
+  Titanfall-style boost (~1.45x sprint, clamped) along the wall, and the
+  run holds a pinned speed curve: flat and fast for the first 55% of the
+  run (vertical velocity decays to zero - you run FORWARD), then gravity
+  ramps in quadratically while speed eases to 75% - the run closes with a
+  downward arc, exactly the shape asked for in playtest. The global
+  horizontal damping no longer applies mid-run (it was eating the speed:
+  "runs slow along the wall"), and a wall kick carries the run speed plus
+  a 12% jump-off boost.
+- **The instance is decor-free now.** Overworld scatter structures
+  (crystal basins, spires, dream gates, chrome totems, shrines, cocoons,
+  memory floats) had no zone mask at all: the meadow only escaped them
+  because its floor sits above their placement ceiling - the lower
+  Foundry floor did not, and they littered the plaza (the clutter in the
+  last screenshot). Structures accept `avoid_boxes` now, and every decor
+  structure keeps out of both pocket zones.
+- **Wireframe rocks no longer render inside the instance**: the asteroid
+  belt's DRAW gate tested zone 1 only, so stale overworld asteroids kept
+  drawing in the second pocket (their update was already gated).
+- **The old course was half-erased by its own zone mask**: the pocket zone
+  box is +-96 blocks, and the v65.29 finish plateau sat at +118 - outside
+  the mask, so the material select silently returned void there. The
+  course is re-centred to live inside its zone.
+- Worldgen field budget 1024 -> 2048 nodes (the arena's rim, towers and
+  lamp signage needed it). Worldgen version 24 - old worlds regenerate.
+- Dev probes: `foundryprobe` validates all 22 course coordinates plus a
+  full-region leak scan; `pocketplay` runs the whole loop headless
+  (fuse -> cross -> spawn -> chunk leak scan -> return) - all green.
+
 
 ## v65.29 - the second instance fixed: it was being clipped out of the world
 

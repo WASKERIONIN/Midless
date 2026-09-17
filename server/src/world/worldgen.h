@@ -9,7 +9,8 @@
 /* v65: 512 -> 1024. The cosmic mod's biome-pure flora gates (three-way
  * selects per biome plus the starter-island clamps) pushed the graph past
  * 500 nodes; the old ceiling made the mod fail to LOAD at all. */
-#define WG_MAX_FIELDS 1024
+#define WG_MAX_FIELDS 2048   /* v65.30: the Foundry arena (rim, towers, lamp
+ * signage) pushed the cosmic mod past 1024 nodes */
 #define WG_MAX_RULES 32
 #define WG_MAX_FEATURES 16
 #define WG_MAX_COMMANDS 32
@@ -122,6 +123,13 @@ typedef struct WGStructure {
      * trees stay in their biome (the noise biomes are not WGBiomes). */
     bool hasGroundFilter;
     bool groundOk[256];
+    /* v65.30: optional keep-out boxes - a structure anchor may not fall
+     * inside any of these horizontal world-coordinate boxes. This is how
+     * overworld decor (basins, spires, totems, cocoons, floats) stays out
+     * of the pocket instances: the meadow only escaped them by luck (its
+     * floor sits above their max_y), the lower Foundry floor did not. */
+    int avoidCount;
+    struct { int x0, z0, x1, z1; } avoidBoxes[4];
     int count;
     int radius;
     int minDY;

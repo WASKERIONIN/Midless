@@ -444,7 +444,7 @@ void World_Draw(Vector3 camPosition) {
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
     DropShadow_DrawAll();
-    if (PocketFx_Factor() < 0.5f) Asteroid_Draw(camPosition, World_GetSunlightStrength());   /* v65.13 */
+    if (PocketFx_FactorAny() < 0.5f) Asteroid_Draw(camPosition, World_GetSunlightStrength());   /* v65.13/v65.30: DRAW was gated by zone 1 only - stale wireframe rocks rendered inside the Foundry */
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();
 

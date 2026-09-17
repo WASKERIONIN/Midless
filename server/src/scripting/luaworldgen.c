@@ -604,6 +604,7 @@ static int DefineStructure(lua_State *luaState) {
     structure.biome = ReadBiomeIndex(luaState, 2);
     structure.rotate = ReadBoolean(luaState, 2, "rotate", true);
     structure.airOnly = ReadBoolean(luaState, 2, "air_only", false);
+    structure.avoidCount = 0;   /* v65.30 */
     structure.foundation = ReadInteger(luaState, 2, "foundation", 0, 0, 255);
     structure.foundationDepth = ReadInteger(luaState, 2, "foundation_depth", 8, 0, 32);
     lua_getfield(luaState, 2, "blocks");
@@ -640,6 +641,30 @@ static int DefineStructure(lua_State *luaState) {
             lua_pop(luaState, 1);
         }
         structure.hasGroundFilter = true;
+    }
+    lua_pop(luaState, 1);
+    /* v65.30: avoid_boxes = { { x0=, z0=, x1=, z1= }, ... } (up to 4) */
+    lua_getfield(luaState, 2, "avoid_boxes");
+    if (!lua_isnil(luaState, -1)) {
+        luaL_checktype(luaState, -1, LUA_TTABLE);
+        int boxCount = lua_rawlen(luaState, -1);
+        if (boxCount > 4)
+            return luaL_error(luaState, "at most 4 avoid_boxes per structure");
+        for (int i = 1; i <= boxCount; i++) {
+            lua_rawgeti(luaState, -1, i);
+            luaL_checktype(luaState, -1, LUA_TTABLE);
+            int tableIndex = lua_gettop(luaState);
+            structure.avoidBoxes[structure.avoidCount].x0 =
+                ReadInteger(luaState, tableIndex, "x0", 0, -32768, 32767);
+            structure.avoidBoxes[structure.avoidCount].z0 =
+                ReadInteger(luaState, tableIndex, "z0", 0, -32768, 32767);
+            structure.avoidBoxes[structure.avoidCount].x1 =
+                ReadInteger(luaState, tableIndex, "x1", 0, -32768, 32767);
+            structure.avoidBoxes[structure.avoidCount].z1 =
+                ReadInteger(luaState, tableIndex, "z1", 0, -32768, 32767);
+            structure.avoidCount++;
+            lua_pop(luaState, 1);
+        }
     }
     lua_pop(luaState, 1);
     lua_getfield(luaState, 2, "tree");

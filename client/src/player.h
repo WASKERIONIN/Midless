@@ -63,6 +63,7 @@ typedef struct Player{
     float wallRunTime;         /* seconds on the current wall */
     double wallRunCooldownUntil;  /* no re-grab right after a kick/timeout */
     Vector3 wallNormal;        /* unit vector from the wall to the player */
+    float wallRunSpeed;        /* v65.30: horizontal speed pinned for this run */
     float camRoll;             /* smoothed banking angle, rad */
     PlayerCameraMode cameraMode;
     EntityModel entityModel;

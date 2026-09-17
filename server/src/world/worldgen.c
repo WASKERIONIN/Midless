@@ -343,6 +343,19 @@ static void GenerateStructures(Chunk *chunk) {
                     cx * structure->spacing + (int)(MixSeed(randomValue + 1) % structure->spacing);
                 int z =
                     cz * structure->spacing + (int)(MixSeed(randomValue + 2) % structure->spacing);
+                /* v65.30: keep-out boxes (pocket instances stay decor-free) */
+                bool avoided = false;
+                for (int a = 0; a < structure->avoidCount; a++) {
+                    if (x >= structure->avoidBoxes[a].x0 && x <= structure->avoidBoxes[a].x1 &&
+                        z >= structure->avoidBoxes[a].z0 && z <= structure->avoidBoxes[a].z1)
+                        avoided = true;
+                }
+                if (avoided) {
+                    if (trace)
+                        fprintf(stderr, "TRACE %s @(%d,%d) reject avoid-box\n",
+                                structure->name, x, z);
+                    continue;
+                }
                 TerrainColumn column;
                 int y = FindSurfaceHeight(x, z, &column) + 1;
                 if (y <= worldgen.minY || y < structure->minY || y > structure->maxY ||
