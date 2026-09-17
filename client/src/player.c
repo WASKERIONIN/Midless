@@ -707,27 +707,23 @@ void Player_CheckInputs() {
                     if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
                 }
             } else if (player.wallRunSide != 0) {
-                /* v65.38: THE DIRECTION DECIDES THE PLANE. With a movement
-                 * key held the kick is a pure SIDEWAYS throw - the vertical
-                 * pop is removed ENTIRELY (a directional wall jump must
-                 * never, under any circumstances, go up). With no key held
-                 * it stays the classic vertical wall jump (v65.28/v65.30:
-                 * momentum kept, tangent boost, charges refreshed). */
+                /* v65.39: a NORMAL jump with FULL control. The vertical
+                 * pop always happens; a held direction ADDS the sustained
+                 * sideways throw on top of the ordinary arc - gravity,
+                 * double jump and glide all stay available during it.
+                 * Momentum kept, tangent boost, charges refreshed. */
+                player.velocity.y = WALLRUN_KICK_UP;
                 player.velocity.x *= 1.12f;
                 player.velocity.z *= 1.12f;
                 player.velocity.x += player.wallNormal.x * WALLRUN_KICK_AWAY;
                 player.velocity.z += player.wallNormal.z * WALLRUN_KICK_AWAY;
                 if (jkl > 0.01f) {
-                    player.velocity.y = 0.05f;   /* sideways, NOT up */
                     player.velocity.x += (jkx / jkl) * WALLRUN_DIR_KICK;
                     player.velocity.z += (jkz / jkl) * WALLRUN_DIR_KICK;
                     /* the throw is a WINDOW: it keeps feeding the direction
-                     * AND pins the vertical speed until it expires, so
-                     * neither damping nor gravity can turn it into a hop */
+                     * until it expires, so damping cannot eat it */
                     player.wallKickDir = (Vector3){ jkx / jkl, 0.0f, jkz / jkl };
                     player.wallKickUntil = GetTime() + WALLRUN_KICK_WINDOW;
-                } else {
-                    player.velocity.y = WALLRUN_KICK_UP;
                 }
                 /* keep the launch punchy but bounded */
                 float hsp = sqrtf(player.velocity.x * player.velocity.x +
@@ -751,10 +747,11 @@ void Player_CheckInputs() {
                        GetTime() >= player.wallKickUntil &&
                        GetTime() - player.lastWallContactTime < 0.30 &&
                        jkl > 0.01f) {
-                /* v65.38: wall-coyote throw - the run JUST ended (slid off,
-                 * sank out, cooldown); jump + direction within 0.3 s of the
-                 * wall still throws SIDEWAYS instead of double-jumping up */
-                player.velocity.y = 0.05f;
+                /* v65.39: wall-coyote throw - the run JUST ended (slid
+                 * off, sank out, cooldown); jump + direction within 0.3 s
+                 * of the wall gets the sideways throw AND a proper
+                 * double-jump-strength pop, so you never lose height */
+                player.velocity.y = 0.22f;
                 player.velocity.x += (jkx / jkl) * WALLRUN_DIR_KICK;
                 player.velocity.z += (jkz / jkl) * WALLRUN_DIR_KICK;
                 float hsp2 = sqrtf(player.velocity.x * player.velocity.x +
@@ -779,8 +776,7 @@ void Player_CheckInputs() {
                 lastGroundedTime = -100.0;
                 jumpPressedTime = -100.0;
                 SoundFx_PlayJump();
-            } else if (player.airJumpsUsed < 1 && IsKeyPressed(KEY_SPACE) &&
-                       GetTime() >= player.wallKickUntil) {   /* v65.38: no vertical during a throw */
+            } else if (player.airJumpsUsed < 1 && IsKeyPressed(KEY_SPACE)) {
                 /* v44: double jump - one extra mid-air jump on a fresh press */
                 player.velocity.y = 0.22f;
                 player.airJumpsUsed++;
@@ -836,16 +832,15 @@ void Player_CheckInputs() {
             player.velocity.x += player.dashDir.x * player.speed * 2.6f;
             player.velocity.z += player.dashDir.z * player.speed * 2.6f;
         }
-        /* v65.37/v65.38: wall-kick throw sustain - equilibrium ~0.33
-         * b/frame (18+ b/s) across the whole 0.45 s window, and the
-         * vertical speed is PINNED: the throw is a straight sideways
-         * line, gravity cannot arc it and no key can make it vertical */
+        /* v65.39: throw sustain is HORIZONTAL ONLY - equilibrium sits at
+         * the 0.42 clamp (~25 b/s) across the whole 0.45 s window while
+         * gravity keeps the natural arc and the player keeps every other
+         * verb (double jump, glide, steering). No forced flight path. */
         if (nowDash < player.wallKickUntil && !player.flying &&
             player.wallRunSide == 0 && !player.canJump &&
             player.liquidSubmersion <= 0.0f && !player.webActive) {
-            player.velocity.x += player.wallKickDir.x * 0.055f;
-            player.velocity.z += player.wallKickDir.z * 0.055f;
-            player.velocity.y = 0.0f;
+            player.velocity.x += player.wallKickDir.x * 0.07f;
+            player.velocity.z += player.wallKickDir.z * 0.07f;
             float kh = sqrtf(player.velocity.x * player.velocity.x +
                              player.velocity.z * player.velocity.z);
             if (kh > WALLRUN_KICK_MAX) {
@@ -1317,7 +1312,11 @@ static void Player_WallRunUpdate(float frameScale) {
             float base = hs > 0.125f ? hs : 0.125f;
             float target = base * 1.45f;
             if (target < 0.17f) target = 0.17f;
-            if (target > 0.24f) target = 0.24f;
+            /* v65.39: cap raised 0.24 -> 0.45. Arriving from a full-speed
+             * throw (0.42) used to be cut down to a jog on the opposite
+             * wall - "speed drops after the jump". Now the chain keeps its
+             * momentum and the next kick launches just as hard. */
+            if (target > 0.45f) target = 0.45f;
             player.wallRunSpeed = target;
             player.velocity.x = tangent.x * target;
             player.velocity.z = tangent.z * target;

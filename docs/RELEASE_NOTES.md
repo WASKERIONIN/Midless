@@ -2,6 +2,22 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.39
+
+- WALL-KICK IS A NORMAL JUMP AGAIN, with full control: the vertical pop
+  always fires; a held direction adds the sustained sideways throw ON TOP
+  of the ordinary arc. Gravity, double jump, glide and air steering all
+  stay available during the throw - no forced flight path, no pinned
+  vertical speed (that was the v65.38 "sinks lower and lower" glide).
+- Wall-chain momentum preserved: the wall-run attach speed cap is raised
+  0.24 -> 0.45 blocks/frame - arriving on the opposite wall from a
+  full-speed throw no longer cuts the run down to a jog, so kick chains
+  keep (and build) speed instead of losing it.
+- Throw sustain strengthened: horizontal feed 0.055 -> 0.07 per frame,
+  equilibrium at the 0.42 clamp (~25 blocks/s) across the 0.45 s window.
+- The wall-coyote throw now pops at double-jump strength (0.22) instead of
+  a flat 0.05 glide.
+
 ## v65.38
 
 - WALL-KICK WITH A HELD DIRECTION IS NOW STRICTLY SIDEWAYS: the vertical
