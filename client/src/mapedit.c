@@ -212,7 +212,8 @@ void MapEdit_Frame(void) {
     if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) looking = true;
     if (IsMouseButtonReleased(MOUSE_RIGHT_BUTTON)) looking = false;
     if (looking) {
-        camYaw += GetMouseDelta().x * 0.0035f;
+        /* v65.36: mouse right must turn the view right - was inverted */
+        camYaw -= GetMouseDelta().x * 0.0035f;
         camPitch -= GetMouseDelta().y * 0.0035f;
         if (camPitch > 1.4f) camPitch = 1.4f;
         if (camPitch < -1.4f) camPitch = -1.4f;

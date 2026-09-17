@@ -537,6 +537,8 @@ void Player_Draw(void) {
 #define WALLRUN_ROLL        0.16f      /* rad, banked into the wall */
 #define WALLRUN_KICK_UP     0.26f
 #define WALLRUN_KICK_AWAY   0.30f
+#define WALLRUN_DIR_KICK    0.30f   /* v65.36: throw toward the held direction */
+#define WALLRUN_KICK_MAX    0.42f   /* horizontal clamp right after the kick */
 #define WALLRUN_PROBE       0.75f      /* sideways reach from the body centre */
 #define WEB_DETACH_DIST 1.5f
 
@@ -704,6 +706,29 @@ void Player_CheckInputs() {
                 player.velocity.z *= 1.12f;
                 player.velocity.x += player.wallNormal.x * WALLRUN_KICK_AWAY;
                 player.velocity.z += player.wallNormal.z * WALLRUN_KICK_AWAY;
+                /* v65.36: DIRECTIONAL wall-kick - a held movement key throws
+                 * the runner across toward the opposite wall (the canyon
+                 * chimney verb) instead of a little vertical hop in place */
+                {
+                    float kx = 0.0f, kz = 0.0f;
+                    if (IsKeyDown(KEY_W)) { kz += sx; kx += cx; }
+                    if (IsKeyDown(KEY_S)) { kz -= sx; kx -= cx; }
+                    if (IsKeyDown(KEY_D)) { kz += sx90; kx += cx90; }
+                    if (IsKeyDown(KEY_A)) { kz -= sx90; kx -= cx90; }
+                    float kl = sqrtf(kx * kx + kz * kz);
+                    if (kl > 0.01f) {
+                        player.velocity.x += (kx / kl) * WALLRUN_DIR_KICK;
+                        player.velocity.z += (kz / kl) * WALLRUN_DIR_KICK;
+                    }
+                    /* keep the launch punchy but bounded */
+                    float hsp = sqrtf(player.velocity.x * player.velocity.x +
+                                      player.velocity.z * player.velocity.z);
+                    if (hsp > WALLRUN_KICK_MAX) {
+                        float k = WALLRUN_KICK_MAX / hsp;
+                        player.velocity.x *= k;
+                        player.velocity.z *= k;
+                    }
+                }
                 player.wallRunSide = 0;
                 player.wallRunTime = 0.0f;
                 player.wallRunCooldownUntil = GetTime() + 0.22;

@@ -209,6 +209,13 @@ void Game_RunLoop(void) {
                     Starfield_Draw(player.camera);
                     BlackHole_Draw(player.camera);
                     Ship_Draw((double)GetTime());   /* v62: the Void Runner */
+                } else if (PocketFx_ViewZone() == 2) {
+                    /* v65.36: the parkour instance is cosmic like the main
+                     * game - stars and the black-hole sun are drawn (the
+                     * post-FX lensing stays zeroed inside pockets); ship
+                     * traffic and overworld threats remain excluded */
+                    Starfield_Draw(player.camera);
+                    BlackHole_Draw(player.camera);
                 }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();

@@ -82,9 +82,10 @@ Color PocketFx_SkyColor(void) {
     /* v65.16: back to the calm blue of v65.12 - the dreamcore gradient
      * experiment is over, the peristyle frames the meadow instead */
     const float pocket[3] = { 124.0f, 178.0f, 214.0f };
-    /* v65.28: the Foundry hangs under a warm concrete dusk - pale,
-     * dusty daylight over brutalist grey. Calm, never glaring. */
-    const float foundry[3] = { 206.0f, 196.0f, 178.0f };
+    /* v65.36: the Foundry floats in the SAME starlit void as the main
+     * game - the concrete dusk read as empty and plain over custom maps,
+     * so zone 2 keeps the cosmic near-black indigo and gets the stars */
+    const float foundry[3] = { 14.0f, 4.0f, 28.0f };
     Color sky;
     for (int i = 0; i < 3; i++) {
         float c = cosmic[i] + (pocket[i] - cosmic[i]) * pocketFactor

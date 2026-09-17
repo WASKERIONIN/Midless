@@ -1,4 +1,29 @@
-# Midless: Cosmic Edition v65.35
+# Midless: Cosmic Edition v65.36
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.36 - cosmic parkour sky, directional wall-kick, editor mouse fix
+
+- **The parkour instance is cosmic now.** Zone 2 kept the warm concrete
+  dusk sky, which read as empty and plain over custom maps. It now uses
+  the same near-black indigo void as the main game, and the starfield
+  with its nebulae plus the black-hole sun are drawn inside the zone
+  (the screen-space gravity lensing stays zeroed inside pockets, ship
+  traffic and overworld threats stay excluded - pocket purity rules
+  intact). The meadow pocket keeps its calm blue sky.
+- **Directional wall-kick.** Jumping off a wall-run while holding a
+  movement key now throws the runner in that direction (across canyons
+  and chimneys toward the opposite wall) instead of a vertical hop in
+  place: the held WASD direction is added as a 0.30 impulse on top of
+  the existing wall-normal kick, with the horizontal launch clamped to
+  0.42 so chained kicks stay punchy but bounded. No key held - the
+  classic straight kick off the wall is unchanged.
+- **Map editor: horizontal mouse look was inverted** - moving the mouse
+  right turned the view left. Sign corrected; strafe keys stay as fixed
+  in v65.33 (the view/strafe geometry relationship is unchanged).
+
+---
+
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
