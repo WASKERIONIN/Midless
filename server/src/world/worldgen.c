@@ -1,4 +1,5 @@
 #include "worldgen.h"
+#include "parkourmap.h"
 #include "worldgenerator.h"
 #include "world.h"
 #include <math.h>
@@ -806,8 +807,10 @@ bool Worldgen_Freeze(void) {
      * caused by enabling/disabling a worldgen mod on an established world. */
     uint32_t fingerprint = CalculateDefinitionFingerprint();
     char expected[160];
-    snprintf(expected, sizeof(expected), "MIDLESS_WORLDGEN 1\n%s\n%d\n%08x\n", worldgen.id,
-             worldgen.version, (unsigned)fingerprint);
+    /* v65.32: the chosen parkour map is part of the world identity -
+     * switching maps regenerates, so no stale overlay stays baked in */
+    snprintf(expected, sizeof(expected), "MIDLESS_WORLDGEN 1\n%s\n%d\n%08x\n%s\n", worldgen.id,
+             worldgen.version, (unsigned)fingerprint, ParkourMapActiveName());
     bool legacyWorld = false;
     if (FileExists("world/worldgen.meta")) {
         char *saved = LoadFileText("world/worldgen.meta");

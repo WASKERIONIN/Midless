@@ -1,5 +1,6 @@
 #include "minilua.h"
 #include "../world/worldgen.h"
+#include "parkourmap.h"   /* v65.32: map queries for the mod */
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -345,6 +346,34 @@ static int Noise2(lua_State *luaState) {
 
 static int Noise3(lua_State *luaState) {
     return Noise(luaState, true);
+}
+
+/* v65.32: parkour map queries for the mod (custom maps replace the
+ * built-in course; markers carry gate/start/finish) */
+static int ParkourMapActiveLua(lua_State *luaState) {
+    lua_pushboolean(luaState, ParkourMapActive() != NULL);
+    return 1;
+}
+
+static int ParkourMapMarkerLua(lua_State *luaState) {
+    const char *which = luaL_checkstring(luaState, 1);
+    const PMap *map = ParkourMapActive();
+    if (!map) return 0;
+    const int *cell = NULL;
+    if (!strcmp(which, "gate") && map->hasGate) cell = map->gate;
+    else if (!strcmp(which, "start") && map->hasStart) cell = map->start;
+    else if (!strcmp(which, "finish") && map->hasFinish) cell = map->finish;
+    if (!cell) return 0;
+    int ax, ay, az;
+    ParkourMapAnchor(&ax, &ay, &az);
+    lua_newtable(luaState);
+    lua_pushinteger(luaState, ax + cell[0]);
+    lua_setfield(luaState, -2, "x");
+    lua_pushinteger(luaState, ay + cell[1]);
+    lua_setfield(luaState, -2, "y");
+    lua_pushinteger(luaState, az + cell[2]);
+    lua_setfield(luaState, -2, "z");
+    return 1;
 }
 
 static int ConfigureWorldgen(lua_State *luaState) {
@@ -718,7 +747,10 @@ void LuaWorldgen_Init(void) {
                                       {"step", Step},
                                       {"steps", Steps},
                                       {NULL, NULL}};
-    static const luaL_Reg api[] = {{"configure", ConfigureWorldgen},
+    static const luaL_Reg api[] = {
+        {"parkour_map_active", ParkourMapActiveLua},
+        {"parkour_map_marker", ParkourMapMarkerLua},
+        {"configure", ConfigureWorldgen},
                                    {"define_biome", DefineBiome},
                                    {"define_ore", DefineOre},
                                    {"define_structure", DefineStructure},

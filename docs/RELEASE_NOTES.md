@@ -1,4 +1,48 @@
-# Midless: Cosmic Edition v65.31
+# Midless: Cosmic Edition v65.32
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.32 - parkour map editor, custom maps, and a camera-bank fix
+
+- **Wall-run camera bank flipped.** The roll now leans INTO the wall the
+  runner is on (it leaned away before) - `rollTarget` sign corrected in
+  the client camera code.
+- **New: parkour map editor** (`Map Editor` button on the main menu).
+  A standalone workbench screen built on raygui with its own dark
+  professional UI - not the in-game HUD style: top toolbar
+  (NEW / UNDO / REDO / GRID), left dock (8 tools + 6-block palette +
+  marker status), right dock (properties + map library), bottom status
+  bar with live cursor cell and tool hints. Free-fly camera
+  (RMB look, WASD/QE, Shift boost, wheel = speed).
+- **Build in bulk, not block by block:** BOX CHAIN fills a whole region
+  between two clicked corners at a set height; WALL draws a wall of any
+  length between two clicks with Height/Thickness properties; WALL 45
+  makes stepped diagonal walls; PLACE/ERASE handle single blocks;
+  GATE/START/FINISH tools set the course markers. Undo/redo stack (24
+  steps), Ctrl+Z / Ctrl+Y.
+- **Maps live in a `maps/` folder** next to the game executable
+  (`maps/<name>.pmap`, documented text format: `box x y z hx hy hz id`
+  and `gate|start|finish x y z`). Save / Load / Delete from the editor's
+  map library.
+- **Map picker on the main menu:** `PARKOUR MODE MAP` combobox lists
+  `Default Foundry` + every saved map, persists to `settings.ini`
+  (`parkourmap=` key), and is applied when Singleplayer/host starts.
+  The list rescans live, so maps saved in the editor appear at once.
+- **Server:** a new shared `parkourmap` module (list/load/save/delete +
+  session-active map). When a map is active, the chunk generator stamps
+  its boxes into the second pocket zone (anchor -1296,118,1104,
+  192x64x192 local space) and the Lua course switches to a plain slab;
+  markers drive the gate block, spawn teleport and the run timer via
+  new `wg.parkour_map_active()` / `wg.parkour_map_marker(name)`
+  bindings. The active map name is part of the world fingerprint, so
+  switching maps regenerates the world - no stale geometry.
+- World mod version 26.
+- Dev: new `mapprobe` (default-course and custom-map modes, both green),
+  probe stubs for the map file surface, probes re-run (foundryprobe,
+  pocketplay full loop, modprobe/worldprobe, compile/api checks).
+
+---
+
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

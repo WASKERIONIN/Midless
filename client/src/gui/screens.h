@@ -14,7 +14,8 @@ typedef enum Screen {
     SCREEN_LOADING,
     SCREEN_JOINING,
     SCREEN_LOGIN,
-    SCREEN_OPTIONS
+    SCREEN_OPTIONS,
+    SCREEN_EDITOR   /* v65.32: parkour map editor workbench */
 } Screen;
 
 extern Screen currentScreen;

@@ -13,6 +13,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
+#include "parkourmap.h"
 #include "../worldgenerator.h"
 
 static void ServerChunk_Init(Chunk *chunk, Vector3 pos) {
@@ -67,11 +68,39 @@ bool ServerChunk_LoadFile(Chunk *chunk) {
     return false;
 }
 
+/* v65.32: a user-authored parkour map replaces the built-in course: its
+ * boxes are anchored into the second pocket zone and stamped straight
+ * into the chunk. Idempotent, so file-loaded chunks pass through too. */
+static void ApplyParkourMapOverlay(Chunk *chunk) {
+    const PMap *map = ParkourMapActive();
+    if (!map) return;
+    int ax, ay, az;
+    ParkourMapAnchor(&ax, &ay, &az);
+    int x0 = chunk->blockPosition.x, y0 = chunk->blockPosition.y, z0 = chunk->blockPosition.z;
+    for (int i = 0; i < map->boxCount; i++) {
+        const PMapBox *b = &map->boxes[i];
+        int bx0 = ax + b->x - b->hx, bx1 = ax + b->x + b->hx;
+        int by0 = ay + b->y - b->hy, by1 = ay + b->y + b->hy;
+        int bz0 = az + b->z - b->hz, bz1 = az + b->z + b->hz;
+        if (bx1 < x0 || bx0 >= x0 + CHUNK_SIZE_X || by1 < y0 || by0 >= y0 + CHUNK_SIZE_Y ||
+            bz1 < z0 || bz0 >= z0 + CHUNK_SIZE_Z)
+            continue;
+        for (int x = bx0 < x0 ? x0 : bx0; x <= bx1 && x < x0 + CHUNK_SIZE_X; x++)
+            for (int y = by0 < y0 ? y0 : by0; y <= by1 && y < y0 + CHUNK_SIZE_Y; y++)
+                for (int z = bz0 < z0 ? z0 : bz0; z <= bz1 && z < z0 + CHUNK_SIZE_Z; z++) {
+                    /* SetBlock wants chunk-LOCAL coordinates */
+                    Vector3 p = { (float)(x - x0), (float)(y - y0), (float)(z - z0) };
+                    ServerChunk_SetBlock(chunk, p, b->id);
+                }
+    }
+}
+
 void ServerChunk_Generate(Chunk *chunk) {
     if (!chunk->fromFile) {
         ServerWorldGenerator_Generate(chunk);
         ServerWorldGenerator_GenerateStructures(chunk);
     }
+    ApplyParkourMapOverlay(chunk);
     ServerWorldGenerator_GenerateSkyMask(chunk);
 }
 

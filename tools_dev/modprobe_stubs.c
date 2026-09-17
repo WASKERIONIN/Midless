@@ -120,3 +120,7 @@ unsigned char *ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, u
 void ServerPlayer_SendMessage(Player *player, const char *message) { (void)player; (void)message; }
 void ServerPlayer_Teleport(Player *player, Vector3 position) { (void)player; (void)position; }
 double GetTimeMilliseconds(void) { return GetTime() * 1000.0; }
+
+/* v65.32: parkourmap.c file surface (probes never touch real map files) */
+const char *GetApplicationDirectory(void) { return ""; }
+bool DirectoryExists(const char *path) { (void)path; return false; }

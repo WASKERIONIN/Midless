@@ -15,6 +15,7 @@ typedef struct GameSettings {
     int music;      /* v59: dungeon-synth radio on/off */
     int autoTrack;  /* v63.5: auto-switch radio tracks (default OFF) */
     int resver;     /* v56: settings-layout version for one-time migrations */
+    char parkourMap[48];   /* v65.32: parkour-mode map name ("" = built-in) */
 } GameSettings;
 
 extern GameSettings gameSettings;

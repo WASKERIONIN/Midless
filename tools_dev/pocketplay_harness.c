@@ -15,6 +15,9 @@
 
 extern World serverWorld;
 void RuntimePaths_Init(void) { /* harness runs from the sandbox cwd */ }
+/* v65.32: probe stubs for the raylib file surface parkourmap.c touches */
+const char *GetApplicationDirectory(void) { return ""; }
+bool DirectoryExists(const char *path) { (void)path; return false; }
 
 static int BlockAt(int x, int y, int z) {
     return ServerWorld_GetBlock((Vector3){ (float)x, (float)y, (float)z });

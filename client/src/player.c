@@ -1096,7 +1096,9 @@ void Player_CheckInputs() {
 
     /* v65.28: the world banks into the wall while running on it */
     {
-        float rollTarget = player.wallRunSide != 0 ? (float)player.wallRunSide * WALLRUN_ROLL : 0.0f;
+        /* v65.32: the bank was leaning AWAY from the wall - playtest says
+         * the opposite side; the camera now tilts into the surface */
+        float rollTarget = player.wallRunSide != 0 ? -(float)player.wallRunSide * WALLRUN_ROLL : 0.0f;
         player.camRoll += (rollTarget - player.camRoll) *
                           (1.0f - powf(0.00001f, GetFrameTime()));
         if (fabsf(player.camRoll) > 0.0015f) {

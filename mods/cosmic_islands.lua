@@ -395,7 +395,9 @@ end
 -- v65.30: the plaza (and the gate) sit west of the zone centre so the whole
 -- 130-long course fits inside the zone box (the pocket_zone2 mask is +-96;
 -- the v65.29 course ran to +118 and was silently masked back into void)
-local p2_gate_cell = f.eq(x, P2_CX - 72) * f.eq(z, P2_CZ) * f.eq(y, P2_TOP)
+local p2_gate_cell = map_gate and
+    (f.eq(x, map_gate.x) * f.eq(z, map_gate.z) * f.eq(y, map_gate.y)) or
+    (f.eq(x, P2_CX - 72) * f.eq(z, P2_CZ) * f.eq(y, P2_TOP))
 
 -- v65.30: THE FOUNDRY, REBUILT AS A PARKOUR ARENA. The v65.28 course read
 -- as clutter: bare pads floating over a horizon-wide slab, no bounds, no
@@ -417,8 +419,20 @@ local p2_gate_cell = f.eq(x, P2_CX - 72) * f.eq(z, P2_CZ) * f.eq(y, P2_TOP)
 -- line), a chimney staircase leg, wall-to-wall kicks at the end, and a
 -- wall-kick ascent onto the finish plateau. No rims, no collision traps:
 -- a fall costs clock, nothing else.
-local parkour_field = pbox(P2_CX - 72, P2_TOP - 3, P2_CZ, 8, 3, 8)   -- start court
+-- v65.32: a user-authored map (maps/*.pmap, chosen at host start) replaces
+-- the built-in course: the zone becomes a plain slab and the map's boxes
+-- are stamped in by the chunk generator; markers carry gate/start/finish
+local map_active = wg.parkour_map_active()
+local map_gate = map_active and wg.parkour_map_marker("gate") or nil
+local map_start = map_active and wg.parkour_map_marker("start") or nil
+local map_finish = map_active and wg.parkour_map_marker("finish") or nil
+local parkour_field
+local lamps = f.constant(0)   -- hoisted: the material below needs it in map mode too
 local function padd(b) parkour_field = f.max(parkour_field, b) end
+if map_active then
+    parkour_field = pbox(P2_CX, P2_TOP - 3, P2_CZ, 95, 3, 95)
+else
+parkour_field = pbox(P2_CX - 72, P2_TOP - 3, P2_CZ, 8, 3, 8)   -- start court
 -- leg 1 canyon floor: rest islands, pits between them (crossed on walls)
 padd(pbox(P2_CX - 52, 115, P2_CZ, 6, 3, 5))
 padd(pbox(P2_CX - 30, 115, P2_CZ, 6, 3, 5))
@@ -472,7 +486,7 @@ padd(pbox(P2_CX - 2, 121, P2_CZ - 5, 0, 0, 0))
 
 -- light signage: wall crests and rest islands, nothing else
 local function lamp(x0, y0, z0) return pbox(x0, y0, z0, 0, 0, 0) end
-local lamps = lamp(P2_CX - 76, 118, P2_CZ + 4)
+lamps = f.max(lamps, lamp(P2_CX - 76, 118, P2_CZ + 4))
 lamps = f.max(lamps, lamp(P2_CX - 68, 118, P2_CZ + 4))
 for k = 52, 8, -22 do
     lamps = f.max(lamps, lamp(P2_CX - k, 132, P2_CZ + 6))
@@ -498,6 +512,7 @@ lamps = f.max(lamps, lamp(P2_CX + 82, 136, P2_CZ + 44))
 lamps = f.max(lamps, lamp(P2_CX + 90, 136, P2_CZ + 56))
 lamps = f.max(lamps, pbox(P2_CX + 86, 137, P2_CZ + 50, 0, 1.5, 0))   -- beacon
 parkour_field = f.max(parkour_field, lamps)
+end
 
 local parkour_material = f.select(p2_gate_cell, 80,
                           f.select(lamps, 83,
@@ -828,7 +843,7 @@ material = f.select(pocket_zone, pocket_material, material)
 material = f.select(pocket_zone2, parkour_material, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 25,
+    id = "midless:cosmic", version = 26,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     -- v65: density is the ISLANDS only. It used to include flora_cell, so
@@ -1152,7 +1167,12 @@ midless.register_on_step(function(dt)
                 local home_gate = in_p1 and math.abs(fx - POCKET_CX) <= 1 and math.abs(fz - POCKET_CZ) <= 1
                 if in_p1 and not home_gate then
                     pocket_origin[id] = { x = fx, y = gy, z = fz }
-                    p:teleport({ x = P2_CX - 67.5, y = P2_TOP + 2, z = P2_CZ + 4.5 })
+                    local ms = wg.parkour_map_marker("start")
+                    if ms then
+                        p:teleport({ x = ms.x + 0.5, y = ms.y + 2, z = ms.z + 0.5 })
+                    else
+                        p:teleport({ x = P2_CX - 67.5, y = P2_TOP + 2, z = P2_CZ + 4.5 })
+                    end
                     p:send_message("You cross into the Foundry: raw concrete, long gaps, and a clock. Run.")
                 elseif in_p1 or in_p2 then
                     local o = pocket_origin[id]
@@ -1184,14 +1204,22 @@ midless.register_on_step(function(dt)
         local pos = p:get_position()
         if math.abs(pos.x - P2_CX) < 96 and math.abs(pos.z - P2_CZ) < 96 then
             local id = p:get_id()
-            if math.abs(pos.x - (P2_CX - 60)) < 14 and math.abs(pos.z - P2_CZ) < 6
-               and pos.y < P2_TOP + 6 then
+            local ms = wg.parkour_map_marker("start")
+            local mf = wg.parkour_map_marker("finish")
+            local armed = ms and
+                (math.abs(pos.x - ms.x) < 4 and math.abs(pos.z - ms.z) < 4 and pos.y < ms.y + 6) or
+                (not ms and math.abs(pos.x - (P2_CX - 60)) < 14 and math.abs(pos.z - P2_CZ) < 6
+                   and pos.y < P2_TOP + 6)
+            local done = mf and
+                (math.abs(pos.x - mf.x) < 5 and math.abs(pos.z - mf.z) < 5 and pos.y > mf.y) or
+                (not mf and math.abs(pos.x - (P2_CX + 86)) < 7 and math.abs(pos.z - (P2_CZ + 50)) < 9
+                   and pos.y > P2_TOP + 14)
+            if armed then
                 if not course_start[id] then
                     course_start[id] = pocket_clock
                     p:send_message("Course armed. The clock is running.")
                 end
-            elseif math.abs(pos.x - (P2_CX + 86)) < 7 and math.abs(pos.z - (P2_CZ + 50)) < 9
-               and pos.y > P2_TOP + 14 then
+            elseif done then
                 local t0 = course_start[id]
                 if t0 then
                     course_start[id] = nil

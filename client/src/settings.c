@@ -67,6 +67,9 @@ void Settings_Load(void) {
         else if (sscanf(line, "music=%d", &value) == 1) gameSettings.music = value != 0;
         else if (sscanf(line, "autotrack=%d", &value) == 1) gameSettings.autoTrack = value != 0;
         else if (sscanf(line, "resver=%d", &value) == 1) gameSettings.resver = value;
+        else if (strncmp(line, "parkourmap=", 11) == 0)
+            snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
+                     "%s", line + 11);
         line = end ? end + 1 : NULL;
     }
     UnloadFileText(text);
@@ -91,14 +94,15 @@ void Settings_Load(void) {
 
 void Settings_Save(void) {
     BuildPath();
-    char body[256];
+    char body[384];
     snprintf(body, sizeof(body),
              "width=%d\nheight=%d\nfullscreen=%d\nmaxfps=%d\ndrawdistance=%d\nvolume=%d\n"
-             "vsync=%d\nlanguage=%d\nmusic=%d\nautotrack=%d\nresver=%d\n",
+             "vsync=%d\nlanguage=%d\nmusic=%d\nautotrack=%d\nresver=%d\nparkourmap=%s\n",
              gameSettings.width, gameSettings.height, gameSettings.fullscreen ? 1 : 0,
              gameSettings.maxFpsChoice, gameSettings.drawDistance, gameSettings.volume,
              gameSettings.vsync ? 1 : 0, gameSettings.language,
-             gameSettings.music ? 1 : 0, gameSettings.autoTrack, gameSettings.resver);
+             gameSettings.music ? 1 : 0, gameSettings.autoTrack, gameSettings.resver,
+             gameSettings.parkourMap);
     SaveFileText(settingsPath, body);
 }
 

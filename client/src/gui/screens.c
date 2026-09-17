@@ -15,6 +15,8 @@
 #include "raygui.h"
 #include "golem.h"
 #include "screens.h"
+#include "mapedit.h"
+#include "parkourmap.h"
 #include "chat.h"
 #include "player.h"
 #include "../hunter.h"
@@ -1107,7 +1109,50 @@ void Screen_DrawLogin(void) {
     if (MenuButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
         /* v65.7: the hosted server reads exactly what these boxes say */
         LocalServer_WriteHostConfig(hostPortInput, hostMaxInput, hostNameInput);
+        /* v65.32: the chosen parkour map rides into the server session */
+        ParkourMapSetActive(gameSettings.parkourMap);
         Screen_BeginSingleplayer();
+    }
+
+    /* v65.32: parkour map choice + the map editor live on the main menu */
+    {
+        static char mapOptions[1024];
+        static int mapChoice = 0;
+        static char chosenName[PMAP_NAME_LEN] = "";
+        static int refresh = 0;
+        /* rescan once a second so maps saved in the editor show up live */
+        if (refresh++ % 60 == 0 || mapOptions[0] == 0) {
+            snprintf(mapOptions, sizeof(mapOptions), "Default Foundry");
+            char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
+            int count = ParkourMapList(names, PMAP_MAX_MAPS);
+            mapChoice = 0;
+            for (int i = 0; i < count; i++) {
+                strcat(mapOptions, ";");
+                strcat(mapOptions, names[i]);
+                const char *want = chosenName[0] ? chosenName : gameSettings.parkourMap;
+                if (want[0] && !strcmp(names[i], want)) mapChoice = i + 1;
+            }
+        }
+        int my = offsetY + 268;
+        DrawPanel((Rectangle){ (float)offsetX - 170, (float)my - 12, 340, 64 });
+        I18n_DrawText("PARKOUR MODE MAP - custom maps from the editor",
+                      offsetX - 158, my - 4, 13, (Color){ 120, 190, 175, 255 });
+        if (GuiComboBox((Rectangle){ (float)offsetX - 158, (float)my + 16, 240, 28 },
+                        mapOptions, &mapChoice)) {
+            char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
+            int count = ParkourMapList(names, PMAP_MAX_MAPS);
+            if (mapChoice == 0 || mapChoice > count) {
+                chosenName[0] = 0;
+                gameSettings.parkourMap[0] = 0;
+            } else {
+                snprintf(chosenName, sizeof(chosenName), "%s", names[mapChoice - 1]);
+                snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
+                         "%s", names[mapChoice - 1]);
+            }
+            Settings_Save();
+        }
+        if (MenuButton((Rectangle){ offsetX + 92, my + 16, 70, 28 }, "Editor"))
+            MapEdit_Enter();
     }
 
     /* v65.7: HOST SETTINGS - a server you can hand to a friend starts
@@ -1323,6 +1368,8 @@ void Screen_Draw(void) {
         Screen_DrawJoining();
     else if (currentScreen == SCREEN_LOGIN)
         Screen_DrawLogin();
+    else if (currentScreen == SCREEN_EDITOR)
+        MapEdit_Frame();   /* v65.32: editor draws its own 3D + UI */
     else if (currentScreen == SCREEN_OPTIONS)
         Screen_DrawOptions();
 }
