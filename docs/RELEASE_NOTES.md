@@ -1,6 +1,36 @@
-# Midless: Cosmic Edition v65.30
+# Midless: Cosmic Edition v65.31
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.31 - the Foundry is a wall canyon now, and the invisible wall is gone
+
+Playtest verdict on v65.30: platforms must not be the main verb - WALLS
+must (the studied references all put the route ON the walls), the level
+must be longer and more varied, high walls must close the space around
+the route, and the path must branch. Rebuilt accordingly:
+
+- **A long S-shaped canyon.** Start court, then a wall-run gallery: two
+  continuous 68-long canyon walls with floor pits between rest islands -
+  the pits are crossed ON the walls (run, or kick between faces), the
+  islands are just rests. Then the route BRANCHES: the high line runs
+  along the crest of a divider wall between two corridors, the low line
+  wall-kicks up and over a chimney stub pair; they rejoin at a junction.
+  Leg two is a 3-wide chimney slot between inner walls - a wall-kick
+  staircase north. Leg three closes with wall-to-wall kicks across
+  offset pits, and a final wall-kick chimney lifts you onto the finish
+  plateau and its beacon. Crests, islands and the finish carry light
+  strips as the only signposting. No rims, no collision traps anywhere:
+  a fall costs clock, nothing else.
+- **The "invisible wall before the finish" was the zone barrier.** Its
+  63-block radius cylinder sliced the course at x+63 - right before the
+  precision section. The second zone now uses a BOX safety net at the
+  zone boundary (it only ever catches you at the boundary or under the
+  floor); the meadow keeps its circle. The barrier constant is gone.
+- Worldgen version 25 - old worlds regenerate on first launch.
+- Dev probes updated to the canyon: foundryprobe validates 20 course
+  coordinates plus the region leak scan; pocketplay runs the full loop
+  headless - all green.
+
 
 ## v65.30 - the parkour instance, rebuilt on parkour-game rules
 

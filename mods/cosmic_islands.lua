@@ -395,7 +395,7 @@ end
 -- v65.30: the plaza (and the gate) sit west of the zone centre so the whole
 -- 130-long course fits inside the zone box (the pocket_zone2 mask is +-96;
 -- the v65.29 course ran to +118 and was silently masked back into void)
-local p2_gate_cell = f.eq(x, P2_CX - 40) * f.eq(z, P2_CZ + 8) * f.eq(y, P2_TOP)
+local p2_gate_cell = f.eq(x, P2_CX - 72) * f.eq(z, P2_CZ) * f.eq(y, P2_TOP)
 
 -- v65.30: THE FOUNDRY, REBUILT AS A PARKOUR ARENA. The v65.28 course read
 -- as clutter: bare pads floating over a horizon-wide slab, no bounds, no
@@ -408,78 +408,95 @@ local p2_gate_cell = f.eq(x, P2_CX - 40) * f.eq(z, P2_CZ + 8) * f.eq(y, P2_TOP)
 -- flow gaps 4 with +1 rises, precision gaps 4 onto 3x3 pads.
 -- the plaza slab (same 7-cell thickness as the meadow), now 57x57 with a
 -- two-cell rim wall so the arena HAS an edge instead of a fake horizon
-local parkour_field = pbox(P2_CX - 40, P2_TOP - 3, P2_CZ + 8, 28, 3, 28)
+-- v65.31: THE FOUNDRY AS A WALL CANYON. Playtest verdict: platforms must
+-- NOT be the main verb - WALLS are (VHOLUME/Titanfall/Mirror's Edge: the
+-- route lives ON the walls: run them, kick between them, traverse their
+-- tops). So: a long S-shaped canyon, high walls closing everything around,
+-- floor only as rest islands between pits (pits are crossed ON the walls),
+-- a branching middle (high divider-top traverse vs right-hand chimney
+-- line), a chimney staircase leg, wall-to-wall kicks at the end, and a
+-- wall-kick ascent onto the finish plateau. No rims, no collision traps:
+-- a fall costs clock, nothing else.
+local parkour_field = pbox(P2_CX - 72, P2_TOP - 3, P2_CZ, 8, 3, 8)   -- start court
 local function padd(b) parkour_field = f.max(parkour_field, b) end
-padd(pbox(P2_CX - 40, 119.5, P2_CZ - 20, 28, 0.5, 0))     -- rim north
-padd(pbox(P2_CX - 40, 119.5, P2_CZ + 36, 28, 0.5, 0))     -- rim south
-padd(pbox(P2_CX - 68, 119.5, P2_CZ + 8, 0, 0.5, 28))      -- rim west
-padd(pbox(P2_CX - 12, 119.5, P2_CZ - 8.5, 0, 0.5, 11.5))  -- rim east, gap z+4..z+12 = the route out
-padd(pbox(P2_CX - 12, 119.5, P2_CZ + 24.5, 0, 0.5, 11.5))
--- M1: the landmark monolith in the plaza's south-west corner (climbable)
-padd(pbox(P2_CX - 62, 128, P2_CZ - 12, 1.5, 9, 1.5))
--- chain 1: the flow steps - three 5x5 towers out of the slab, gap 4, +1
--- rise each (a tower reads as SUPPORT, a floating pad reads as a mistake)
-padd(pbox(P2_CX - 6, 115.5, P2_CZ + 8, 2, 3.5, 2))
-padd(pbox(P2_CX + 3, 116, P2_CZ + 8, 2, 4, 2))
-padd(pbox(P2_CX + 12, 116.5, P2_CZ + 8, 2, 4.5, 2))
--- the rest beat: a 5x7 pad between chains (Mirror's Edge rhythm)
-padd(pbox(P2_CX + 22, 116, P2_CZ + 8, 2, 5, 3))
--- chain 2: the wall-run - a 17-long face over open void; run it east and
--- step off onto the ledge. The wall grows straight out of the slab.
-padd(pbox(P2_CX + 35, 119, P2_CZ + 4, 8, 7, 0))
-padd(pbox(P2_CX + 47, 119, P2_CZ + 6, 1, 7, 1))          -- exit ledge tower
--- chain 3: the chimney - two 23-high faces 2 apart; drop in from the ledge
--- and wall-kick the zigzag to the crown, step out onto the back shelf
-padd(pbox(P2_CX + 51, 121, P2_CZ + 7, 0, 11, 2))
-padd(pbox(P2_CX + 54, 121, P2_CZ + 7, 0, 11, 2))
-padd(pbox(P2_CX + 52.5, 122.5, P2_CZ + 11.5, 2.5, 10.5, 1.5))
--- chain 4: precision hops - 3x3 pad towers, gap 4
-padd(pbox(P2_CX + 60, 122.5, P2_CZ + 12, 1, 10.5, 1))
-padd(pbox(P2_CX + 67, 122.5, P2_CZ + 12, 1, 10.5, 1))
-padd(pbox(P2_CX + 74, 122.5, P2_CZ + 12, 1, 10.5, 1))
--- the finish plateau: a rimmed monolith with a beacon, entry gap west
-padd(pbox(P2_CX + 84, 122.5, P2_CZ + 12, 4, 10.5, 4))
-padd(pbox(P2_CX + 84, 134, P2_CZ + 8, 4, 0, 0))
-padd(pbox(P2_CX + 84, 134, P2_CZ + 16, 4, 0, 0))
-padd(pbox(P2_CX + 88, 134, P2_CZ + 12, 0, 0, 4))
-padd(pbox(P2_CX + 80, 134, P2_CZ + 8.5, 0, 0, 0.5))
-padd(pbox(P2_CX + 80, 134, P2_CZ + 15.5, 0, 0, 0.5))
--- the shortcut: a stepped monolith south of the wall-run - base 124 from
--- the rest pad, column 128, then drop onto the wall-run exit ledge and
--- skip the traverse entirely (route knowledge pays, VHOLUME-style)
-padd(pbox(P2_CX + 32, 118.5, P2_CZ + 10, 1.5, 5.5, 1.5))
-padd(pbox(P2_CX + 32, 126.5, P2_CZ + 10, 0.5, 1.5, 0.5))
+-- leg 1 canyon floor: rest islands, pits between them (crossed on walls)
+padd(pbox(P2_CX - 52, 115, P2_CZ, 6, 3, 5))
+padd(pbox(P2_CX - 30, 115, P2_CZ, 6, 3, 5))
+padd(pbox(P2_CX - 8, 115, P2_CZ, 6, 3, 5))
+-- the branch junction
+padd(pbox(P2_CX + 8, 115, P2_CZ, 6, 3, 10))
+-- left (high) branch islands + right (chimney) branch islands
+padd(pbox(P2_CX + 24, 115, P2_CZ + 10, 5, 3, 4))
+padd(pbox(P2_CX + 38, 115, P2_CZ + 10, 5, 3, 4))
+padd(pbox(P2_CX + 24, 115, P2_CZ - 10, 5, 3, 4))
+padd(pbox(P2_CX + 38, 115, P2_CZ - 10, 5, 3, 4))
+-- rejoin, leg 2 chimney corridor floor, corner, leg 3 islands
+padd(pbox(P2_CX + 50, 115, P2_CZ, 6, 3, 14))
+padd(pbox(P2_CX + 50, 115, P2_CZ + 26, 5, 3, 6))
+padd(pbox(P2_CX + 50, 115, P2_CZ + 46, 6, 3, 8))
+padd(pbox(P2_CX + 64, 115, P2_CZ + 50, 5, 3, 5))
+padd(pbox(P2_CX + 74, 115, P2_CZ + 50, 4, 3, 5))
+-- THE WALLS: leg 1 canyon (tops 131) - continuous faces, the route verb
+padd(pbox(P2_CX - 30, 125, P2_CZ + 6, 34, 6, 0))
+padd(pbox(P2_CX - 30, 125, P2_CZ - 6, 34, 6, 0))
+-- start court walls
+padd(pbox(P2_CX - 72, 125, P2_CZ + 9, 8, 6, 0))
+padd(pbox(P2_CX - 72, 125, P2_CZ - 9, 8, 6, 0))
+padd(pbox(P2_CX - 81, 125, P2_CZ, 0, 6, 9))
+-- branch walls: two outer canyon walls + a lower divider between them
+padd(pbox(P2_CX + 30, 125, P2_CZ + 15, 16, 6, 0))
+padd(pbox(P2_CX + 30, 125, P2_CZ - 15, 16, 6, 0))
+padd(pbox(P2_CX + 30, 123, P2_CZ, 16, 4, 0))     -- divider, top 127: the high line runs along its crest
+-- right branch: two chimney stubs - wall-kick up and over
+padd(pbox(P2_CX + 24, 125, P2_CZ - 10, 0, 6, 4))
+padd(pbox(P2_CX + 28, 125, P2_CZ - 10, 0, 6, 4))
+-- leg 2: outer canyon walls + an inner pair making a 3-wide chimney slot
+padd(pbox(P2_CX + 44, 127, P2_CZ + 30, 0, 8, 22))
+padd(pbox(P2_CX + 56, 127, P2_CZ + 30, 0, 8, 22))
+padd(pbox(P2_CX + 48, 127, P2_CZ + 30, 0, 8, 20))
+padd(pbox(P2_CX + 52, 127, P2_CZ + 30, 0, 8, 20))
+-- leg 3 canyon walls (wall-to-wall kicks across the pits)
+padd(pbox(P2_CX + 70, 127, P2_CZ + 56, 22, 8, 0))
+padd(pbox(P2_CX + 70, 127, P2_CZ + 44, 22, 8, 0))
+-- the finish ascent chimney + the plateau tower (top 135)
+padd(pbox(P2_CX + 78, 126, P2_CZ + 50, 0, 8, 4))
+padd(pbox(P2_CX + 81, 126, P2_CZ + 50, 0, 8, 4))
+padd(pbox(P2_CX + 86, 124.5, P2_CZ + 50, 6, 10.5, 8))
+-- wall-run entry steps: 1-cell nubs at the pit lips (mantle height)
+padd(pbox(P2_CX - 46, 121, P2_CZ + 5, 0, 0, 0))
+padd(pbox(P2_CX - 24, 121, P2_CZ + 5, 0, 0, 0))
+padd(pbox(P2_CX - 2, 121, P2_CZ + 5, 0, 0, 0))
+padd(pbox(P2_CX - 46, 121, P2_CZ - 5, 0, 0, 0))
+padd(pbox(P2_CX - 24, 121, P2_CZ - 5, 0, 0, 0))
+padd(pbox(P2_CX - 2, 121, P2_CZ - 5, 0, 0, 0))
 
--- path lamps (83): the route is signposted by LIGHT, not waypoints
+-- light signage: wall crests and rest islands, nothing else
 local function lamp(x0, y0, z0) return pbox(x0, y0, z0, 0, 0, 0) end
-local lamps = lamp(P2_CX - 37, 118, P2_CZ + 11)
-for k = 34, 28, -3 do lamps = f.max(lamps, lamp(P2_CX - k, 118, P2_CZ + 11 + (34 - k))) end
--- the route-out gap glows on both lips
-lamps = f.max(lamps, lamp(P2_CX - 12, 120, P2_CZ + 3))
-lamps = f.max(lamps, lamp(P2_CX - 12, 120, P2_CZ + 13))
--- flow steps: a lamp on the far corner of each tower reads as "next"
-lamps = f.max(lamps, lamp(P2_CX - 4, 120, P2_CZ + 10))
-lamps = f.max(lamps, lamp(P2_CX + 5, 121, P2_CZ + 10))
-lamps = f.max(lamps, lamp(P2_CX + 14, 122, P2_CZ + 10))
--- rest pad corners
-lamps = f.max(lamps, lamp(P2_CX + 20, 122, P2_CZ + 5))
-lamps = f.max(lamps, lamp(P2_CX + 24, 122, P2_CZ + 11))
--- the traverse: a light strip along the wall top, and the ledge
-lamps = f.max(lamps, lamp(P2_CX + 28, 127, P2_CZ + 4))
-lamps = f.max(lamps, lamp(P2_CX + 34, 127, P2_CZ + 4))
-lamps = f.max(lamps, lamp(P2_CX + 40, 127, P2_CZ + 4))
-lamps = f.max(lamps, lamp(P2_CX + 48, 127, P2_CZ + 7))
--- chimney crown
-lamps = f.max(lamps, lamp(P2_CX + 51, 133, P2_CZ + 5))
-lamps = f.max(lamps, lamp(P2_CX + 54, 133, P2_CZ + 9))
--- precision pads: one lamp on the far edge of each
-lamps = f.max(lamps, lamp(P2_CX + 61, 134, P2_CZ + 13))
-lamps = f.max(lamps, lamp(P2_CX + 68, 134, P2_CZ + 13))
-lamps = f.max(lamps, lamp(P2_CX + 75, 134, P2_CZ + 13))
--- finish ring + the beacon column over the plateau
-lamps = f.max(lamps, lamp(P2_CX + 80, 134, P2_CZ + 8))
-lamps = f.max(lamps, lamp(P2_CX + 88, 134, P2_CZ + 16))
-lamps = f.max(lamps, pbox(P2_CX + 84, 135.5, P2_CZ + 12, 0, 1.5, 0))
+local lamps = lamp(P2_CX - 76, 118, P2_CZ + 4)
+lamps = f.max(lamps, lamp(P2_CX - 68, 118, P2_CZ + 4))
+for k = 52, 8, -22 do
+    lamps = f.max(lamps, lamp(P2_CX - k, 132, P2_CZ + 6))
+    lamps = f.max(lamps, lamp(P2_CX - k, 132, P2_CZ - 6))
+end
+lamps = f.max(lamps, lamp(P2_CX + 8, 122, P2_CZ + 9))
+lamps = f.max(lamps, lamp(P2_CX + 8, 122, P2_CZ - 9))
+lamps = f.max(lamps, lamp(P2_CX + 24, 132, P2_CZ + 15))
+lamps = f.max(lamps, lamp(P2_CX + 38, 132, P2_CZ + 15))
+lamps = f.max(lamps, lamp(P2_CX + 24, 128, P2_CZ))
+lamps = f.max(lamps, lamp(P2_CX + 38, 128, P2_CZ))
+lamps = f.max(lamps, lamp(P2_CX + 24, 132, P2_CZ - 15))
+lamps = f.max(lamps, lamp(P2_CX + 38, 132, P2_CZ - 15))
+lamps = f.max(lamps, lamp(P2_CX + 44, 136, P2_CZ + 20))
+lamps = f.max(lamps, lamp(P2_CX + 56, 136, P2_CZ + 20))
+lamps = f.max(lamps, lamp(P2_CX + 44, 136, P2_CZ + 40))
+lamps = f.max(lamps, lamp(P2_CX + 56, 136, P2_CZ + 40))
+lamps = f.max(lamps, lamp(P2_CX + 60, 136, P2_CZ + 56))
+lamps = f.max(lamps, lamp(P2_CX + 76, 136, P2_CZ + 56))
+lamps = f.max(lamps, lamp(P2_CX + 60, 136, P2_CZ + 44))
+lamps = f.max(lamps, lamp(P2_CX + 76, 136, P2_CZ + 44))
+lamps = f.max(lamps, lamp(P2_CX + 82, 136, P2_CZ + 44))
+lamps = f.max(lamps, lamp(P2_CX + 90, 136, P2_CZ + 56))
+lamps = f.max(lamps, pbox(P2_CX + 86, 137, P2_CZ + 50, 0, 1.5, 0))   -- beacon
 parkour_field = f.max(parkour_field, lamps)
 
 local parkour_material = f.select(p2_gate_cell, 80,
@@ -811,7 +828,7 @@ material = f.select(pocket_zone, pocket_material, material)
 material = f.select(pocket_zone2, parkour_material, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 24,
+    id = "midless:cosmic", version = 25,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     -- v65: density is the ISLANDS only. It used to include flora_cell, so
@@ -1061,12 +1078,16 @@ end)
 -- a walker (or a flyer) from stepping between the columns and off the
 -- island. An invisible cylinder just inside the colonnade clamps the
 -- position every tick, from the lawn up to fly-mode heights.
-local BARRIER_R = 63.0   -- v65.20: widened from 60 - walk up to the columns
 -- v65.28/v65.29: one barrier+rescue rule, both pocket zones; the Foundry
 -- floor is LOWER (118), so each zone carries its own top
+-- v65.31: per-zone safety shape. The meadow keeps its circle; the Foundry
+-- gets a BOX net at the zone edge - the old radius 63 cylinder sliced the
+-- course in half ("an invisible wall before the finish"). The net only
+-- ever catches you at the zone boundary or under the floor; the course
+-- itself has no collision traps of any kind.
 local pocket_zones = {
-    { cx = POCKET_CX, cz = POCKET_CZ, top = POCKET_TOP, catch = "The meadow catches you." },
-    { cx = P2_CX,     cz = P2_CZ,     top = P2_TOP,     catch = "The slab catches you." },
+    { cx = POCKET_CX, cz = POCKET_CZ, top = POCKET_TOP, r = 63, catch = "The meadow catches you." },
+    { cx = P2_CX,     cz = P2_CZ,     top = P2_TOP, hx = 93, hz = 93, catch = "The slab catches you." },
 }
 midless.register_on_step(function(dt)
     local players = midless.get_players()
@@ -1090,10 +1111,16 @@ midless.register_on_step(function(dt)
                     p:teleport({ x = pos.x, y = zone.top + 2, z = pos.z })
                     p:send_message(zone.catch)
                 elseif pos.y < zone.top + 200 then
-                    local r = math.sqrt(dx * dx + dz * dz)
-                    if r > BARRIER_R then
-                        local k = BARRIER_R / r
-                        p:teleport({ x = zone.cx + 0.5 + dx * k, y = pos.y, z = zone.cz + 0.5 + dz * k })
+                    if zone.r then
+                        local r = math.sqrt(dx * dx + dz * dz)
+                        if r > zone.r then
+                            local k = zone.r / r
+                            p:teleport({ x = zone.cx + 0.5 + dx * k, y = pos.y, z = zone.cz + 0.5 + dz * k })
+                        end
+                    elseif math.abs(dx) > zone.hx or math.abs(dz) > zone.hz then
+                        dx = math.max(-zone.hx, math.min(zone.hx, dx))
+                        dz = math.max(-zone.hz, math.min(zone.hz, dz))
+                        p:teleport({ x = zone.cx + 0.5 + dx, y = pos.y, z = zone.cz + 0.5 + dz })
                     end
                 end
             end
@@ -1125,7 +1152,7 @@ midless.register_on_step(function(dt)
                 local home_gate = in_p1 and math.abs(fx - POCKET_CX) <= 1 and math.abs(fz - POCKET_CZ) <= 1
                 if in_p1 and not home_gate then
                     pocket_origin[id] = { x = fx, y = gy, z = fz }
-                    p:teleport({ x = P2_CX - 35.5, y = P2_TOP + 2, z = P2_CZ + 12.5 })
+                    p:teleport({ x = P2_CX - 67.5, y = P2_TOP + 2, z = P2_CZ + 4.5 })
                     p:send_message("You cross into the Foundry: raw concrete, long gaps, and a clock. Run.")
                 elseif in_p1 or in_p2 then
                     local o = pocket_origin[id]
@@ -1157,13 +1184,13 @@ midless.register_on_step(function(dt)
         local pos = p:get_position()
         if math.abs(pos.x - P2_CX) < 96 and math.abs(pos.z - P2_CZ) < 96 then
             local id = p:get_id()
-            if math.abs(pos.x - (P2_CX + 3)) < 12 and math.abs(pos.z - (P2_CZ + 8)) < 4
+            if math.abs(pos.x - (P2_CX - 60)) < 14 and math.abs(pos.z - P2_CZ) < 6
                and pos.y < P2_TOP + 6 then
                 if not course_start[id] then
                     course_start[id] = pocket_clock
                     p:send_message("Course armed. The clock is running.")
                 end
-            elseif math.abs(pos.x - (P2_CX + 84)) < 5 and math.abs(pos.z - (P2_CZ + 12)) < 5
+            elseif math.abs(pos.x - (P2_CX + 86)) < 7 and math.abs(pos.z - (P2_CZ + 50)) < 9
                and pos.y > P2_TOP + 14 then
                 local t0 = course_start[id]
                 if t0 then

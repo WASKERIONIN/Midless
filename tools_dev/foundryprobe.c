@@ -17,28 +17,26 @@ int main(void) {
 
     /* name, x, y, z, expected */
     static const struct { const char *n; int x, y, z, e; } probes[] = {
-        { "plaza floor",      -1230, 118, 1220, 81 },
-        { "plaza base",       -1230, 114, 1220, 82 },
-        { "plaza air",        -1230, 122, 1220, 0 },
-        { "centre gate",      -1240, 118, 1208, 80 },
-        { "path lamp",        -1237, 118, 1211, 83 },
-        { "rim north",        -1232, 119, 1180, 81 },
-        { "flow S1 top",      -1206, 119, 1208, 81 },
-        { "flow S1 tower",    -1206, 115, 1208, 82 },
-        { "rest pad",         -1178, 121, 1208, 81 },
-        { "wall-run face",    -1165, 122, 1204, 81 },
-        { "wall top lamp",    -1172, 127, 1204, 83 },
-        { "exit ledge",       -1153, 126, 1206, 81 },
-        { "chimney a",        -1149, 125, 1207, 81 },
-        { "chimney b",        -1146, 125, 1207, 81 },
-        { "back shelf",       -1147, 133, 1211, 81 },
-        { "precision P1",     -1140, 133, 1212, 81 },
-        { "precision P3",     -1126, 133, 1212, 81 },
-        { "finish plateau",   -1116, 133, 1212, 81 },
-        { "finish rim",       -1116, 134, 1208, 81 },
-        { "beacon",           -1116, 135, 1212, 83 },
-        { "shortcut base",    -1168, 124, 1210, 81 },
-        { "monolith M1",      -1262, 130, 1188, 81 },
+        { "court floor",      -1266, 118, 1206, 81 },
+        { "court below",      -1268, 114, 1204, 82 },
+        { "court air",        -1268, 122, 1204, 0 },
+        { "centre gate",      -1272, 118, 1200, 80 },
+        { "leg1 island",      -1252, 118, 1200, 81 },
+        { "leg1 pit air",     -1242, 118, 1200, 0 },
+        { "leg1 north wall",  -1230, 125, 1206, 81 },
+        { "entry nub",        -1246, 121, 1205, 81 },
+        { "crest lamp",       -1252, 132, 1206, 83 },
+        { "divider crest",    -1170, 127, 1200, 81 },
+        { "left outer wall",  -1170, 125, 1215, 81 },
+        { "right chim stub",  -1176, 125, 1190, 81 },
+        { "leg2 outer west",  -1156, 127, 1230, 81 },
+        { "leg2 inner west",  -1152, 127, 1230, 81 },
+        { "leg2 slot air",    -1150, 120, 1230, 0 },
+        { "leg3 north wall",  -1130, 127, 1256, 81 },
+        { "leg3 island",      -1136, 118, 1250, 81 },
+        { "finish chimney",   -1122, 126, 1250, 81 },
+        { "finish top",       -1114, 135, 1250, 81 },
+        { "beacon",           -1114, 137, 1250, 83 },
         { "meadow turf (ctl)", 1204, 154, -1196, 78 },
     };
     int bad = 0;
@@ -60,8 +58,8 @@ int main(void) {
      * Foundry footprint is a leak (flora, mushrooms, decor) ---- */
     {
         int counts[256] = { 0 };
-        for (int x = -1272; x < -1108; x += 1)
-            for (int z = 1176; z < 1240; z += 1) {
+        for (int x = -1284; x < -1104; x += 1)
+            for (int z = 1188; z < 1260; z += 1) {
                 WGEval ctx;
                 Vector3 p = { x, 0, z };
                 Worldgen_EvalInit(&ctx, p, p);
