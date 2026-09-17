@@ -38,6 +38,7 @@
 #include "settings.h"
 #include "postfx.h"
 #include "soundfx.h"
+#include "usermusic.h"
 #include "mapview.h"
 #include "bird.h"
 #include "hunter.h"
@@ -176,6 +177,10 @@ void Game_RunLoop(void) {
         MapView_Update();
         SoundFx_Update();
     }
+
+    /* v65.35: the user parkour playlist must be pumped every frame -
+     * even on pause/menu screens, or the stream starves mid-track */
+    UserMusic_Update();
 
     /* v65.8: pocket universe mood follows the player (menus stay cosmic) */
     PocketFx_Update(inWorld ? player.camera.position : (Vector3){ 0, 0, 0 });

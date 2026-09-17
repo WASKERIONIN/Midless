@@ -1360,6 +1360,12 @@ void Screen_DrawLoading(void) {
             return;
         }
         if ((prog >= 0.92f && elapsed > 1.2) || elapsed > 45.0) {
+            /* v65.35: the editor TEST warp fires only now - after the
+             * fill gate is done, so loading never hangs on it */
+            if (ParkourMapTestWarp()) {
+                ParkourMapRequestWarp();
+                ParkourMapSetTestWarp(false);
+            }
             World_FillGateEnd();
             Screen_Switch(SCREEN_GAME);
             DisableCursor();

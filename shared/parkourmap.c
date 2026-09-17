@@ -174,6 +174,14 @@ static bool testWarp = false;
 void ParkourMapSetTestWarp(bool on) { testWarp = on; }
 bool ParkourMapTestWarp(void) { return testWarp; }
 
+static bool warpRequested = false;
+void ParkourMapRequestWarp(void) { warpRequested = true; }
+bool ParkourMapTakeWarpRequest(void) {
+    bool was = warpRequested;
+    warpRequested = false;
+    return was;
+}
+
 void ParkourMapSetSession(const PMap *map) {
     if (map) {
         activeMap = *map;

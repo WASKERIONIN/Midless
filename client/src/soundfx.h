@@ -28,6 +28,8 @@ float SoundFx_GetVolume(void);
 void SoundFx_SetMusicEnabled(bool on);   /* v59: dungeon-synth radio */
 const char *SoundFx_TrackName(void);     /* v59.7: station label for the HUD */
 void SoundFx_NextTrack(void);            /* v59.7: N skips to the next station */
+void SoundFx_PrevTrack(void);            /* v65.35: B - previous user track */
+bool SoundFx_MusicOn(void);              /* v65.35: settings gate for user music */
 void SoundFx_PocketUpdate(float factor);
 void SoundFx_Pocket2Update(float factor);   /* v65.28: the Foundry station */ /* v65.13: pocket zone -> own station */
 void SoundFx_BossUpdate(bool on);        /* v65.24: battle station on/off */

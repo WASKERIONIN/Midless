@@ -1,4 +1,38 @@
-# Midless: Cosmic Edition v65.34
+# Midless: Cosmic Edition v65.35
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.35 - TEST loading hang fixed; your own mp3 playlist for parkour mode
+
+- **TEST IN GAME no longer hangs the loading screen.** The on-join
+  teleport fought the client-side spawn fill gate (the gate waits for
+  the home-island spawn disc while the server had already moved the
+  player into the pocket). The warp is now deferred: the loading
+  screen finishes normally, and only at the switch to game does it
+  hand a one-shot warp request to the server thread, which teleports
+  the player onto the map's START marker. Entering through the main
+  menu is untouched.
+- **New: user music folder for parkour mode.** A `music/` folder is
+  created next to game.exe (with a readme). Drop `.mp3`, `.ogg`,
+  `.wav`, `.flac`, `.xm` or `.mod` files in - inside the parkour
+  instance YOUR playlist plays instead of the built-in Foundry
+  station (an empty folder keeps the built-in music). Tracks are
+  sorted alphabetically, auto-advance at the end, and loop.
+  - **N** - next track, **B** - previous track; the bottom-right
+    station label shows the current file name.
+  - The folder rescans every time you enter the parkour zone, so new
+    files are picked up without a restart; an unreadable file is
+    skipped with a "(cannot play)" label.
+  - The music setting (on/off) and the volume slider apply to the
+    user playlist as well; the stream keeps playing through pause
+    and menu screens exactly like the built-in stations.
+- Dev: warp request/consume split between client and server threads
+  (shared parkourmap module), new client usermusic module, all probes
+  re-run green (mapprobe both modes, pocketplay full loop,
+  foundryprobe, modprobe/worldprobe, compile/api checks).
+
+---
+
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

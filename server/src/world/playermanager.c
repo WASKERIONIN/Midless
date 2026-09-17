@@ -8,6 +8,23 @@
 #include "../scripting/luabindings.h"
 
 void ServerPlayerManager_Update(void) {
+    /* v65.35: TEST IN GAME warp, consumed here on the server thread once
+     * the client has finished loading (the request comes from the loading
+     * screen, not from join - a join-time teleport hung the fill gate) */
+    if (ParkourMapTakeWarpRequest()) {
+        const PMap *pmap = ParkourMapActive();
+        if (pmap && pmap->hasStart) {
+            int ax, ay, az;
+            ParkourMapAnchor(&ax, &ay, &az);
+            Vector3 dest = { ax + pmap->start[0] + 0.5f,
+                             ay + pmap->start[1] + 2.0f,
+                             az + pmap->start[2] + 0.5f };
+            for (int i = 0; i < WORLD_MAX_PLAYERS; i++)
+                if (serverWorld.players[i] != NULL)
+                    ServerPlayer_Teleport(serverWorld.players[i], dest);
+        }
+    }
+
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = serverWorld.players[i];
         if (player == NULL) continue;
@@ -44,20 +61,6 @@ void ServerWorld_AddPlayer(void *player) {
 
     if (newPlayer->entityId < 0) return;
     ServerEntities_Send(newPlayer);
-
-    /* v65.34: the editor's TEST IN GAME arms a one-shot warp so the
-     * player lands on the map's start marker instead of the home island */
-    {
-        const PMap *pmap = ParkourMapActive();
-        if (ParkourMapTestWarp() && pmap && pmap->hasStart) {
-            int ax, ay, az;
-            ParkourMapAnchor(&ax, &ay, &az);
-            ServerPlayer_Teleport(newPlayer,
-                (Vector3){ ax + pmap->start[0] + 0.5f,
-                           ay + pmap->start[1] + 2.0f,
-                           az + pmap->start[2] + 0.5f });
-        }
-    }
 
     ServerWorld_SendMessage(TextFormat("%s joined the game!", newPlayer->name));
 }

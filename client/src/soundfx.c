@@ -1,4 +1,5 @@
 #include "soundfx.h"
+#include "usermusic.h"
 #include "raylib.h"
 #include "settings.h"
 #include "hunter.h"
@@ -765,7 +766,8 @@ static float Mus_NextSample(void) {
 
 static void MusicCallback(void *bufferData, unsigned int frames) {
     short *d = (short *)bufferData;
-    if (!musicEnabled) {
+    /* v65.35: the user parkour playlist ducks the synth to silence */
+    if (!musicEnabled || UserMusic_Ducking()) {
         memset(d, 0, (size_t)frames * 2 * sizeof(short));
         return;
     }
@@ -783,6 +785,7 @@ static void MusicCallback(void *bufferData, unsigned int frames) {
 
 /* v59.7: the HUD station label */
 const char *SoundFx_TrackName(void) {
+    if (UserMusic_Playing()) return UserMusic_TrackName();
     return tracks[musTrack].name;
 }
 
@@ -790,10 +793,18 @@ const char *SoundFx_TrackName(void) {
  * Called on the main thread; every write is a single word, and the
  * audio thread re-reads the state each sample. */
 void SoundFx_NextTrack(void) {
+    /* v65.35: inside the parkour zone N cycles the USER playlist */
+    if (UserMusic_Playing()) { UserMusic_Next(); return; }
     musTrack = Mus_PickDifferent();
     musSample = 0;
     musLastCycle = 0;
 }
+
+void SoundFx_PrevTrack(void) {
+    if (UserMusic_Playing()) UserMusic_Prev();
+}
+
+bool SoundFx_MusicOn(void) { return musicEnabled; }
 
 /* v65.24: the Warden fight claims the battle station; the previous
  * station (the pocket dream inside the pocket) is restored when he
@@ -834,8 +845,13 @@ void SoundFx_Pocket2Update(float factor) {
     bool in2 = factor > 0.5f;
     if (in2 == musInPocket2) return;
     musInPocket2 = in2;
-    if (in2) { musPocket2Prev = musTrack; musTrack = MUS_POCKET2_TRACK; }
-    else { musTrack = musPocket2Prev; }
+    if (in2) {
+        musPocket2Prev = musTrack; musTrack = MUS_POCKET2_TRACK;
+        UserMusic_EnterParkour();   /* v65.35: user playlist takes over if any */
+    } else {
+        musTrack = musPocket2Prev;
+        UserMusic_LeaveParkour();
+    }
     musSample = 0;
     musLastCycle = 0;
 }
@@ -849,6 +865,7 @@ void SoundFx_SetMusicEnabled(bool on) {
 }
 
 void SoundFx_Init(void) {
+    UserMusic_Init();   /* v65.35: music/ folder + playlist scan */
     InitAudioDevice();
     SetMasterVolume(volume);
     SetAudioStreamBufferSizeDefault(2048);

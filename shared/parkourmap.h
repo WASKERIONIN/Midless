@@ -37,6 +37,10 @@ void        ParkourMapSetActive(const char *name);
 /* v65.34: editor TEST drops the player straight onto the map start */
 void        ParkourMapSetTestWarp(bool on);
 bool        ParkourMapTestWarp(void);
+/* v65.35: the warp is DEFERRED until the loading screen finishes - an
+ * on-join teleport fought the client-side spawn fill gate and hung it */
+void        ParkourMapRequestWarp(void);      /* client, after load */
+bool        ParkourMapTakeWarpRequest(void);  /* server thread, once */
 const char *ParkourMapLastError(void);
 void        ParkourMapSetSession(const PMap *map);   /* in-memory (dev probes) */
 const char *ParkourMapActiveName(void);

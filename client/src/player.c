@@ -612,6 +612,7 @@ void Player_CheckInputs() {
         if (IsKeyPressed(KEY_M) && currentScreen == SCREEN_GAME) MapView_Toggle();
         /* v59.7: N skips to the next radio station */
         if (IsKeyPressed(KEY_N) && currentScreen == SCREEN_GAME) SoundFx_NextTrack();
+        if (IsKeyPressed(KEY_B) && currentScreen == SCREEN_GAME) SoundFx_PrevTrack();   /* v65.35 */
         if (IsKeyPressed(KEY_TAB) && currentScreen == SCREEN_GAME) {
             player.flying = !player.flying;
             player.velocity.y = 0;
