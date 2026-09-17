@@ -536,7 +536,7 @@ void Player_Draw(void) {
 #define WALLRUN_ROLL        0.16f      /* rad, banked into the wall */
 #define WALLRUN_KICK_UP     0.26f
 #define WALLRUN_KICK_AWAY   0.30f
-#define WALLRUN_PROBE       0.68f      /* sideways reach from the body centre */
+#define WALLRUN_PROBE       0.75f      /* sideways reach from the body centre */
 #define WEB_DETACH_DIST 1.5f
 
 static void Player_WebDetach(void) {
@@ -1202,7 +1202,7 @@ static void Player_WallRunUpdate(float frameScale) {
      * climbing hard (a rising jump next to a wall must not snag -
      * the auto-grab complaint that plagues the genre) */
     if (hs < WALLRUN_MIN_SPEED || now < player.wallRunCooldownUntil) return;
-    if (player.velocity.y > 0.06f) return;
+    if (player.velocity.y > 0.10f) return;
     Vector3 dir = { hx / hs, 0.0f, hz / hs };
     Vector3 right = { -dir.z, 0.0f, dir.x };
     for (int s = 1; s >= -1; s -= 2) {
@@ -1212,6 +1212,19 @@ static void Player_WallRunUpdate(float frameScale) {
             player.wallRunSide = s;
             player.wallNormal = normal;
             player.wallRunTime = 0.0f;
+            /* v65.29: convert the approach into a run ALONG the wall.
+             * Without this a head-on jump stuck you in place while the
+             * sink dragged you down - "I run, but it pulls me downward".
+             * Now the contact launches you along the surface (a touch
+             * faster than you arrived), whichever way you were heading. */
+            Vector3 tangent = { -sideVec.z, 0.0f, sideVec.x };
+            if (hx * tangent.x + hz * tangent.z < 0.0f)
+                tangent = Vector3Scale(tangent, -1.0f);
+            float run = hs * 1.08f;
+            if (run < 0.16f) run = 0.16f;
+            player.velocity.x = tangent.x * run;
+            player.velocity.z = tangent.z * run;
+            if (player.velocity.y < 0.0f) player.velocity.y *= 0.3f;
             break;
         }
     }
@@ -1230,9 +1243,11 @@ void Player_Update(void) {
     if (player.flying) {
         /* Tab fly: no gravity */
     } else if (player.wallRunSide != 0) {
-        /* v65.28: on the wall you barely fall - a floaty sink */
-        player.velocity.y -= 0.0016f * frameScale;
-        if (player.velocity.y < -0.045f) player.velocity.y = -0.045f;
+        /* v65.28: on the wall you barely fall - a floaty sink.
+         * v65.29: the old clamp (-0.045/frame = 2.7 blocks/s) read as
+         * "dragged downward"; now it is a whisper (~0.7 blocks/s) */
+        player.velocity.y -= 0.0006f * frameScale;
+        if (player.velocity.y < -0.012f) player.velocity.y = -0.012f;
     } else if (player.liquidSubmersion > 0.0f) {
         player.velocity.y -= WATER_GRAVITY * frameScale;
         if (player.velocity.y < -WATER_MAX_FALL_SPEED) {

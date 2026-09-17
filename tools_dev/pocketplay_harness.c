@@ -77,5 +77,49 @@ int main(void) {
     entity = &serverWorld.entities[player->entityId];
     printf("POCKETPLAY: after pocket gate pos = %.1f %.1f %.1f (expect ~10.5 78 10.5 beside the home gate)\n",
            entity->position.x, entity->position.y, entity->position.z);
+
+    /* ---- v65.28/v65.29 act 3: a gate BUILT inside the meadow opens the
+     * Foundry. Chunks only stay loaded around the player (far ones evict
+     * and RequestChunk does not resurrect them headless), so the harness
+     * walks the player there first, exactly like the real game does. ---- */
+    entity = &serverWorld.entities[player->entityId];
+    ServerWorld_TeleportEntity(player->entityId, (Vector3){ 1206.5f, 156.0f, -1196.5f }, entity->rotation);
+    for (int i = 0; i < 500; i++) { ServerWorld_Update(); usleep(3000); }
+    printf("POCKETPLAY: walked to the meadow, turf probe %d (expect 78)\n", BlockAt(1204, 154, -1196));
+
+    Vector3 cores[4] = { { 1210, 155, -1198 }, { 1211, 155, -1198 },
+                         { 1210, 155, -1197 }, { 1211, 155, -1197 } };
+    for (int i = 0; i < 4; i++)
+        ServerWorld_SetBlock(cores[i], 22, false, false, true);
+    for (int i = 0; i < 40; i++) { ServerWorld_Update(); usleep(2000); }
+    printf("POCKETPLAY: meadow-built fuse = %d %d %d %d (expect 0 0 0 80)\n",
+           BlockAt(1210, 155, -1198), BlockAt(1211, 155, -1198),
+           BlockAt(1210, 155, -1197), BlockAt(1211, 155, -1197));
+
+    /* stand on the meadow-built gate */
+    entity = &serverWorld.entities[player->entityId];
+    ServerWorld_TeleportEntity(player->entityId, (Vector3){ 1211.5f, 156.0f, -1196.5f }, entity->rotation);
+    for (int i = 0; i < 400; i++) { ServerWorld_Update(); usleep(12000); }  /* > 2.5s cooldown */
+    entity = &serverWorld.entities[player->entityId];
+    printf("POCKETPLAY: after meadow gate pos = %.1f %.1f %.1f (expect ~-1195.5 120 1204.5, the Foundry)\n",
+           entity->position.x, entity->position.y, entity->position.z);
+
+    /* ---- act 4: the Foundry spawns its chunks around the player ---- */
+    for (int i = 0; i < 800; i++) { ServerWorld_Update(); usleep(4000); }
+    printf("FOUNDRY: chunk alive = %d\n", ServerWorld_GetChunkAt((Vector3){ -75, 7, 75 }) != NULL);
+    printf("FOUNDRY: centre gate(-1200,118,1200)=%d (expect 80)\n", BlockAt(-1200, 118, 1200));
+    printf("FOUNDRY: plaza(-1196,118,1204)=%d (expect 81), below(-1196,114,1204)=%d (expect 82), air(-1196,122,1204)=%d (expect 0)\n",
+           BlockAt(-1196, 118, 1204), BlockAt(-1196, 114, 1204), BlockAt(-1196, 122, 1204));
+    printf("FOUNDRY: lamp path(-1197,118,1203)=%d (expect 83)\n", BlockAt(-1197, 118, 1203));
+    /* the high course is validated cell-by-cell by tools_dev/foundryprobe.c
+     * (frozen material field) - chunk reach here covers the spawn plaza */
+
+    /* ---- act 5: the Foundry centre gate returns beside the meadow gate ---- */
+    entity = &serverWorld.entities[player->entityId];
+    ServerWorld_TeleportEntity(player->entityId, (Vector3){ -1199.5f, 119.0f, 1200.5f }, entity->rotation);
+    for (int i = 0; i < 400; i++) { ServerWorld_Update(); usleep(12000); }
+    entity = &serverWorld.entities[player->entityId];
+    printf("POCKETPLAY: after foundry gate pos = %.1f %.1f %.1f (expect ~1212.5 156 -1195.5 beside the meadow gate)\n",
+           entity->position.x, entity->position.y, entity->position.z);
     return 0;
 }

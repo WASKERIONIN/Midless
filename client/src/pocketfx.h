@@ -18,7 +18,7 @@
 /* v65.28: the second pocket - the Foundry parkour course */
 #define POCKETFX2_CX (-1200.0f)
 #define POCKETFX2_CZ 1200.0f
-#define POCKETFX2_TOP 154.0f
+#define POCKETFX2_TOP 118.0f   /* v65.29: the Foundry sits LOW - worldgen max_y is 160 */
 
 /* Call once per frame with the player position (camera is fine). */
 void PocketFx_Update(Vector3 playerPosition);
