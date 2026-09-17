@@ -1,6 +1,39 @@
-# Midless: Cosmic Edition v65.28
+# Midless: Cosmic Edition v65.29
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.29 - the second instance fixed: it was being clipped out of the world
+
+All three reported bugs, diagnosed with headless probes against the real
+server stack (no guessing this time):
+
+- **The instance looked empty/broken.** World generation is bounded at
+  y=160, and the v65.28 course was laid out on a floor at y=154 - so its
+  upper half (walls, chimney, finish) sat above the bound and the engine
+  simply clipped it out of existence. The whole zone is lowered 36 blocks
+  (floor now 118, highest point 151, safely under 160) and the pocket sky
+  height follows. Verified cell-by-cell: `foundryprobe` (new dev tool)
+  checks the frozen material field at 18 course coordinates - all pass.
+- **White/invisible blocks ("like last time").** The outdated-atlas guard
+  healed tiles 78-80 but the v65.28 blocks are 81-83, so an old
+  `terrain.png` left the new cubes textureless. The guard now covers
+  78-83 and repaints concrete, base and lamp tiles itself.
+- **Wall run "pulls you down".** Two physics fixes: (1) touching the wall
+  head-on used to leave you stuck in place while the sink dragged you
+  down - contact now redirects your velocity ALONG the wall (+8%, min
+  0.16), so the grab launches the run instead of stalling it; (2) the sink
+  clamp was 0.045/frame (~2.7 blocks/s), now 0.012 (~0.7 blocks/s) - a
+  whisper. The wall probe is slightly longer (0.68 -> 0.75) and the
+  vertical attach window wider (0.06 -> 0.10), so the grab is easier to
+  hold at speed.
+- **Gate messages no longer ambiguous.** Fusing a square inside the first
+  pocket now announces itself as a gate to the second instance, distinct
+  from the overworld crossing.
+- **Barrier + rescue net are per-zone now** (the two instances have
+  different floor heights). Worldgen version 23.
+- Dev tooling: `pocketplay` harness runs the full loop headless - build a
+  square inside the first pocket, fuse, cross, spawn-check the second
+  instance, return through its centre gate - all green.
 
 ## v65.28 - wall running, and a second pocket instance
 
