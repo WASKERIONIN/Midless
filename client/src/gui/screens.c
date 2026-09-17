@@ -1036,51 +1036,107 @@ bool loginEditMode = false;
 bool ipEditMode = false;
 bool portEditMode = false;
 
+/* v65.34: the whole main menu is rebuilt - flat surfaces, one accent,
+ * generous spacing, sectioned right column. No bevelled 90s panels. */
+static bool menuThemeReady = false;
+static void MenuApplyDarkTheme(void) {
+    if (menuThemeReady) return;
+    menuThemeReady = true;
+    GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, 0x39424aff);
+    GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, 0x1a1f25ff);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, 0xcfd6dcff);
+    GuiSetStyle(DEFAULT, BORDER_COLOR_FOCUSED, 0x60d8c4ff);
+    GuiSetStyle(DEFAULT, BASE_COLOR_FOCUSED, 0x22323aff);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_FOCUSED, 0xe6fffaFF);
+    GuiSetStyle(DEFAULT, BORDER_COLOR_PRESSED, 0x78e0ccff);
+    GuiSetStyle(DEFAULT, BASE_COLOR_PRESSED, 0x2a4a44ff);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, 0xffffffff);
+    GuiSetStyle(DEFAULT, BACKGROUND_COLOR, 0x10141aff);
+    GuiSetStyle(DEFAULT, BORDER_WIDTH, 1);
+}
+
+static bool FlatMenuButton(Rectangle b, const char *label, bool primary) {
+    Vector2 m = GetMousePosition();
+    bool hover = CheckCollisionPointRec(m, b);
+    Color bg, bd, tc;
+    if (primary) {
+        bg = hover ? (Color){ 34, 92, 78, 235 } : (Color){ 24, 62, 54, 220 };
+        bd = hover ? (Color){ 120, 255, 214, 255 } : (Color){ 74, 160, 138, 255 };
+        tc = hover ? WHITE : (Color){ 190, 240, 225, 255 };
+    } else {
+        bg = hover ? (Color){ 38, 45, 53, 225 } : (Color){ 20, 24, 30, 200 };
+        bd = hover ? (Color){ 96, 216, 196, 255 } : (Color){ 50, 58, 66, 255 };
+        tc = hover ? WHITE : (Color){ 206, 214, 222, 255 };
+    }
+    DrawRectangleRec(b, bg);
+    DrawRectangleLinesEx(b, 1.0f, bd);
+    if (primary) DrawRectangle((int)b.x, (int)b.y, 3, (int)b.height, (Color){ 96, 216, 196, 255 });
+    float tw = I18n_MeasureText(label, 18);
+    I18n_DrawText(label, (int)(b.x + b.width / 2 - tw / 2), (int)(b.y + b.height / 2 - 9), 18, tc);
+    return hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+}
+
+static void FlatPanel(Rectangle b, const char *sectionLabel) {
+    DrawRectangleRec(b, (Color){ 14, 17, 22, 205 });
+    DrawRectangleLinesEx(b, 1.0f, (Color){ 44, 51, 59, 255 });
+    DrawRectangle((int)b.x, (int)b.y, 3, (int)b.height, (Color){ 58, 130, 118, 255 });
+    if (sectionLabel && sectionLabel[0])
+        I18n_DrawText(sectionLabel, (int)b.x + 16, (int)b.y + 10, 14, (Color){ 122, 200, 184, 255 });
+}
+
 void Screen_DrawLogin(void) {
-    if(IsCursorHidden()) EnableCursor();
+    if (IsCursorHidden()) EnableCursor();
+    MenuApplyDarkTheme();
     DrawMenuBackground();
 
+    int sw = screenWidth, sh = screenHeight;
+    /* left-side scrim so the text always reads over the stars */
+    DrawRectangleGradientH(0, 0, (int)(sw * 0.58f), sh,
+                           (Color){ 6, 8, 12, 228 }, (Color){ 6, 8, 12, 0 });
+
+    /* ---- left column: identity + primary actions ---- */
+    int lx = sw / 16;
+    int ty = (int)(sh * 0.11f);
     const char *title = "MIDLESS";
-    const char *subtitle = "COSMIC EDITION";
-    int offsetY = screenHeight / 2;
-    int offsetX = screenWidth / 2;
-    float pulse = 0.5f + 0.5f * sinf((float)GetTime() * 1.6f);
+    I18n_DrawText(title, lx + 3, ty + 3, 64, (Color){ 12, 30, 34, 200 });
+    I18n_DrawText(title, lx, ty, 64, (Color){ 235, 242, 246, 255 });
+    I18n_DrawText("COSMIC EDITION", lx + 4, ty + 78, 16, (Color){ 96, 216, 196, 255 });
+    DrawRectangle(lx + 4, ty + 104, 240, 2, (Color){ 96, 216, 196, 220 });
+    I18n_DrawText("floating islands - starlit void - the sun is a black hole",
+                  lx + 4, ty + 116, 14, (Color){ 150, 162, 176, 220 });
 
-    DrawPanel((Rectangle){(float)offsetX - 94, (float)offsetY - 22, 188, 130});
-
-    /* glow layering under the title */
-    for (int layer = 3; layer >= 1; layer--) {
-        Color glow = (Color){150, 40, 220, (unsigned char)(26 * layer + 8 * pulse * layer)};
-        I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2), offsetY - 120 + layer, 80, glow);
+    int by = (int)(sh * 0.46f);
+    float bw = 320, bh = 46, gap = 14;
+    if (FlatMenuButton((Rectangle){ (float)lx, (float)by, bw, bh }, "SINGLEPLAYER", true)) {
+        /* v65.7: the hosted server reads exactly what these boxes say */
+        LocalServer_WriteHostConfig(hostPortInput, hostMaxInput, hostNameInput);
+        /* v65.32: the chosen parkour map rides into the server session */
+        ParkourMapSetActive(gameSettings.parkourMap);
+        Screen_BeginSingleplayer();
     }
-    I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2) + 2, offsetY - 118, 80, (Color){40, 10, 70, 255});
-    I18n_DrawText(title, offsetX - (I18n_MeasureText(title, 80) / 2), offsetY - 120, 80, (Color){232, 120, 255, 255});
-    I18n_DrawText(subtitle, offsetX - (I18n_MeasureText(subtitle, 20) / 2), offsetY - 38, 20, (Color){94, 231, 255, 255});
+    if (FlatMenuButton((Rectangle){ (float)lx, by + (bh + gap), bw, bh }, "PARKOUR MAP EDITOR", false))
+        MapEdit_Enter();
+    if (FlatMenuButton((Rectangle){ (float)lx, by + 2 * (bh + gap), bw, bh }, "OPTIONS", false))
+        Screen_Switch(SCREEN_OPTIONS);
+    if (FlatMenuButton((Rectangle){ (float)lx, by + 3 * (bh + gap), bw, bh }, "QUIT", false))
+        *exitGame = true;
 
-    const char *hint = "WASD move - Space jump - Tab fly - M map - T chat - F5 camera";
-    I18n_DrawText(hint, offsetX - I18n_MeasureText(hint, 15) / 2, screenHeight - 28, 15,
-             (Color){150, 160, 200, 200});
-    const char *tag = "floating islands - starlit void - the sun is a black hole";
-    I18n_DrawText(tag, offsetX - I18n_MeasureText(tag, 15) / 2, screenHeight - 48, 15,
-             (Color){190, 120, 230, 180});
+    /* ---- right column: multiplayer / host / parkour map ---- */
+    int rx = sw - 440;
+    float rw = 380;
+    if (rx < lx + 380) rx = lx + 380;   /* never slide under the left column */
 
-    //Name Input
-    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, nameInput, 16, loginEditMode)) {
+    int my = (int)(sh * 0.10f);
+    FlatPanel((Rectangle){ (float)rx, (float)my, rw, 176 }, "MULTIPLAYER - join a friend's world");
+    if (GuiTextBox((Rectangle){ rx + 16, my + 36, rw - 32, 30 }, nameInput, 16, loginEditMode))
         loginEditMode = !loginEditMode;
-    }
-
-    //IP Input
-    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ipInput, 128, ipEditMode)) {
+    I18n_DrawText("player name", rx + 20, my + 70, 11, (Color){ 120, 130, 142, 230 });
+    if (GuiTextBox((Rectangle){ rx + 16, my + 86, rw - 130, 30 }, ipInput, 128, ipEditMode))
         ipEditMode = !ipEditMode;
-    }
-
-    //Port Input
-    if (GuiTextBox((Rectangle) { offsetX + 40, offsetY + 20, 40, 30 }, portInput, 5, portEditMode)) {
+    if (GuiTextBox((Rectangle){ rx + rw - 106, my + 86, 90, 30 }, portInput, 5, portEditMode))
         portEditMode = !portEditMode;
-    }
-
-    //Login button
-    if (MenuButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
+    I18n_DrawText("address                                    port", rx + 20, my + 120, 11, (Color){ 120, 130, 142, 230 });
+    if (FlatMenuButton((Rectangle){ rx + 16, my + 134, rw - 32, 32 }, "CONNECT", true)) {
         DisableCursor();
         Screen_Switch(SCREEN_JOINING);
         networkThreadState = 0;
@@ -1104,67 +1160,6 @@ void Screen_DrawLogin(void) {
             pthread_create(&clientThreadId, NULL, ClientWs_Init, (void*)&networkThreadState);
         #endif
     }
-    
-    //Singleplayer Button
-    if (MenuButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
-        /* v65.7: the hosted server reads exactly what these boxes say */
-        LocalServer_WriteHostConfig(hostPortInput, hostMaxInput, hostNameInput);
-        /* v65.32: the chosen parkour map rides into the server session */
-        ParkourMapSetActive(gameSettings.parkourMap);
-        Screen_BeginSingleplayer();
-    }
-
-    /* v65.32: parkour map choice + the map editor live on the main menu.
-     * v65.33: an explicit [< name >] switcher instead of the combo box -
-     * the selection is always visible and one click per map. */
-    {
-        static char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
-        static int count = 0;
-        static int sel = 0;
-        static int refresh = 0;
-        if (refresh++ % 60 == 1 || count == 0 && refresh == 1) {
-            /* rescan maps/ once a second: editor saves show up live */
-            count = ParkourMapList(names, PMAP_MAX_MAPS);
-            sel = 0;
-            for (int i = 0; i < count; i++)
-                if (gameSettings.parkourMap[0] && !strcmp(names[i], gameSettings.parkourMap))
-                    sel = i + 1;
-        }
-        int my = offsetY + 268;
-        DrawPanel((Rectangle){ (float)offsetX - 170, (float)my - 12, 340, 64 });
-        I18n_DrawText("PARKOUR MODE MAP - saved by the map editor",
-                      offsetX - 158, my - 4, 13, (Color){ 120, 190, 175, 255 });
-        const char *label = (sel == 0) ? "Default Foundry" : names[sel - 1];
-        if (MenuButton((Rectangle){ offsetX - 158, my + 16, 30, 28 }, "<")) sel = (sel + count) % (count + 1);
-        if (MenuButton((Rectangle){ offsetX + 50, my + 16, 30, 28 }, ">")) sel = (sel + 1) % (count + 1);
-        /* the name plate between the arrows */
-        DrawRectangle(offsetX - 124, my + 16, 170, 28, (Color){ 22, 26, 31, 255 });
-        DrawRectangleLines(offsetX - 124, my + 16, 170, 28, (Color){ 58, 65, 72, 255 });
-        {
-            int tw = (int)MeasureText(label, 15);
-            if (tw > 160) tw = 160;   /* clipped by the plate, never overflows */
-            char clipped[PMAP_NAME_LEN + 1];
-            snprintf(clipped, sizeof(clipped), "%s", label);
-            while ((int)MeasureText(clipped, 15) > 160 && clipped[0])
-                clipped[strlen(clipped) - 1] = 0;
-            tw = (int)MeasureText(clipped, 15);
-            I18n_DrawText(clipped, offsetX - 124 + (170 - tw) / 2, my + 23, 15,
-                          sel == 0 ? (Color){ 190, 200, 210, 255 } : (Color){ 140, 220, 200, 255 });
-        }
-        /* apply whenever sel changes */
-        {
-            static int appliedSel = -1;
-            if (appliedSel != sel) {
-                appliedSel = sel;
-                if (sel == 0) gameSettings.parkourMap[0] = 0;
-                else snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
-                              "%s", names[sel - 1]);
-                Settings_Save();
-            }
-        }
-        if (MenuButton((Rectangle){ offsetX + 90, my + 16, 70, 28 }, "Editor"))
-            MapEdit_Enter();
-    }
 
     /* v65.7: HOST SETTINGS - a server you can hand to a friend starts
      * here: port, player cap and name, saved to server.ini beside the
@@ -1178,22 +1173,71 @@ void Screen_DrawLogin(void) {
         snprintf(hostMaxInput, sizeof(hostMaxInput), "%d", m);
         snprintf(hostNameInput, sizeof(hostNameInput), "%s", n);
     }
-    int hy = offsetY + 140;
-    DrawPanel((Rectangle){ (float)offsetX - 170, (float)hy - 12, 340, 118 });
-    I18n_DrawText("HOST SETTINGS - saved to server.ini next to the game",
-                  offsetX - 158, hy - 4, 14, (Color){ 120, 190, 175, 255 });
-    I18n_DrawText("server name", offsetX - 158, hy + 18, 13, (Color){ 150, 160, 200, 220 });
-    if (GuiTextBox((Rectangle){ (float)offsetX - 158, (float)hy + 34, 200, 28 }, hostNameInput,
+    int hy = my + 196;
+    FlatPanel((Rectangle){ (float)rx, (float)hy, rw, 146 }, "HOST - friends join via your ip:port");
+    if (GuiTextBox((Rectangle){ rx + 16, hy + 36, 196, 28 }, hostNameInput,
                    sizeof(hostNameInput), hostNameEdit)) hostNameEdit = !hostNameEdit;
-    I18n_DrawText("port", offsetX + 54, hy + 18, 13, (Color){ 150, 160, 200, 220 });
-    if (GuiTextBox((Rectangle){ (float)offsetX + 54, (float)hy + 34, 52, 28 }, hostPortInput,
+    if (GuiTextBox((Rectangle){ rx + 220, hy + 36, 66, 28 }, hostPortInput,
                    sizeof(hostPortInput), hostPortEdit)) hostPortEdit = !hostPortEdit;
-    I18n_DrawText("max players", offsetX + 114, hy + 18, 13, (Color){ 150, 160, 200, 220 });
-    if (GuiTextBox((Rectangle){ (float)offsetX + 114, (float)hy + 34, 44, 28 }, hostMaxInput,
+    if (GuiTextBox((Rectangle){ rx + 294, hy + 36, 70, 28 }, hostMaxInput,
                    sizeof(hostMaxInput), hostMaxEdit)) hostMaxEdit = !hostMaxEdit;
-    I18n_DrawText("friends type  <your ip>:<port>  on their Login screen",
-                  offsetX - 158, hy + 74, 13, (Color){ 130, 130, 160, 255 });
+    I18n_DrawText("server name                       port      players",
+                  rx + 20, hy + 70, 11, (Color){ 120, 130, 142, 230 });
+    I18n_DrawText("applied when you press SINGLEPLAYER; saved to server.ini",
+                  rx + 20, hy + 92, 12, (Color){ 130, 140, 152, 235 });
+    I18n_DrawText("these settings also feed the dedicated server.exe",
+                  rx + 20, hy + 112, 12, (Color){ 110, 120, 132, 220 });
 
+    /* v65.32/v65.34: parkour map switcher - the current pick is always
+     * visible between the arrows; maps/ rescans once a second */
+    {
+        static char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
+        static int count = 0;
+        static int sel = 0;
+        static int refresh = 0;
+        static int appliedSel = -1;
+        if (refresh++ % 60 == 1 || (count == 0 && refresh == 1)) {
+            count = ParkourMapList(names, PMAP_MAX_MAPS);
+            sel = 0;
+            for (int i = 0; i < count; i++)
+                if (gameSettings.parkourMap[0] && !strcmp(names[i], gameSettings.parkourMap))
+                    sel = i + 1;
+            appliedSel = sel;
+        }
+        int py = hy + 166;
+        FlatPanel((Rectangle){ (float)rx, (float)py, rw, 128 }, "PARKOUR MODE MAP");
+        const char *label = (sel == 0) ? "Default Foundry" : names[sel - 1];
+        Rectangle prevB = { rx + 16, py + 32, 36, 32 }, nextB = { rx + rw - 52, py + 32, 36, 32 };
+        if (FlatMenuButton(prevB, "<", false)) sel = (sel + count) % (count + 1);
+        if (FlatMenuButton(nextB, ">", false)) sel = (sel + 1) % (count + 1);
+        /* the name plate between the arrows, long names get clipped */
+        Rectangle plate = { rx + 60, py + 32, rw - 120, 32 };
+        DrawRectangleRec(plate, (Color){ 10, 13, 17, 255 });
+        DrawRectangleLinesEx(plate, 1.0f, (Color){ 52, 60, 68, 255 });
+        char clipped[PMAP_NAME_LEN + 1];
+        snprintf(clipped, sizeof(clipped), "%s", label);
+        while (I18n_MeasureText(clipped, 16) > plate.width - 16 && clipped[0])
+            clipped[strlen(clipped) - 1] = 0;
+        float tw2 = I18n_MeasureText(clipped, 16);
+        I18n_DrawText(clipped, (int)(plate.x + plate.width / 2 - tw2 / 2), (int)(plate.y + 7), 16,
+                      sel == 0 ? (Color){ 200, 208, 216, 255 } : (Color){ 130, 226, 202, 255 });
+        if (appliedSel != sel) {
+            appliedSel = sel;
+            if (sel == 0) gameSettings.parkourMap[0] = 0;
+            else snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
+                          "%s", names[sel - 1]);
+            Settings_Save();
+        }
+        if (FlatMenuButton((Rectangle){ rx + 16, py + 74, rw - 32, 30 }, "OPEN MAP EDITOR", false))
+            MapEdit_Enter();
+        I18n_DrawText("maps live in the maps/ folder next to game.exe",
+                      rx + 20, py + 108, 11, (Color){ 110, 120, 132, 220 });
+    }
+
+    /* ---- footer hints ---- */
+    const char *hint = "WASD move - Space jump - Tab fly - M map - T chat - F5 camera";
+    I18n_DrawText(hint, sw / 2 - (int)I18n_MeasureText(hint, 14) / 2, sh - 30, 14,
+                  (Color){ 140, 152, 166, 200 });
 }
 
 /* v63.4: the world-fill loading screen - a grazer strolls along the

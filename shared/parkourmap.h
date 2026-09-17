@@ -34,6 +34,10 @@ bool ParkourMapDelete(const char *name);
 /* session-active map (single process: editor/host sets it, the server
  * world generator reads it). Empty name = built-in course. */
 void        ParkourMapSetActive(const char *name);
+/* v65.34: editor TEST drops the player straight onto the map start */
+void        ParkourMapSetTestWarp(bool on);
+bool        ParkourMapTestWarp(void);
+const char *ParkourMapLastError(void);
 void        ParkourMapSetSession(const PMap *map);   /* in-memory (dev probes) */
 const char *ParkourMapActiveName(void);
 const PMap *ParkourMapActive(void);   /* NULL when the built-in course runs */

@@ -1,4 +1,44 @@
-# Midless: Cosmic Edition v65.33
+# Midless: Cosmic Edition v65.34
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.34 - map saving fixed, TEST drops you into the instance, zone is ONLY your map, new main menu
+
+- **Map saving rebuilt on native file I/O.** The previous raylib-based
+  write/list path could silently fail on Windows (empty picker, empty
+  `maps/` folder). Now: `fopen`/`opendir` directly, the folder is
+  created if missing, every save is verified on disk, every failure
+  records a reason, and the map list is sorted so the picker order is
+  stable. The editor banner after SAVE now shows the FULL path of the
+  written file (red banner with the reason on failure).
+- **TEST IN GAME actually tests the map:** it arms a one-shot server
+  warp, so on join the player is teleported straight onto the map's
+  START marker - into the parkour instance, not the home island.
+  Without a START marker the editor refuses to launch the test and says
+  why. The toolbar button is separated from the file operations and
+  right-aligned in its own accent style; toolbar gaps widened; the map
+  name is clipped so it can never run under the button.
+- **The parkour instance now contains ONLY your map.** The 190x190
+  safety slab is gone: with a custom map active the zone holds your
+  boxes plus small plazas under the gate/start/finish markers, and
+  nothing else - no built-in course, no generic floor. Falling off the
+  course resets you to your start pad with a message instead of
+  bouncing on an invisible slab.
+- **Main menu fully redesigned** (flat modern style, no bevelled
+  panels): left column - title block with accent rule and primary
+  actions (SINGLEPLAYER / PARKOUR MAP EDITOR / OPTIONS / QUIT); right
+  column - sectioned flat panels for MULTIPLAYER (name/address/port/
+  CONNECT), HOST (server.ini settings) and PARKOUR MODE MAP (`<` name
+  `>` switcher + OPEN MAP EDITOR, long names clipped to the plate,
+  `maps/` rescanned every second). All raygui controls now use the
+  shared dark theme.
+- World mod version 27.
+- Dev: mapprobe extended (marker pads, bare-zone checks; both modes
+  green), probe sandbox mods symlink auto-repaired, all probes and
+  checks re-run green.
+
+---
+
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

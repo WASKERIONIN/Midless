@@ -1,3 +1,4 @@
+#include "parkourmap.h"   /* v65.34: editor TEST warp (player.h comes below) */
 #include <limits.h>
 #include <stddef.h>
 #include "world.h"
@@ -43,6 +44,20 @@ void ServerWorld_AddPlayer(void *player) {
 
     if (newPlayer->entityId < 0) return;
     ServerEntities_Send(newPlayer);
+
+    /* v65.34: the editor's TEST IN GAME arms a one-shot warp so the
+     * player lands on the map's start marker instead of the home island */
+    {
+        const PMap *pmap = ParkourMapActive();
+        if (ParkourMapTestWarp() && pmap && pmap->hasStart) {
+            int ax, ay, az;
+            ParkourMapAnchor(&ax, &ay, &az);
+            ServerPlayer_Teleport(newPlayer,
+                (Vector3){ ax + pmap->start[0] + 0.5f,
+                           ay + pmap->start[1] + 2.0f,
+                           az + pmap->start[2] + 0.5f });
+        }
+    }
 
     ServerWorld_SendMessage(TextFormat("%s joined the game!", newPlayer->name));
 }

@@ -73,12 +73,23 @@ int main(int argc, char **argv) {
     } while (0)
 
     WALK(-1270.5f, 120, 1200.5f);
-    if (useMap) Expect("map gate marker (-1272,118,1200)", BlockAt(-1272, 118, 1200), 80);
-    else        Expect("default gate (-1272,118,1200)", BlockAt(-1272, 118, 1200), 80);
+    if (useMap) {
+        Expect("map gate marker (-1272,118,1200)", BlockAt(-1272, 118, 1200), 80);
+        Expect("gate pad (-1274,118,1200)", BlockAt(-1274, 118, 1200), 81);
+        Expect("start pad (-1266,118,1204)", BlockAt(-1266, 118, 1204), 81);
+        Expect("start pad edge (-1263,118,1207)", BlockAt(-1263, 118, 1207), 81);
+        Expect("beyond pad is void (-1262,118,1204)", BlockAt(-1262, 118, 1204), 0);
+    } else {
+        Expect("default gate (-1272,118,1200)", BlockAt(-1272, 118, 1200), 80);
+    }
 
     WALK(-1170.5f, 130, 1200.5f);
-    if (useMap) Expect("map crest box (-1170,127,1200)", BlockAt(-1170, 127, 1200), 83);
-    else        Expect("default crest (-1170,127,1200)", BlockAt(-1170, 127, 1200), 81);
+    if (useMap) {
+        Expect("map crest box (-1170,127,1200)", BlockAt(-1170, 127, 1200), 83);
+        Expect("no slab under crest (-1170,118,1200)", BlockAt(-1170, 118, 1200), 0);
+    } else {
+        Expect("default crest (-1170,127,1200)", BlockAt(-1170, 127, 1200), 81);
+    }
 
     WALK(-1120.5f, 138, 1247.5f);
     if (useMap) {
@@ -92,7 +103,7 @@ int main(int argc, char **argv) {
     }
 
     WALK(-1140.5f, 120, 1160.5f);
-    if (useMap) Expect("slab fills zone (-1140,118,1160)", BlockAt(-1140, 118, 1160), 81);
+    if (useMap) Expect("zone is bare (-1140,118,1160)", BlockAt(-1140, 118, 1160), 0);
     else        Expect("air off course (-1140,118,1160)", BlockAt(-1140, 118, 1160), 0);
     printf("MAPPROBE: %s mode - %s\n", useMap ? "map" : "default",
            failures ? "FAIL" : "PASS");

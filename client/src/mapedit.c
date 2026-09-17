@@ -65,6 +65,8 @@ static char mapListText[PMAP_MAX_MAPS * (PMAP_NAME_LEN + 1)];
 static char saveName[PMAP_NAME_LEN] = "my_course";
 static bool nameEdit = false;
 static double saveBannerUntil = 0.0;
+static bool saveBannerFailed = false;
+static char bannerMsg[300] = "";
 static char statusText[160];
 static bool dirty = false;
 
@@ -372,24 +374,53 @@ void MapEdit_Frame(void) {
         undoCount = redoCount = 0; hasA = false; dirty = false;
         snprintf(statusText, sizeof(statusText), "New empty map");
     }
-    if (GuiButton((Rectangle){ tx + 58, 4, 54, 22 }, "UNDO")) Undo();
-    if (GuiButton((Rectangle){ tx + 116, 4, 54, 22 }, "REDO")) Redo();
-    if (GuiButton((Rectangle){ tx + 174, 4, 54, 22 }, showGrid ? "GRID*" : "GRID")) showGrid = !showGrid;
-    if (GuiButton((Rectangle){ tx + 232, 4, 110, 22 }, "TEST IN GAME")) {
-        /* save first so the server picks up the very geometry on screen */
-        snprintf(map.name, sizeof(map.name), "%s", saveName);
-        if (ParkourMapSave(&map)) {
-            dirty = false;
-            RefreshMapList();
-            snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap), "%s", map.name);
-            Settings_Save();
-            ParkourMapSetActive(map.name);
-            Screen_BeginSingleplayer();
-        } else {
-            snprintf(statusText, sizeof(statusText), "SAVE FAILED - map not tested");
+    if (GuiButton((Rectangle){ tx + 64, 4, 54, 22 }, "UNDO")) Undo();
+    if (GuiButton((Rectangle){ tx + 128, 4, 54, 22 }, "REDO")) Redo();
+    if (GuiButton((Rectangle){ tx + 192, 4, 54, 22 }, showGrid ? "GRID*" : "GRID")) showGrid = !showGrid;
+    {
+        /* clip the name so it never crawls under the TEST button */
+        char shown[PMAP_NAME_LEN + 4];
+        snprintf(shown, sizeof(shown), "%s", map.name);
+        int avail = (sw - 420) - (tx + 268) - 24;
+        while ((int)MeasureText(shown, 14) > avail && shown[0]) shown[strlen(shown) - 1] = 0;
+        DrawText(shown, tx + 268, 8, 14, dirty ? (Color){ 255, 200, 120, 255 } : (Color){ 150, 160, 170, 255 });
+        if (dirty) DrawText("*", tx + 272 + (int)MeasureText(shown, 14), 8, 14, (Color){ 255, 200, 120, 255 });
+    }
+    /* TEST lives apart, right-aligned, in its own accent style - it is
+     * the "go play what you built" action, not a file operation */
+    {
+        Rectangle tb = { (float)sw - 420, 3, 140, 24 };
+        bool hov = CheckCollisionPointRec(GetMousePosition(), tb);
+        DrawRectangleRec(tb, hov ? (Color){ 46, 110, 88, 255 } : (Color){ 30, 74, 60, 255 });
+        DrawRectangleLinesEx(tb, 1.0f, hov ? (Color){ 150, 255, 210, 255 } : (Color){ 90, 190, 150, 255 });
+        const char *tl = "TEST IN GAME";
+        DrawText(tl, (int)(tb.x + tb.width / 2 - MeasureText(tl, 10) / 2), 10, 10,
+                 (Color){ 210, 255, 235, 255 });
+        if (hov && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            /* save first so the server picks up the very geometry on screen */
+            snprintf(map.name, sizeof(map.name), "%s", saveName);
+            if (!map.hasStart) {
+                saveBannerUntil = GetTime() + 4.0f;
+                saveBannerFailed = true;
+                snprintf(bannerMsg, sizeof(bannerMsg),
+                         "Put a START marker first - the test drops you there");
+                snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
+            } else if (ParkourMapSave(&map)) {
+                dirty = false;
+                RefreshMapList();
+                snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap), "%s", map.name);
+                Settings_Save();
+                ParkourMapSetActive(map.name);
+                ParkourMapSetTestWarp(true);   /* land on the start pad, not home */
+                Screen_BeginSingleplayer();
+            } else {
+                saveBannerUntil = GetTime() + 4.0f;
+                saveBannerFailed = true;
+                snprintf(bannerMsg, sizeof(bannerMsg), "SAVE FAILED - %s", ParkourMapLastError());
+                snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
+            }
         }
     }
-    DrawText(map.name, tx + 356, 8, 14, dirty ? (Color){ 255, 200, 120, 255 } : (Color){ 150, 160, 170, 255 });
 
     /* left dock: tools + palette */
     GuiPanel((Rectangle){ 4, 34, 216, sh - 62 }, "TOOLS");
@@ -435,28 +466,42 @@ void MapEdit_Frame(void) {
     }
     if (GuiButton((Rectangle){ px + 164, 226, 76, 22 }, "SAVE")) {
         snprintf(map.name, sizeof(map.name), "%s", saveName);
+        saveBannerUntil = GetTime() + 4.0f;
         if (ParkourMapSave(&map)) {
             dirty = false;
+            saveBannerFailed = false;
             RefreshMapList();
-            saveBannerUntil = GetTime() + 3.0f;
-            snprintf(statusText, sizeof(statusText), "Saved maps/%s.pmap", map.name);
+            char dir[512];
+            ParkourMapDir(dir, sizeof(dir));
+            snprintf(bannerMsg, sizeof(bannerMsg), "SAVED  %s/%s.pmap", dir, map.name);
+            snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
         } else {
-            snprintf(statusText, sizeof(statusText), "SAVE FAILED (see log)");
+            saveBannerFailed = true;
+            snprintf(bannerMsg, sizeof(bannerMsg), "SAVE FAILED - %s", ParkourMapLastError());
+            snprintf(statusText, sizeof(statusText), "%s", bannerMsg);
         }
     }
     if (GuiTextBox((Rectangle){ px, 268, 240, 26 }, saveName, sizeof(saveName), nameEdit))
         nameEdit = !nameEdit;
-    DrawText("map file name", px, 300, 11, (Color){ 130, 140, 150, 255 });
+    DrawText("map file name - saves to maps/ next to game.exe", px, 300, 10, (Color){ 130, 140, 150, 255 });
     if (GuiButton((Rectangle){ px, 320, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
 
-    /* loud save feedback - the status bar alone was easy to miss */
+    /* loud save feedback with the FULL path - no more "did it save?" */
     if (GetTime() < saveBannerUntil) {
-        char msg[128];
-        snprintf(msg, sizeof(msg), "SAVED  maps/%s.pmap", map.name);
-        int w = (int)MeasureText(msg, 30) + 40;
-        DrawRectangle((sw - w) / 2, 70, w, 52, (Color){ 20, 40, 34, 230 });
-        DrawRectangleLines((sw - w) / 2, 70, w, 52, (Color){ 120, 255, 190, 255 });
-        DrawText(msg, (sw - w) / 2 + 20, 82, 30, (Color){ 160, 255, 210, 255 });
+        char msg[700];
+        if (saveBannerFailed)
+            snprintf(msg, sizeof(msg), "%s", bannerMsg);
+        else
+            snprintf(msg, sizeof(msg), "%s", bannerMsg);
+        int fs = 20;
+        int w = (int)MeasureText(msg, fs) + 40;
+        if (w > sw - 40) { fs = 14; w = (int)MeasureText(msg, fs) + 40; }
+        Color bg = saveBannerFailed ? (Color){ 56, 24, 24, 235 } : (Color){ 20, 40, 34, 235 };
+        Color bd = saveBannerFailed ? (Color){ 255, 130, 120, 255 } : (Color){ 120, 255, 190, 255 };
+        Color fg = saveBannerFailed ? (Color){ 255, 190, 180, 255 } : (Color){ 160, 255, 210, 255 };
+        DrawRectangle((sw - w) / 2, 70, w, 48, bg);
+        DrawRectangleLines((sw - w) / 2, 70, w, 48, bd);
+        DrawText(msg, (sw - w) / 2 + 20, 70 + (48 - fs) / 2, fs, fg);
     }
 
 }

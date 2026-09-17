@@ -430,7 +430,21 @@ local parkour_field
 local lamps = f.constant(0)   -- hoisted: the material below needs it in map mode too
 local function padd(b) parkour_field = f.max(parkour_field, b) end
 if map_active then
-    parkour_field = pbox(P2_CX, P2_TOP - 3, P2_CZ, 95, 3, 95)
+    -- v65.34: the zone is the USER'S map, nothing else. No slab: just
+    -- small plazas under the markers so gate/start/finish always have
+    -- ground even if the author built none, plus the gate block itself.
+    parkour_field = f.constant(0)
+    if map_gate then
+        parkour_field = f.max(parkour_field, pbox(map_gate.x, map_gate.y - 1, map_gate.z, 2, 1, 2))
+    else
+        parkour_field = f.max(parkour_field, pbox(P2_CX - 72, P2_TOP - 1, P2_CZ, 2, 1, 2))
+    end
+    if map_start then
+        parkour_field = f.max(parkour_field, pbox(map_start.x, map_start.y - 1, map_start.z, 3, 1, 3))
+    end
+    if map_finish then
+        parkour_field = f.max(parkour_field, pbox(map_finish.x, map_finish.y - 1, map_finish.z, 4, 1, 4))
+    end
 else
 parkour_field = pbox(P2_CX - 72, P2_TOP - 3, P2_CZ, 8, 3, 8)   -- start court
 -- leg 1 canyon floor: rest islands, pits between them (crossed on walls)
@@ -843,7 +857,7 @@ material = f.select(pocket_zone, pocket_material, material)
 material = f.select(pocket_zone2, parkour_material, material)
 
 wg.configure({
-    id = "midless:cosmic", version = 26,
+    id = "midless:cosmic", version = 27,
     min_y = 0, max_y = 160, bounded = true,
     sea_level = -1, fill_oceans = false,
     -- v65: density is the ISLANDS only. It used to include flora_cell, so
@@ -1123,8 +1137,16 @@ midless.register_on_step(function(dt)
                 if pos.y < zone.top - 4 then
                     -- rescue net: however you ended up UNDER the pocket
                     -- floor, the pocket catches you and puts you back on top
-                    p:teleport({ x = pos.x, y = zone.top + 2, z = pos.z })
-                    p:send_message(zone.catch)
+                    local rsm = (zi == 2) and wg.parkour_map_marker("start") or nil
+                    if rsm then
+                        -- v65.34: custom maps have no slab to land on -
+                        -- a fall resets you to your own start pad
+                        p:teleport({ x = rsm.x + 0.5, y = rsm.y + 2, z = rsm.z + 0.5 })
+                        p:send_message("Fell off the course - back to the start.")
+                    else
+                        p:teleport({ x = pos.x, y = zone.top + 2, z = pos.z })
+                        p:send_message(zone.catch)
+                    end
                 elseif pos.y < zone.top + 200 then
                     if zone.r then
                         local r = math.sqrt(dx * dx + dz * dz)
