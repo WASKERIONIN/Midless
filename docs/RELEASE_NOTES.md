@@ -1,6 +1,33 @@
-# Midless: Cosmic Edition v65.27
+# Midless: Cosmic Edition v65.28
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.28 - wall running, and a second pocket instance
+
+- **Wall run + wall kick.** Airborne, moving along a wall, it sticks:
+  near-zero gravity with a floaty sink, the camera banks into the
+  surface, and Space kicks off it - refreshing the double jump and
+  dash charges so kick chains build speed instead of spending it.
+  The grab never triggers while rising hard, so ordinary jumps past
+  walls do not snag. Runs hold up to 2.8 s; abuses are left to level
+  design, not timers.
+- **The second pocket instance.** The cores the Warden leaves behind
+  complete a second crossing: a brutalist parkour course adrift in
+  the void - a plaza, a rising platform run with deliberately
+  irregular spacings, a wall-run traverse, a wall-kick chimney,
+  precision hops and a finish plateau with a beacon. The route is
+  signposted by light strips only; two monoliths double as climbable
+  shortcuts. Crossing the start pad arms a course clock; the finish
+  plateau stops it and keeps a per-player personal best (server Lua).
+  Falling off lands you on the plaza - the clock is the only price.
+- **Plumbing.** pocketfx generalised to two zones (per-zone chunk
+  veil, factor-any gates for the cosmos/mobs/postfx, distinct sky
+  palettes), music station 8 claimed inside the second pocket, the
+  barrier + under-floor rescue hooks cover both zones, gate routing
+  distinguishes the meadow's centre gate from gates built inside it.
+- **New blocks/tiles:** Concrete (81), Concrete Base (82), Path Lamp
+  (83, calm light 6). The outdated-atlas guard now covers tiles
+  78-83. Worldgen version 22.
 
 ## v65.27 - depth precision at range, and flora follows its support
 

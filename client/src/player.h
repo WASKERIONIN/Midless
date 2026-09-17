@@ -58,6 +58,12 @@ typedef struct Player{
     double dashReadyTime;      /* time the dash becomes available again */
     double dashActiveUntil;    /* burst window end */
     Vector3 dashDir;           /* normalized horizontal dash direction */
+    /* v65.28: wall run + wall kick (VHOLUME-school movement) */
+    int wallRunSide;           /* 0 = off, +1 wall on the right, -1 left */
+    float wallRunTime;         /* seconds on the current wall */
+    double wallRunCooldownUntil;  /* no re-grab right after a kick/timeout */
+    Vector3 wallNormal;        /* unit vector from the wall to the player */
+    float camRoll;             /* smoothed banking angle, rad */
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
     EntityAnimation animation;

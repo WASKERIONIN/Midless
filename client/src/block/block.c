@@ -75,7 +75,7 @@ static void Block_LoadLiquidTints(void) {
         block->liquidTint.a = 105;
     }
 
-        for (int t = 78; t <= 80; t++) {
+        for (int t = 78; t <= 83; t++) {   /* v65.28: + the Foundry concrete tiles */
         Color probe = GetImageColor(atlas, (t % 16) * 16 + 8, (t / 16) * 16 + 8);
         if (probe.a == 0) pocketTilesPresent = false;
     }

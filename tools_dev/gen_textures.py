@@ -1299,6 +1299,63 @@ def t_frostfern(index):
     return img
 
 
+def t_concrete(index):
+    """v65.28 the Foundry - pale brutalist concrete: cool grey, faint
+    formwork seams, aggregate speckle. Flat and calm, never glaring."""
+    n = value_noise(index * 151 + 31, 4)
+    img = blank_tile()
+    px = img.load()
+    C = (172, 172, 176)
+    C_D = (142, 142, 148)
+    C_L = (192, 192, 196)
+    for y in range(TILE):
+        for x in range(TILE):
+            v = n[y][x]
+            c = lerp(C, C_D, v)
+            if v > 0.64:
+                c = lerp(c, C_L, (v - 0.64) * 2.2)
+            px[x, y] = with_a(c, 255)
+    d = ImageDraw.Draw(img)
+    d.line([(0, 4), (15, 4)], fill=with_a((128, 128, 134), 255))
+    d.line([(0, 12), (15, 12)], fill=with_a((128, 128, 134), 255))
+    speckle(img, index * 157 + 32, (116, 116, 122), 5, 0.6)
+    return img
+
+
+def t_concrete_base(index):
+    """v65.28 the Foundry underside - poured dark concrete with a cold
+    blue-grey cast, so the slab reads heavy from below."""
+    n = value_noise(index * 163 + 33, 4)
+    img = blank_tile()
+    px = img.load()
+    B = (96, 98, 108)
+    B_D = (74, 76, 86)
+    for y in range(TILE):
+        for x in range(TILE):
+            v = n[y][x]
+            px[x, y] = with_a(lerp(B, B_D, v), 255)
+    speckle(img, index * 167 + 34, (128, 130, 140), 4, 0.7)
+    return img
+
+
+def t_concrete_lamp(index):
+    """v65.28 path lamp - a warm off-white light panel in a concrete
+    frame. Calm wayfinding glow (the no-hazard-glow rule stands)."""
+    img = blank_tile()
+    px = img.load()
+    FRAME = (120, 120, 126)
+    for y in range(TILE):
+        for x in range(TILE):
+            edge = x < 2 or y < 2 or x > 13 or y > 13
+            if edge:
+                px[x, y] = with_a(FRAME, 255)
+            else:
+                d = abs(x - 7.5) + abs(y - 7.5)
+                c = lerp((255, 244, 214), (232, 214, 172), min(1.0, d / 11.0))
+                px[x, y] = with_a(c, 255)
+    return img
+
+
 def build_atlas():
     atlas = Image.new("RGBA", (ATLAS, ATLAS), (0, 0, 0, 0))
     tiles = {
@@ -1350,6 +1407,9 @@ def build_atlas():
         78: t_pocket_turf(78),
         79: t_pocket_loam(79),
         80: t_warp_gate(80),
+        81: t_concrete(81),
+        82: t_concrete_base(82),
+        83: t_concrete_lamp(83),
         73: t_glowcap_cluster(73),
         74: t_cinder_trumpet(74),
         75: t_frost_puffball(75),

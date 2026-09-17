@@ -135,7 +135,7 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
-    if (PocketFx_Factor() < 0.5f) Asteroid_Update(deltaTime);   /* v65.13: no wireframe rock inside the pocket */
+    if (PocketFx_FactorAny() < 0.5f) Asteroid_Update(deltaTime);   /* v65.13: no wireframe rock inside either pocket */
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         Entity *entity = &world.entities[i];
@@ -407,19 +407,15 @@ void World_Draw(Vector3 camPosition) {
     /* v65.12: the pocket universe is a POCKET - from inside it the cosmos
      * is not rendered, and from outside the meadow platform is not
      * rendered. The warp gate is the only door in either direction. */
-    const bool pocketView = PocketFx_Factor() > 0.5f;
-
+    /* v65.28: per-zone veil - the view renders only the zone the player
+     * is inside (0 = overworld, 1 = meadow, 2 = the Foundry) */
     int sortedLength = 0;
     for (int i=0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
 
         if (chunk->onlyAir) continue;
-        {
-            bool chunkInPocket =
-                fabsf(chunk->blockPosition.x + chunkLocalCenter.x - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
-                fabsf(chunk->blockPosition.z + chunkLocalCenter.z - POCKETFX_CZ) < POCKETFX_ZONE_HALF;
-            if (chunkInPocket != pocketView) continue;
-        }
+        if (!PocketFx_ChunkVisible(chunk->blockPosition.x + chunkLocalCenter.x,
+                                   chunk->blockPosition.z + chunkLocalCenter.z)) continue;
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
 
         if (chunk->hasTransparency) {
@@ -929,12 +925,8 @@ void World_DrawWireAuras(void) {
             chunk->specialCount[2] == 0 && chunk->floraCount == 0) continue;
         if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
         /* v65.12: same veil as World_Draw - no cross-side auras/flora */
-        {
-            bool chunkInPocket =
-                fabsf(chunk->blockPosition.x + CHUNK_SIZE_X / 2 - POCKETFX_CX) < POCKETFX_ZONE_HALF &&
-                fabsf(chunk->blockPosition.z + CHUNK_SIZE_Z / 2 - POCKETFX_CZ) < POCKETFX_ZONE_HALF;
-            if (chunkInPocket != (PocketFx_Factor() > 0.5f)) continue;
-        }
+        if (!PocketFx_ChunkVisible(chunk->blockPosition.x + CHUNK_SIZE_X / 2,
+                                   chunk->blockPosition.z + CHUNK_SIZE_Z / 2)) continue;
         for (int s = 0; s < chunk->specialCount[0]; s++) World_DrawWireAurasAt(chunk->specialPos[0][s], 0);
         for (int s = 0; s < chunk->specialCount[1]; s++) World_DrawWireAurasAt(chunk->specialPos[1][s], 1);
         for (int s = 0; s < chunk->specialCount[2]; s++) World_DrawWireAurasAt(chunk->specialPos[2][s], 2);

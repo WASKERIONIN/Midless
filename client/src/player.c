@@ -402,6 +402,11 @@ void Player_Init(void) {
     player.weaponMode = 0;
     player.crouching = false;
     player.crouchT = 0.0f;
+    player.wallRunSide = 0;          /* v65.28 */
+    player.wallRunTime = 0.0f;
+    player.wallRunCooldownUntil = 0.0;
+    player.wallNormal = (Vector3){ 0, 0, 0 };
+    player.camRoll = 0.0f;
     player.dashChargesUsed = 0;
     player.webActive = false;
     player.webAnchor = (Vector3){ 0 };
@@ -522,6 +527,16 @@ void Player_Draw(void) {
 #define WEB_RANGE      40.0f
 #define WEB_REEL       0.050f    /* acceleration toward the anchor */
 #define WEB_MAX_SPEED  0.62f     /* total velocity cap while reeling */
+
+/* v65.28: wall run + wall kick tuning (used by CheckInputs AND Update,
+ * so the defines live up here, above both) */
+#define WALLRUN_MIN_SPEED   0.075f
+#define WALLRUN_STICK_SPEED 0.05f
+#define WALLRUN_MAX_TIME    2.8f
+#define WALLRUN_ROLL        0.16f      /* rad, banked into the wall */
+#define WALLRUN_KICK_UP     0.26f
+#define WALLRUN_KICK_AWAY   0.30f
+#define WALLRUN_PROBE       0.68f      /* sideways reach from the body centre */
 #define WEB_DETACH_DIST 1.5f
 
 static void Player_WebDetach(void) {
@@ -676,6 +691,20 @@ void Player_CheckInputs() {
                     player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
                     if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
                 }
+            } else if (player.wallRunSide != 0) {
+                /* v65.28: wall kick - off the wall, momentum kept and
+                 * the double jump + dash charges refreshed for chains */
+                player.velocity.y = WALLRUN_KICK_UP;
+                player.velocity.x += player.wallNormal.x * WALLRUN_KICK_AWAY;
+                player.velocity.z += player.wallNormal.z * WALLRUN_KICK_AWAY;
+                player.wallRunSide = 0;
+                player.wallRunTime = 0.0f;
+                player.wallRunCooldownUntil = GetTime() + 0.22;
+                player.airJumpsUsed = 0;
+                player.dashChargesUsed = 0;
+                lastGroundedTime = -100.0;
+                jumpPressedTime = -100.0;
+                SoundFx_PlayJump();
             } else if (player.canJump || GetTime() - lastGroundedTime < PLAYER_COYOTE_SECONDS) {
                 player.velocity.y += 0.26f;
                 player.canJump = false;
@@ -1058,6 +1087,22 @@ void Player_CheckInputs() {
         }
     }
     player.camera.target = Vector3Add(eyePosition, forward);
+
+    /* v65.28: the world banks into the wall while running on it */
+    {
+        float rollTarget = player.wallRunSide != 0 ? (float)player.wallRunSide * WALLRUN_ROLL : 0.0f;
+        player.camRoll += (rollTarget - player.camRoll) *
+                          (1.0f - powf(0.00001f, GetFrameTime()));
+        if (fabsf(player.camRoll) > 0.0015f) {
+            Vector3 fwd = Vector3Subtract(player.camera.target, player.camera.position);
+            if (Vector3LengthSqr(fwd) > 1e-6f) {
+                fwd = Vector3Normalize(fwd);
+                player.camera.up = Vector3RotateByAxisAngle((Vector3){ 0, 1, 0 }, fwd, player.camRoll);
+            }
+        } else {
+            player.camera.up = (Vector3){ 0, 1, 0 };
+        }
+    }
 }
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockId)
@@ -1087,6 +1132,91 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockId)
 
 
 
+/* ---------------- v65.28: wall run + wall kick ----------------
+ * VHOLUME-school: generous, momentum-friendly. You stick to a wall
+ * while airborne and moving along it (near-zero gravity, a floaty
+ * sink), the camera banks into the wall, and Space kicks off it -
+ * refreshing the double jump and the dash charges so kick chains
+ * BUILD speed instead of spending it. Abuses are limited by level
+ * design, not by tight timers: the run lasts a long 2.8 s. */
+static bool WallRun_SolidAt(Vector3 cell) {
+    const Block *b = Block_GetDefinition(World_GetBlock(cell));
+    return b->colliderType == BLOCK_COLLIDER_SOLID;
+}
+
+static bool WallRun_Probe(Vector3 sideVec, Vector3 *normalOut) {
+    /* two body heights must touch the wall, and the head cell stay free */
+    Vector3 c = { player.position.x + 0.5f, 0.0f, player.position.z + 0.5f };
+    int solid = 0;
+    for (int k = 0; k < 2; k++) {
+        Vector3 pr = { c.x + sideVec.x * WALLRUN_PROBE,
+                       player.position.y + (k ? 1.35f : 0.45f),
+                       c.z + sideVec.z * WALLRUN_PROBE };
+        if (WallRun_SolidAt((Vector3){ floorf(pr.x), pr.y, floorf(pr.z) })) solid++;
+    }
+    if (solid < 2) return false;
+    if (WallRun_SolidAt((Vector3){ floorf(c.x), player.position.y + 1.6f, floorf(c.z) }))
+        return false;
+    if (normalOut) *normalOut = (Vector3){ -sideVec.x, 0.0f, -sideVec.z };
+    return true;
+}
+
+static void Player_WallRunUpdate(float frameScale) {
+    double now = GetTime();
+    if (player.flying || player.liquidSubmersion > 0.0f ||
+        player.webActive || player.canJump) {
+        player.wallRunSide = 0;
+        player.wallRunTime = 0.0f;
+        return;
+    }
+    float hx = player.velocity.x, hz = player.velocity.z;
+    float hs = sqrtf(hx * hx + hz * hz);
+
+    if (player.wallRunSide != 0) {
+        player.wallRunTime += GetFrameTime();
+        Vector3 toWall = { -player.wallNormal.x, 0.0f, -player.wallNormal.z };
+        bool wallThere = false;
+        {   /* maintain needs only ONE of the two body heights */
+            Vector3 c = { player.position.x + 0.5f, 0.0f, player.position.z + 0.5f };
+            for (int k = 0; k < 2 && !wallThere; k++) {
+                Vector3 pr = { c.x + toWall.x * WALLRUN_PROBE,
+                               player.position.y + (k ? 1.35f : 0.45f),
+                               c.z + toWall.z * WALLRUN_PROBE };
+                wallThere = WallRun_SolidAt((Vector3){ floorf(pr.x), pr.y, floorf(pr.z) });
+            }
+        }
+        if (!wallThere || hs < WALLRUN_STICK_SPEED || player.wallRunTime > WALLRUN_MAX_TIME) {
+            player.wallRunSide = 0;
+            player.wallRunTime = 0.0f;
+            player.wallRunCooldownUntil = now + 0.35;
+        } else {
+            /* press into the wall so turns keep contact; gravity is
+             * replaced by the floaty sink in Player_Update */
+            player.velocity.x += toWall.x * 0.010f * frameScale;
+            player.velocity.z += toWall.z * 0.010f * frameScale;
+        }
+        return;
+    }
+
+    /* attach: airborne, fast enough, not fresh off a kick, and NOT
+     * climbing hard (a rising jump next to a wall must not snag -
+     * the auto-grab complaint that plagues the genre) */
+    if (hs < WALLRUN_MIN_SPEED || now < player.wallRunCooldownUntil) return;
+    if (player.velocity.y > 0.06f) return;
+    Vector3 dir = { hx / hs, 0.0f, hz / hs };
+    Vector3 right = { -dir.z, 0.0f, dir.x };
+    for (int s = 1; s >= -1; s -= 2) {
+        Vector3 sideVec = { right.x * (float)s, 0.0f, right.z * (float)s };
+        Vector3 normal;
+        if (WallRun_Probe(sideVec, &normal)) {
+            player.wallRunSide = s;
+            player.wallNormal = normal;
+            player.wallRunTime = 0.0f;
+            break;
+        }
+    }
+}
+
 void Player_Update(void) {
     
     if(GetTime() - playerLastPositionPacketTime > 0.05) {
@@ -1099,6 +1229,10 @@ void Player_Update(void) {
 
     if (player.flying) {
         /* Tab fly: no gravity */
+    } else if (player.wallRunSide != 0) {
+        /* v65.28: on the wall you barely fall - a floaty sink */
+        player.velocity.y -= 0.0016f * frameScale;
+        if (player.velocity.y < -0.045f) player.velocity.y = -0.045f;
     } else if (player.liquidSubmersion > 0.0f) {
         player.velocity.y -= WATER_GRAVITY * frameScale;
         if (player.velocity.y < -WATER_MAX_FALL_SPEED) {
@@ -1177,6 +1311,8 @@ void Player_Update(void) {
             }
         }
     }
+
+    Player_WallRunUpdate(frameScale);   /* v65.28 */
 
     World_LoadChunks();
 

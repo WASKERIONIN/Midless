@@ -164,12 +164,13 @@ void Game_RunLoop(void) {
         BlackHole_Update(GetFrameTime());
         /* v65.13: the pocket universe keeps its own calm - the moths,
          * the void-tide and its mob waves do not exist inside it. */
-        if (PocketFx_Factor() < 0.5f) {
+        if (PocketFx_FactorAny() < 0.5f) {
             Bird_Update(GetFrameTime());
             Hunter_Update(GetFrameTime());
             Mobs_Update(GetFrameTime());
         }
         SoundFx_PocketUpdate(PocketFx_Factor());
+        SoundFx_Pocket2Update(PocketFx_Factor2());   /* v65.28: the Foundry station */
         Golem_Update(GetFrameTime());
         Ship_Update((double)GetTime());   /* v62 */
         MapView_Update();
@@ -199,7 +200,7 @@ void Game_RunLoop(void) {
                 Starfield_Update(GetFrameTime());
                 /* v65.8: the pocket universe has no void - hide the nebulae,
                  * the black-hole sun and the ship traffic while inside it */
-                if (PocketFx_Factor() < 0.5f) {
+                if (PocketFx_FactorAny() < 0.5f) {
                     Starfield_Draw(player.camera);
                     BlackHole_Draw(player.camera);
                     Ship_Draw((double)GetTime());   /* v62: the Void Runner */
@@ -209,7 +210,7 @@ void Game_RunLoop(void) {
                 Colonnade_Draw(PocketFx_Factor());   /* v65.16 peristyle */
                 Golem_Draw();                        /* v65.21 the Warden */
                 /* v65.13: no overworld threats or auras bleed into the pocket */
-                if (PocketFx_Factor() < 0.5f) {
+                if (PocketFx_FactorAny() < 0.5f) {
                     Hunter_Draw();
                     Mobs_Draw();
                 }

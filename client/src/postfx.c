@@ -192,7 +192,7 @@ void PostFx_EndScene(Camera camera) {
     BlackHoleScreen bh = BlackHole_GetScreenState(camera);
     float bhPos[2] = { bh.center.x, bh.center.y };
     float radius = bh.visible ? bh.radius * 1.35f : 0.0001f;
-    float pocketEarly = PocketFx_Factor();   /* v65.14 */
+    float pocketEarly = PocketFx_FactorAny();   /* v65.14, v65.28: both pockets */
     /* v58: scroll of true gaze. v65.14: no black hole lives in the
      * pocket - the lens distortion fades out with the crossing. */
     float strength = (bh.visible && Player_GetGazeTimeLeft() <= 0.0) ? 1.0f - pocketEarly : 0.0f;
@@ -202,7 +202,7 @@ void PostFx_EndScene(Camera camera) {
     SetShaderValue(shader, locBhPos, bhPos, SHADER_UNIFORM_VEC2);
     SetShaderValue(shader, locBhRadius, &radius, SHADER_UNIFORM_FLOAT);
     SetShaderValue(shader, locBhStrength, &strength, SHADER_UNIFORM_FLOAT);
-    float pocket = PocketFx_Factor();   /* v65.8 */
+    float pocket = PocketFx_FactorAny();   /* v65.8, v65.28: both pockets */
     SetShaderValue(shader, locPocket, &pocket, SHADER_UNIFORM_FLOAT);
 
     BeginShaderMode(shader);

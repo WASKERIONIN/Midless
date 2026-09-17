@@ -451,6 +451,16 @@ static const float motifBattle[] = {
     NOTE_D5, NOTE_C5, NOTE_BB4, NOTE_A4, NOTE_BB4, NOTE_C5, NOTE_D5, 0,
     NOTE_F5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, NOTE_BB4, 0
 };
+
+/* v65.28: the Foundry - a runner's progression, Am F C G */
+static const float chordsRun[] = {
+    NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_F3, NOTE_A3, NOTE_C4,
+    NOTE_C4, NOTE_E4, NOTE_G4,  NOTE_G4, NOTE_B4, NOTE_D5,
+};
+static const float motifRun[] = {
+    NOTE_A4, NOTE_C5, NOTE_D5, NOTE_C5, NOTE_A4, NOTE_G4, NOTE_A4, 0,
+    NOTE_E4, NOTE_G4, NOTE_A4, NOTE_C5, NOTE_D5, NOTE_F5, NOTE_D5, 0
+};
 /* v65.13: F - Am - C - G, the pocket dream drift */
 static const float chordsDream[] = {
     NOTE_F3, NOTE_A3, NOTE_C4,  NOTE_A3, NOTE_C4, NOTE_E4,
@@ -487,13 +497,14 @@ static const float chordsGhost[] = {
     NOTE_A3, NOTE_C4, NOTE_E4,  NOTE_E3, NOTE_GS4, NOTE_B3,
 };
 
-#define MUS_NTRACKS 8
+#define MUS_NTRACKS 9
 /* v65.25: explicit station ids. Deriving the pocket station from
  * MUS_NTRACKS-1 silently became the battle station when track 7 was
  * added - the pocket played battle music and the Warden's awakening
  * changed nothing. */
 #define MUS_POCKET_TRACK 6
 #define MUS_BOSS_TRACK   7
+#define MUS_POCKET2_TRACK 8   /* v65.28: the Foundry run */
 
 static const MusTrack tracks[MUS_NTRACKS] = {
     /* 0: dorian stride, SOFT LUTE lead, warm pad. L'homme arme (15th c.). */
@@ -518,6 +529,10 @@ static const MusTrack tracks[MUS_NTRACKS] = {
      * pulsing bass, string pad, choir lead, a war bell every 2 bars.
      * Claimed by SoundFx_BossUpdate while the Warden fights. */
     { "The Warden Wakes",  chordsBattle, motifBattle, 16, NOTE_D2, 0, 2.6f, 2.0f, 0.50f, 6.0f, 0.30f, 0.35f, 0.22f, 1.0f, 0.22f, 2, 660.0f, 0, 3, 3 },
+    /* 8: v65.28 "Concrete Arterial" - the Foundry parkour run: a fast
+     * bar, four-on-the-floor bass, icy bell lead over strings. Claimed
+     * by SoundFx_Pocket2Update inside the second pocket. */
+    { "Concrete Arterial", chordsRun,    motifRun,    16, NOTE_A2, 0, 2.1f, 4.0f, 0.50f, 8.0f, 0.24f, 0.30f, 0.20f, 1.0f, 0.28f, 4, 880.0f, 0, 4, 3 },
 };
 
 /* v59.3: the radio changes tracks - a fresh pick at every start (seeded
@@ -807,6 +822,20 @@ void SoundFx_PocketUpdate(float factor) {
     musInPocket = inPocket;
     if (inPocket) { musPocketPrev = musTrack; musTrack = MUS_POCKET_TRACK; }
     else { musTrack = musPocketPrev; }
+    musSample = 0;
+    musLastCycle = 0;
+}
+
+/* v65.28: the Foundry claims its own station; the previous one is
+ * restored on the way out. Spatially exclusive with the meadow. */
+static bool musInPocket2 = false;
+static int musPocket2Prev = 0;
+void SoundFx_Pocket2Update(float factor) {
+    bool in2 = factor > 0.5f;
+    if (in2 == musInPocket2) return;
+    musInPocket2 = in2;
+    if (in2) { musPocket2Prev = musTrack; musTrack = MUS_POCKET2_TRACK; }
+    else { musTrack = musPocket2Prev; }
     musSample = 0;
     musLastCycle = 0;
 }

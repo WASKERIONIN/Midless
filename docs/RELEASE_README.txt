@@ -1,8 +1,17 @@
-=== Midless: Cosmic Edition v65.27 ===
+=== Midless: Cosmic Edition v65.28 ===
 
 A voxel world adrift in space: smooth floating islands hanging in a starlit
 void, a black hole wearing a gold photon ring instead of a sun, glowing
 crystal water pooled in glass basins, and asteroids where clouds used to be.
+
+WHAT'S NEW IN v65.28
+  - Wall running: run along walls mid-air, kick off them with Space
+    to chain height and speed; the camera banks into the wall.
+  - A second pocket instance: a brutalist parkour course with a
+    time trial - irregular platform runs, a wall-run traverse, a
+    wall-kick chimney, light-strip signposting and climbable
+    monolith shortcuts. The Warden's cores open the way.
+  - New concrete blocks and a calm path lamp; music station 8.
 
 WHAT'S NEW IN v65.27
   - Depth precision at range: the projection near plane moved from
