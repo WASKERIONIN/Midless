@@ -1,4 +1,35 @@
-# Midless: Cosmic Edition v65.32
+# Midless: Cosmic Edition v65.33
+
+Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
+
+## v65.33 - map editor fixes: strafe keys, layout audit, map picker, TEST IN GAME
+
+- **Editor camera: A/D were mirrored** relative to the look direction -
+  the strafe basis vector sign is corrected.
+- **Editor layout audit:** tool buttons respaced (rows now have a 4px
+  gap, columns clear the dock edges); the palette list got comfortable
+  24px rows with the colour swatches aligned per row and moved out of
+  the text column (all six blocks fit without a scrollbar); the MAP
+  LIBRARY group was resized so LOAD/DELETE/SAVE no longer spill past
+  its border; name box, caption and EXIT respaced below it; the toolbar
+  (NEW / UNDO / REDO / GRID / TEST IN GAME / map name) keeps clear
+  gaps and the name never reaches the right dock; the menu map-name
+  plate clips long names instead of overflowing.
+- **Map picker reworked:** the combobox is replaced by an explicit
+  `[ < ]  MAP NAME  [ > ]` switcher on the main menu - the current
+  choice is always visible, one click per map, the list rescans once a
+  second so freshly saved maps appear immediately, and the selection
+  persists to settings.ini.
+- **Visible save feedback:** SAVE now raises a large centred
+  `SAVED maps/<name>.pmap` banner for 3 seconds (plus the status-bar
+  line); a failed save reports itself instead of staying silent.
+- **New: TEST IN GAME button** in the editor toolbar - saves the map,
+  marks it as the active parkour map in settings, and launches
+  singleplayer straight into the game with exactly the geometry that
+  is on screen.
+
+---
+
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 

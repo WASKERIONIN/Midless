@@ -2,6 +2,7 @@
 #include "mapedit.h"
 #include "parkourmap.h"
 #include "screens.h"
+#include "settings.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,6 +64,7 @@ static int mapCount = 0, mapListActive = 0;
 static char mapListText[PMAP_MAX_MAPS * (PMAP_NAME_LEN + 1)];
 static char saveName[PMAP_NAME_LEN] = "my_course";
 static bool nameEdit = false;
+static double saveBannerUntil = 0.0;
 static char statusText[160];
 static bool dirty = false;
 
@@ -193,6 +195,8 @@ void MapEdit_Enter(void) {
         GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, 0xffffffff);
         GuiSetStyle(DEFAULT, BACKGROUND_COLOR, 0x14171aff);
         GuiSetStyle(DEFAULT, TEXT_COLOR_DISABLED, 0x60686eff);
+        GuiSetStyle(LISTVIEW, LIST_ITEMS_HEIGHT, 24);
+        GuiSetStyle(LISTVIEW, LIST_ITEMS_SPACING, 2);
     }
     currentScreen = SCREEN_EDITOR;
 }
@@ -212,7 +216,9 @@ void MapEdit_Frame(void) {
         if (camPitch < -1.4f) camPitch = -1.4f;
     }
     Vector3 fwd = { cosf(camPitch) * sinf(camYaw), sinf(camPitch), cosf(camPitch) * cosf(camYaw) };
-    Vector3 right = { cosf(camYaw), 0, -sinf(camYaw) };
+    /* strafe basis: v65.32 fix - the previous sign had A/D mirrored
+     * relative to where the camera actually looks */
+    Vector3 right = { -cosf(camYaw), 0, sinf(camYaw) };
     /* while the map-name box has focus, WASD belong to typing, not flying */
     float speed = flySpeed * dt * (IsKeyDown(KEY_LEFT_SHIFT) ? 3.0f : 1.0f);
     if (!nameEdit) {
@@ -369,24 +375,40 @@ void MapEdit_Frame(void) {
     if (GuiButton((Rectangle){ tx + 58, 4, 54, 22 }, "UNDO")) Undo();
     if (GuiButton((Rectangle){ tx + 116, 4, 54, 22 }, "REDO")) Redo();
     if (GuiButton((Rectangle){ tx + 174, 4, 54, 22 }, showGrid ? "GRID*" : "GRID")) showGrid = !showGrid;
-    DrawText(map.name, tx + 240, 8, 14, dirty ? (Color){ 255, 200, 120, 255 } : (Color){ 150, 160, 170, 255 });
+    if (GuiButton((Rectangle){ tx + 232, 4, 110, 22 }, "TEST IN GAME")) {
+        /* save first so the server picks up the very geometry on screen */
+        snprintf(map.name, sizeof(map.name), "%s", saveName);
+        if (ParkourMapSave(&map)) {
+            dirty = false;
+            RefreshMapList();
+            snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap), "%s", map.name);
+            Settings_Save();
+            ParkourMapSetActive(map.name);
+            Screen_BeginSingleplayer();
+        } else {
+            snprintf(statusText, sizeof(statusText), "SAVE FAILED - map not tested");
+        }
+    }
+    DrawText(map.name, tx + 356, 8, 14, dirty ? (Color){ 255, 200, 120, 255 } : (Color){ 150, 160, 170, 255 });
 
     /* left dock: tools + palette */
     GuiPanel((Rectangle){ 4, 34, 216, sh - 62 }, "TOOLS");
     for (int i = 0; i < TOOL_COUNT; i++) {
-        Rectangle r = { 12 + (i % 2) * 104, 58 + (i / 2) * 26, 100, 24 };
+        Rectangle r = { 12 + (i % 2) * 104, 58 + (i / 2) * 28, 100, 24 };
         bool on = ((int)tool == i);
         if (on) DrawRectangleRec(r, (Color){ 52, 84, 78, 255 });
         if (GuiButton(r, TOOL_NAMES[i])) tool = (EditTool)i;
     }
-    GuiGroupBox((Rectangle){ 12, 172, 200, 150 }, "BLOCKS");
-    GuiListView((Rectangle){ 16, 192, 192, 124 }, PALETTE_NAMES, &paletteScroll, &paletteIndex);
+    /* row pitch = LIST_ITEMS_HEIGHT(24) + SPACING(2); six rows fit the
+     * list without a scrollbar, swatches sit clear of the text column */
+    GuiGroupBox((Rectangle){ 12, 176, 200, 190 }, "BLOCKS");
+    GuiListView((Rectangle){ 16, 198, 168, 158 }, PALETTE_NAMES, &paletteScroll, &paletteIndex);
     for (int p = 0; p < 6; p++)
-        DrawRectangle(188, 194 + p * 21, 14, 14, PALETTE_COLORS[p]);
-    GuiGroupBox((Rectangle){ 12, 330, 200, 84 }, "MARKERS");
-    DrawText(map.hasGate ? "GATE set" : "GATE -", 20, 352, 12, (Color){ 186, 120, 255, 255 });
-    DrawText(map.hasStart ? "START set" : "START -", 20, 370, 12, (Color){ 120, 255, 160, 255 });
-    DrawText(map.hasFinish ? "FINISH set" : "FINISH -", 20, 388, 12, (Color){ 255, 210, 90, 255 });
+        DrawRectangle(190, 205 + p * 26, 16, 16, PALETTE_COLORS[p]);
+    GuiGroupBox((Rectangle){ 12, 374, 200, 88 }, "MARKERS");
+    DrawText(map.hasGate ? "GATE set" : "GATE -", 20, 396, 12, (Color){ 186, 120, 255, 255 });
+    DrawText(map.hasStart ? "START set" : "START -", 20, 416, 12, (Color){ 120, 255, 160, 255 });
+    DrawText(map.hasFinish ? "FINISH set" : "FINISH -", 20, 436, 12, (Color){ 255, 210, 90, 255 });
 
     /* right dock: properties + map library */
     GuiPanel((Rectangle){ sw - 260, 34, 256, sh - 62 }, "PROPERTIES / MAPS");
@@ -395,9 +417,9 @@ void MapEdit_Frame(void) {
     GuiValueBox((Rectangle){ px + 128, 60, 112, 24 }, "Thick", &wallThickness, 1, 7, false);
     GuiValueBox((Rectangle){ px, 92, 120, 24 }, "Box H", &boxHeight, 1, 40, false);
     GuiValueBox((Rectangle){ px + 128, 92, 112, 24 }, "Grid Y", &gridLevel, 0, 63, false);
-    GuiGroupBox((Rectangle){ px - 4, 128, 248, 120 }, "MAP LIBRARY");
-    GuiListView((Rectangle){ px, 148, 240, 76 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive);
-    if (GuiButton((Rectangle){ px, 228, 76, 22 }, "LOAD")) {
+    GuiGroupBox((Rectangle){ px - 4, 124, 248, 138 }, "MAP LIBRARY");
+    GuiListView((Rectangle){ px, 144, 240, 76 }, mapCount ? mapListText : "(no saved maps)", &mapListScroll, &mapListActive);
+    if (GuiButton((Rectangle){ px, 226, 76, 22 }, "LOAD")) {
         if (mapCount > 0 && ParkourMapLoad(mapNames[mapListActive], &map)) {
             snprintf(saveName, sizeof(saveName), "%s", mapNames[mapListActive]);
             undoCount = redoCount = 0;
@@ -405,23 +427,36 @@ void MapEdit_Frame(void) {
             snprintf(statusText, sizeof(statusText), "Loaded map '%s'", map.name);
         }
     }
-    if (GuiButton((Rectangle){ px + 82, 228, 76, 22 }, "DELETE")) {
+    if (GuiButton((Rectangle){ px + 82, 226, 76, 22 }, "DELETE")) {
         if (mapCount > 0) {
             ParkourMapDelete(mapNames[mapListActive]);
             RefreshMapList();
         }
     }
-    if (GuiButton((Rectangle){ px + 164, 228, 76, 22 }, "SAVE")) {
+    if (GuiButton((Rectangle){ px + 164, 226, 76, 22 }, "SAVE")) {
         snprintf(map.name, sizeof(map.name), "%s", saveName);
         if (ParkourMapSave(&map)) {
             dirty = false;
             RefreshMapList();
+            saveBannerUntil = GetTime() + 3.0f;
             snprintf(statusText, sizeof(statusText), "Saved maps/%s.pmap", map.name);
+        } else {
+            snprintf(statusText, sizeof(statusText), "SAVE FAILED (see log)");
         }
     }
-    if (GuiTextBox((Rectangle){ px, 256, 240, 26 }, saveName, sizeof(saveName), nameEdit))
+    if (GuiTextBox((Rectangle){ px, 268, 240, 26 }, saveName, sizeof(saveName), nameEdit))
         nameEdit = !nameEdit;
-    DrawText("map file name", px, 286, 11, (Color){ 130, 140, 150, 255 });
-    if (GuiButton((Rectangle){ px, 310, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
+    DrawText("map file name", px, 300, 11, (Color){ 130, 140, 150, 255 });
+    if (GuiButton((Rectangle){ px, 320, 240, 26 }, "EXIT TO MENU")) currentScreen = SCREEN_LOGIN;
+
+    /* loud save feedback - the status bar alone was easy to miss */
+    if (GetTime() < saveBannerUntil) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "SAVED  maps/%s.pmap", map.name);
+        int w = (int)MeasureText(msg, 30) + 40;
+        DrawRectangle((sw - w) / 2, 70, w, 52, (Color){ 20, 40, 34, 230 });
+        DrawRectangleLines((sw - w) / 2, 70, w, 52, (Color){ 120, 255, 190, 255 });
+        DrawText(msg, (sw - w) / 2 + 20, 82, 30, (Color){ 160, 255, 210, 255 });
+    }
 
 }

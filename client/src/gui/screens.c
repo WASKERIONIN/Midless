@@ -1114,44 +1114,55 @@ void Screen_DrawLogin(void) {
         Screen_BeginSingleplayer();
     }
 
-    /* v65.32: parkour map choice + the map editor live on the main menu */
+    /* v65.32: parkour map choice + the map editor live on the main menu.
+     * v65.33: an explicit [< name >] switcher instead of the combo box -
+     * the selection is always visible and one click per map. */
     {
-        static char mapOptions[1024];
-        static int mapChoice = 0;
-        static char chosenName[PMAP_NAME_LEN] = "";
+        static char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
+        static int count = 0;
+        static int sel = 0;
         static int refresh = 0;
-        /* rescan once a second so maps saved in the editor show up live */
-        if (refresh++ % 60 == 0 || mapOptions[0] == 0) {
-            snprintf(mapOptions, sizeof(mapOptions), "Default Foundry");
-            char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
-            int count = ParkourMapList(names, PMAP_MAX_MAPS);
-            mapChoice = 0;
-            for (int i = 0; i < count; i++) {
-                strcat(mapOptions, ";");
-                strcat(mapOptions, names[i]);
-                const char *want = chosenName[0] ? chosenName : gameSettings.parkourMap;
-                if (want[0] && !strcmp(names[i], want)) mapChoice = i + 1;
-            }
+        if (refresh++ % 60 == 1 || count == 0 && refresh == 1) {
+            /* rescan maps/ once a second: editor saves show up live */
+            count = ParkourMapList(names, PMAP_MAX_MAPS);
+            sel = 0;
+            for (int i = 0; i < count; i++)
+                if (gameSettings.parkourMap[0] && !strcmp(names[i], gameSettings.parkourMap))
+                    sel = i + 1;
         }
         int my = offsetY + 268;
         DrawPanel((Rectangle){ (float)offsetX - 170, (float)my - 12, 340, 64 });
-        I18n_DrawText("PARKOUR MODE MAP - custom maps from the editor",
+        I18n_DrawText("PARKOUR MODE MAP - saved by the map editor",
                       offsetX - 158, my - 4, 13, (Color){ 120, 190, 175, 255 });
-        if (GuiComboBox((Rectangle){ (float)offsetX - 158, (float)my + 16, 240, 28 },
-                        mapOptions, &mapChoice)) {
-            char names[PMAP_MAX_MAPS][PMAP_NAME_LEN];
-            int count = ParkourMapList(names, PMAP_MAX_MAPS);
-            if (mapChoice == 0 || mapChoice > count) {
-                chosenName[0] = 0;
-                gameSettings.parkourMap[0] = 0;
-            } else {
-                snprintf(chosenName, sizeof(chosenName), "%s", names[mapChoice - 1]);
-                snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
-                         "%s", names[mapChoice - 1]);
-            }
-            Settings_Save();
+        const char *label = (sel == 0) ? "Default Foundry" : names[sel - 1];
+        if (MenuButton((Rectangle){ offsetX - 158, my + 16, 30, 28 }, "<")) sel = (sel + count) % (count + 1);
+        if (MenuButton((Rectangle){ offsetX + 50, my + 16, 30, 28 }, ">")) sel = (sel + 1) % (count + 1);
+        /* the name plate between the arrows */
+        DrawRectangle(offsetX - 124, my + 16, 170, 28, (Color){ 22, 26, 31, 255 });
+        DrawRectangleLines(offsetX - 124, my + 16, 170, 28, (Color){ 58, 65, 72, 255 });
+        {
+            int tw = (int)MeasureText(label, 15);
+            if (tw > 160) tw = 160;   /* clipped by the plate, never overflows */
+            char clipped[PMAP_NAME_LEN + 1];
+            snprintf(clipped, sizeof(clipped), "%s", label);
+            while ((int)MeasureText(clipped, 15) > 160 && clipped[0])
+                clipped[strlen(clipped) - 1] = 0;
+            tw = (int)MeasureText(clipped, 15);
+            I18n_DrawText(clipped, offsetX - 124 + (170 - tw) / 2, my + 23, 15,
+                          sel == 0 ? (Color){ 190, 200, 210, 255 } : (Color){ 140, 220, 200, 255 });
         }
-        if (MenuButton((Rectangle){ offsetX + 92, my + 16, 70, 28 }, "Editor"))
+        /* apply whenever sel changes */
+        {
+            static int appliedSel = -1;
+            if (appliedSel != sel) {
+                appliedSel = sel;
+                if (sel == 0) gameSettings.parkourMap[0] = 0;
+                else snprintf(gameSettings.parkourMap, sizeof(gameSettings.parkourMap),
+                              "%s", names[sel - 1]);
+                Settings_Save();
+            }
+        }
+        if (MenuButton((Rectangle){ offsetX + 90, my + 16, 70, 28 }, "Editor"))
             MapEdit_Enter();
     }
 
