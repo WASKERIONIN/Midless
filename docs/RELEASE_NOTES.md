@@ -2,6 +2,30 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.40
+
+- SUB-BLOCK VOXEL DECORATIONS: new client modules voxparse.c (pure-C
+  MagicaVoxel .vox reader: SIZE/XYZI/RGBA chunks, palette-less files get
+  the embedded MagicaVoxel default palette) and voxdecor.c (bakes
+  face-culled vertex-coloured meshes at ~1/12-block resolution). The world
+  grid and collision stay 1 block - this is a decoration layer.
+- 12 official MagicaVoxel sample models by ephtracy (models/vox/, shipped
+  in the release zip, attribution in models/CREDITS.txt) are placed as
+  landmarks on the starter island: six characters near the spawn, a fox
+  and a slowly spinning T-Rex west, a deer, a teapot shrine east, two
+  monuments, and a rotating dragon hovering 12 blocks above the ground.
+- Scale is derived per model from its MEASURED content height (SIZE
+  includes empty margin) against a target height in blocks: characters
+  1.7 (the player is 1.5), cat/fox 1.3, T-Rex 2.4, deer 1.5, teapot 2.0,
+  monuments 5-6, dragon 7 - nothing dwarf-sized or colossal. Models with
+  empty margin underneath are normalized to stand ON the ground.
+- Render rules: main world only (pockets keep their purity), within 200
+  blocks, lazy mesh bakes at one model per frame, ground snapped by
+  scanning down to the first solid block with periodic retries while
+  chunks load.
+- New host probe tools_dev/voxprobe.c validates every bundled model
+  (magic, dims, voxel bounds, palette): PASS 12/12.
+
 ## v65.39
 
 - WALL-KICK IS A NORMAL JUMP AGAIN, with full control: the vertical pop
