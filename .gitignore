@@ -9,3 +9,4 @@ libs/*.a
 *.html
 *.battests/build/
 __pycache__/
+image-search/
