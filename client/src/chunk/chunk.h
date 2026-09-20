@@ -63,6 +63,10 @@ typedef struct Chunk{
     //mesh flags
     bool hasTransparency;
     bool onlyAir;
+    /* v65.44: set when the arrived RLE contained only air runs - the light
+     * stays faithful, but the emitter scan and the whole mesh pass are
+     * skipped (a pure-air chunk has no faces to build) */
+    bool airOnlyData;
 } Chunk;
 
 typedef struct LightNode{
@@ -86,6 +90,8 @@ void Chunk_Unload(Chunk *chunk);
 void Chunk_Destroy(Chunk *chunk);
 //Generate a chunk's map & lightning.
 void Chunk_Generate(Chunk *chunk);
+//v65.44: faithful light for a pure-air chunk (no emitters, no mesh pass).
+void Chunk_GenerateAir(Chunk *chunk);
 //Save a chunk to a file.
 void Chunk_SaveFile(Chunk *chunk);
 //Load a chunk from a file.

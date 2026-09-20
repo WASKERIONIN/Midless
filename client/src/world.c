@@ -94,19 +94,24 @@ void World_FillGateEnd(void) { fillGateActive = false; }
 
 double World_FillGateElapsed(void) { return GetTime() - fillGateStart; }
 
-/* share of the near-field chunk disc (R=3 columns, y +-2) that arrived */
+/* v65.44: share of the near-field chunk disc (R=10 columns, y +-2) that is
+ * FULLY BUILT - data + light + mesh - not merely "arrived". The old R=3
+ * existence-only gate covered ~0.7% of the visible world and let the player
+ * in while ~25k chunks were still queued; the world then assembled itself
+ * at 4 ms per frame for minutes ("islands pop in one by one"). */
 float World_FillGateProgress(void) {
     Vector3 pc = { floorf(player.position.x / CHUNK_SIZE_X),
                    floorf(player.position.y / CHUNK_SIZE_Y),
                    floorf(player.position.z / CHUNK_SIZE_Z) };
     int total = 0, have = 0;
     for (int dy = -2; dy <= 2; dy++)
-        for (int dx = -3; dx <= 3; dx++)
-            for (int dz = -3; dz <= 3; dz++) {
-                if (dx * dx + dz * dz > 10) continue;
+        for (int dx = -10; dx <= 10; dx++)
+            for (int dz = -10; dz <= 10; dz++) {
+                if (dx * dx + dz * dz > 100) continue;
                 total++;
                 Vector3 c = { pc.x + dx, pc.y + dy, pc.z + dz };
-                if (World_GetChunkAt(c) != NULL) have++;
+                Chunk *chunk = World_GetChunkAt(c);
+                if (chunk != NULL && chunk->isBuilt) have++;
             }
     return total > 0 ? (float)have / (float)total : 1.0f;
 }
@@ -133,7 +138,11 @@ void World_Update(void) {
         world.time -= WORLD_DAY_LENGTH_SECONDS;
     }
 
-    World_UpdateChunksWithBudget(4.0);
+    /* v65.44: adaptive build budget - a huge backlog (right after entering
+     * the world) gets more of the frame; gameplay keeps the calm 4 ms */
+    int buildBacklog = arrlen(world.generateChunksQueue);
+    World_UpdateChunksWithBudget(buildBacklog > 900 ? 10.0
+                                 : (buildBacklog > 200 ? 6.0 : 4.0));
     Particle_Update(deltaTime);
     if (PocketFx_FactorAny() < 0.5f) Asteroid_Update(deltaTime);   /* v65.13: no wireframe rock inside either pocket */
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
@@ -158,11 +167,41 @@ void World_Update(void) {
     
 }
 
+/* v65.44: backlog ordering. The per-pop closest scan was O(queue) - with a
+ * ~25k backlog that is quadratic over the whole load. A big queue is sorted
+ * by distance once per player chunk crossing and then popped from the front
+ * (arrivals come nearest-first, so the order stays honest between sorts);
+ * small queues keep the cheap linear pick. */
+static Vector3 genQueueSortPos = { 1e9f, 1e9f, 1e9f };
+static Vector3 genQueueSortTarget;
+static int GenQueueDistCmp(const void *a, const void *b) {
+    const Chunk *ca = *(Chunk *const *)a;
+    const Chunk *cb = *(Chunk *const *)b;
+    float da = Vector3DistanceSqr(ca->position, genQueueSortTarget);
+    float db = Vector3DistanceSqr(cb->position, genQueueSortTarget);
+    return (da < db) ? -1 : (da > db ? 1 : 0);
+}
+
 void World_ReadChunksQueues(void) {
 
         if (world.loadChunks == true) {
 
-            int index = World_GetClosestChunkIndex(world.generateChunksQueue, Player_GetChunkPosition());
+            int queueLength = arrlen(world.generateChunksQueue);
+            if (queueLength == 0) return;
+
+            Vector3 playerChunk = Player_GetChunkPosition();
+            int index;
+            if (queueLength > 512) {
+                if (!Vector3Equals(playerChunk, genQueueSortPos)) {
+                    genQueueSortPos = playerChunk;
+                    genQueueSortTarget = playerChunk;
+                    qsort(world.generateChunksQueue, (size_t)queueLength,
+                          sizeof(Chunk *), GenQueueDistCmp);
+                }
+                index = 0;
+            } else {
+                index = World_GetClosestChunkIndex(world.generateChunksQueue, playerChunk);
+            }
 
             if (index != -1) {
                 Chunk *chunk = world.generateChunksQueue[index];
@@ -174,21 +213,51 @@ void World_ReadChunksQueues(void) {
                     }
                 }
 
-                Chunk_Generate(chunk);
-                ChunkMeshGeneration_Build(chunk);
+                if (chunk->airOnlyData) {
+                    /* v65.44: pure-air fast path - faithful light (uniform
+                     * fill when every column is sky-open, the real flood
+                     * otherwise), no emitter scan and no mesh pass: an air
+                     * chunk has no faces. This is the majority of chunks in
+                     * a floating-islands world. */
+                    Chunk_GenerateAir(chunk);
+                    chunk->onlyAir = true;
+                    chunk->isLightDirty = false;
+                    chunk->isBuilt = true;
+                } else {
+                    Chunk_Generate(chunk);
+                    ChunkMeshGeneration_Build(chunk);
+                }
 
                 arrdel(world.generateChunksQueue, index);
 
                 chunk->isGenerating = false;
 
-                for (int i = 0; i < hmlen(world.chunks); i++) {
-                    Chunk *lightDirtyChunk = world.chunks[i].value;
-                    if (lightDirtyChunk->isBuilt && lightDirtyChunk->isLightDirty)
-                        World_QueueChunk(lightDirtyChunk, false);
+                /* v65.44: requeue light-dirty chunks from the targeted list -
+                 * the old whole-hashmap scan after every single build was
+                 * another O(N) per chunk */
+                if (arrlen(world.lightDirtyChunks) > 0) {
+                    Chunk **stillDirty = NULL;
+                    for (int i = 0; i < arrlen(world.lightDirtyChunks); i++) {
+                        Chunk *lightDirtyChunk = world.lightDirtyChunks[i];
+                        if (lightDirtyChunk->isBuilt && lightDirtyChunk->isLightDirty) {
+                            World_QueueChunk(lightDirtyChunk, false);
+                            arrput(stillDirty, lightDirtyChunk);
+                        }
+                    }
+                    arrfree(world.lightDirtyChunks);
+                    world.lightDirtyChunks = stillDirty;
                 }
             }
             
         }  
+}
+
+void World_MarkLightDirty(Chunk *chunk) {
+    if (chunk->isLightDirty) return;
+    chunk->isLightDirty = true;
+    /* only BUILT chunks need a requeue - an unbuilt chunk bakes the new
+     * light when its first mesh build runs anyway */
+    if (chunk->isBuilt) arrput(world.lightDirtyChunks, chunk);
 }
 
 void World_QueueChunk(Chunk *chunk, bool immediate) {
@@ -257,6 +326,12 @@ void World_RemoveChunk(Chunk *currentChunk) {
         }
     }
 
+    /* v65.44: never leave a freed chunk in the light-dirty list */
+    for (int i = arrlen(world.lightDirtyChunks) - 1; i >= 0; i--) {
+        if (world.lightDirtyChunks[i] == currentChunk)
+            arrdel(world.lightDirtyChunks, i);
+    }
+
     long int p = Chunk_GetPackedPos(currentChunk->position);
     hmdel(world.chunks, p);
 
@@ -266,11 +341,20 @@ void World_RemoveChunk(Chunk *currentChunk) {
     Chunk_Destroy(currentChunk);
 }
 
+/* v65.44: the offline-path ring scan (~33k positions + a full removal walk)
+ * ran from Player_Update EVERY frame; it is only needed when the player
+ * actually crosses a chunk border */
+static Vector3 loadChunksLastPos;
+static bool loadChunksHavePos;
+
 void World_LoadChunks(void) {
 
     if (!world.loadChunks || networkConnectedToServer) return;
 
     Vector3 pos = Player_GetChunkPosition();
+    if (loadChunksHavePos && Vector3Equals(pos, loadChunksLastPos)) return;
+    loadChunksHavePos = true;
+    loadChunksLastPos = pos;
 
     //Create chunks or prepare array of chunks to be sorted
     int loadingHeight = fmin(world.drawDistance, 4);
@@ -315,6 +399,10 @@ void World_Clear(void) {
 
     arrfree(world.generateChunksQueue);
     world.generateChunksQueue = NULL;
+    arrfree(world.lightDirtyChunks);
+    world.lightDirtyChunks = NULL;
+    genQueueSortPos = (Vector3){ 1e9f, 1e9f, 1e9f };
+    loadChunksHavePos = false;
 
     for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
         World_RemoveChunk(world.chunks[i].value);
@@ -521,6 +609,7 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
     if (!chunk->isLightGenerated) {
         if (Chunk_IsValidPos(blockPosInChunk)) {
             chunk->data[Chunk_PosToIndex(blockPosInChunk)] = blockId;
+            if (blockId != 0) chunk->airOnlyData = false;   /* v65.44 */
         }
         return;
     }
@@ -1060,7 +1149,7 @@ void World_InvalidateBlockDefinitions(bool relight) {
             chunk->isLightGenerated = false;
             chunk->incompleteLightFaces = 0;
             chunk->incompleteSunlightFaces = 0;
-            chunk->isLightDirty = true;
+            World_MarkLightDirty(chunk);   /* v65.44 */
         }
         World_QueueChunk(chunk, false);
     }

@@ -45,6 +45,22 @@ build() {
 build modprobe tools_dev/modprobe_harness.c
 build worldprobe tools_dev/worldprobe.c
 
+# v65.44: client-side air fast-path equivalence test (white-box: the real
+# chunk.c + chunklightning.c against stubs - no server sources involved)
+build_airlight() {
+    echo "== building airlight_test =="
+    $CC $CFLAGS $DEFINES_AIRLIGHT \
+        -I/tmp/raylib45/src -I/tmp/raylib45/src/extras \
+        -Iclient/src -Iclient/src/chunk -Iclient/src/block -Iclient/src/entity \
+        -Iclient/src/gui -Iclient/src/networking -Ilibs -Ishared \
+        tools_dev/airlight_test.c shared/chunkdata.c \
+        -o build/probe/airlight -lm
+}
+DEFINES_AIRLIGHT="-std=c99 -D_DEFAULT_SOURCE -DPLATFORM_DESKTOP -DOS_LINUX -O1 -Wall \
+ -Wno-missing-braces -Wno-int-conversion -Wno-unused-result -Wno-unused-variable \
+ -Wno-sign-compare -Wno-unused-but-set-variable -Wno-unused-function"
+build_airlight
+
 MODE="${1:-build}"
 case "$MODE" in
     run|worldprobe)
@@ -54,6 +70,10 @@ case "$MODE" in
     modprobe-run)
         echo "== running modprobe =="
         (cd build/probe/sandbox && ../modprobe)
+        ;;
+    airlight-run)
+        echo "== running airlight_test =="
+        ./build/probe/airlight
         ;;
     *)
         echo "== build only =="

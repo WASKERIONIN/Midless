@@ -19,6 +19,8 @@ typedef struct World{
     Entity *entities;
     struct { long int key; Chunk* value; } *chunks;
     Chunk* *generateChunksQueue;
+    Chunk* *lightDirtyChunks;   /* v65.44: built chunks whose baked light
+                                 * changed - replaces the whole-map scan */
     Material material;
     int drawDistance;
     float time;
@@ -41,6 +43,8 @@ float World_FillGateProgress(void);
 bool World_LoadSingleplayer(void);
 //Update World
 void World_Update(void);
+//v65.44: drain the build queue for at most budgetMs (also used by the loading screen).
+void World_UpdateChunksWithBudget(double budgetMs);
 //Build Chunks mesh in queue
 //Load & Unload Chunks around players.
 void World_LoadChunks(void);
@@ -48,6 +52,8 @@ void World_LoadChunks(void);
 void World_ReadChunksQueues(void);
 //Queue a chunk to build it.
 void World_QueueChunk(Chunk *chunk, bool immediate);
+//v65.44: mark a built chunk's baked light stale (adds it to lightDirtyChunks).
+void World_MarkLightDirty(Chunk *chunk);
 //Get chunk at a chunk position.
 Chunk* World_GetChunkAt(Vector3 position);
 //Get closest chunk from position in array.

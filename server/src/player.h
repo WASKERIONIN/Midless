@@ -12,6 +12,8 @@
 #include "blockdefinition.h"
 #include "textureprotocol.h"
 
+#define SERVER_MAX_PENDING_CHUNKS 8   /* v65.44 */
+
 typedef struct Player {
     unsigned char id;
     int entityId;
@@ -26,8 +28,11 @@ typedef struct Player {
     bool isWeb;
     bool disconnected;
     int pendingPackets;
-    bool chunkRequestPending;
-    Vector3 pendingChunkPosition;
+    /* v65.44: pipelined chunk generation requests. The old single
+     * chunkRequestPending flag stalled ALL streaming (even sends of
+     * already-generated chunks) while the loader worked on one chunk. */
+    int pendingChunkCount;
+    Vector3 pendingChunks[SERVER_MAX_PENDING_CHUNKS];
 } Player;
 
 Player *ServerPlayer_Create(void *peer, bool isWeb);

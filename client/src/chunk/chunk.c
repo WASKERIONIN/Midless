@@ -31,6 +31,7 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->isGenerating = false;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
+    chunk->airOnlyData = false;
     chunk->modified = false;
     chunk->incompleteLightFaces = 0;
     chunk->incompleteSunlightFaces = 0;
@@ -118,6 +119,49 @@ void Chunk_Generate(Chunk *chunk) {
     Chunk_ReconcileLighting(chunk);
 }
 
+/* v65.44: fast, FAITHFUL sunlight for a chunk known to be pure air.
+ * When every column of the seed layer is fully lit - open sky above an
+ * all-air chunk, or a light-generated top neighbour whose bottom layer
+ * is all 15 - the whole chunk is exactly 15: sunlight falls through air
+ * without attenuation and nothing blocks the lateral spread. Any other
+ * seed pattern (partial sky mask, a shadowed underside) falls back to
+ * the real flood, so island undersides keep their gradient. */
+static bool Chunk_SunlightAirUniform(Chunk *chunk) {
+    Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
+    if (topChunk != NULL && topChunk->isLightGenerated) {
+        for (int i = 0; i < CHUNK_SIZE_XZ; i++)
+            if (topChunk->sunlightData[i] != 15) return false;
+    } else {
+        for (int i = 0; i < CHUNK_SKY_MASK_SIZE; i++)
+            if (chunk->skyMask[i] != 0xFF) return false;
+    }
+    memset(chunk->sunlightData, 15, sizeof(chunk->sunlightData));
+    /* the real flood would have marked every face whose neighbour was
+     * missing/not-ready as incomplete - reconcile needs those bits to push
+     * this chunk's 15 into a later-generated neighbour's shadowed columns
+     * (island undersides keep their lateral gradient). Flag all six faces:
+     * over-flagging is harmless, the bank spread is a no-op when nothing
+     * can improve. */
+    chunk->incompleteSunlightFaces = 0x3F;
+    return true;
+}
+
+void Chunk_GenerateAir(Chunk *chunk) {
+    if (chunk == NULL || chunk->isLightGenerated) return;
+
+    chunk->isBlockDataReady = true;
+
+    Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
+    if (topChunk != NULL && !topChunk->isLightGenerated) {
+        if (topChunk->airOnlyData) Chunk_GenerateAir(topChunk);
+        else Chunk_Generate(topChunk);
+    }
+
+    if (!Chunk_SunlightAirUniform(chunk)) Chunk_DoSunlight(chunk);
+    chunk->isLightGenerated = true;
+    Chunk_ReconcileLighting(chunk);
+}
+
 
 
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
@@ -127,6 +171,10 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
 
         chunk->data[index] = blockId;
         chunk->modified = true;
+        /* v65.44: a block placed into "pure air" (void cocoon, hunter web,
+         * player build) ends the fast path - the next queued rebuild must
+         * run the real emitter + mesh passes */
+        if (blockId != 0) chunk->airOnlyData = false;
 
         const Block *blockDef = Block_GetDefinition(blockId);
 

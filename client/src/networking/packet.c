@@ -166,6 +166,7 @@ void Packet_HandleLoadChunk(void) {
     unsigned char* skyMask = Packet_ReadArray(CHUNK_SKY_MASK_SIZE);
 
     int blockCount = 0;
+    bool allAir = true;   /* v65.44: pure-air chunks skip emitter+mesh passes */
     for (int i = 0; i < length; i += 2) {
         if (chunkData[i + 1] == 0 ||
             blockCount + chunkData[i + 1] > CHUNK_SIZE) {
@@ -175,6 +176,7 @@ void Packet_HandleLoadChunk(void) {
         }
         // Unknown block types must not prevent the rest of the chunk loading.
         if (!Block_IsDefined(chunkData[i])) chunkData[i] = 0;
+        if (chunkData[i] != 0) allAir = false;
         blockCount += chunkData[i + 1];
     }
     if (blockCount != CHUNK_SIZE) {
@@ -186,6 +188,7 @@ void Packet_HandleLoadChunk(void) {
     World_AddChunk(position);
     Chunk* chunk = World_GetChunkAt(position);
     if (!chunk) { MemFree(chunkData); MemFree(skyMask); return; }
+    chunk->airOnlyData = allAir;
     Chunk_Decompress(chunk, chunkData, length);
     memcpy(chunk->skyMask, skyMask, CHUNK_SKY_MASK_SIZE);
     MemFree(chunkData);

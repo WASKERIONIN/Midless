@@ -11,6 +11,7 @@
 #include "stb_ds.h"
 #include "chunklightning.h"
 #include "block.h"
+#include "world.h"
 
 static const int lightDirectionX[6] = {-1, 1, 0, 0, 0, 0};
 static const int lightDirectionY[6] = {0, 0, 1, -1, 0, 0};
@@ -79,7 +80,7 @@ void Chunk_SetLightLevel(Chunk *chunk, int index, int level, bool sunlight) {
         if (chunk->lightData[index] == level) return;
         chunk->lightData[index] = level;
     }
-    chunk->isLightDirty = true;
+    World_MarkLightDirty(chunk);   /* v65.44: targeted dirty list */
 }
 
 int Chunk_GetLightLevel(Chunk *chunk, int index, bool sunlight) {

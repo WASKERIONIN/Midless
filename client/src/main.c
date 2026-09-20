@@ -180,6 +180,14 @@ void Game_RunLoop(void) {
         SoundFx_Update();
     }
 
+    /* v65.44: the loading screen finally LOADS - chunks arriving from the
+     * (local) server are lit and meshed right here with a generous budget;
+     * there is nothing to render anyway but the progress grazer. Before
+     * this the visible world was only assembled after entering the game,
+     * at 4 ms per frame - islands popped in for minutes. */
+    if (currentScreen == SCREEN_LOADING && World_FillGateActive())
+        World_UpdateChunksWithBudget(30.0);
+
     /* v65.35: the user parkour playlist must be pumped every frame -
      * even on pause/menu screens, or the stream starves mid-track */
     UserMusic_Update();

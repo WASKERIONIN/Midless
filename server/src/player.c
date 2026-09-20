@@ -66,12 +66,17 @@ void ServerPlayer_Teleport(Player *player, Vector3 position) {
     ServerNetwork_Send(player, ServerPacket_CreateTeleportEntity(&localEntity, localPosition, entity->rotation));
 }
 
+/* v65.44: is this position already requested from the loader? */
+static bool ServerPlayer_PendingContains(Player *player, Vector3 pos) {
+    for (int i = 0; i < player->pendingChunkCount; i++)
+        if (Vector3Equals(player->pendingChunks[i], pos)) return true;
+    return false;
+}
+
 void ServerPlayer_LoadChunks(Player* player) {
 
     Entity entity = serverWorld.entities[player->entityId];
     double loadDeadline = GetTime() + 0.008;
-
-    if (player->chunkRequestPending) return;
 
     Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
 
@@ -94,6 +99,8 @@ void ServerPlayer_LoadChunks(Player* player) {
                         playerChunkPos.y + y,
                         playerChunkPos.z + z
                     };
+                    /* v65.44: already asked the loader for this one */
+                    if (ServerPlayer_PendingContains(player, chunkPos)) continue;
                     Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
                     if (chunk != NULL && ServerChunk_PlayerInChunk(chunk, player)) continue;
 
@@ -108,11 +115,14 @@ void ServerPlayer_LoadChunks(Player* player) {
 
         Chunk *chunk = ServerWorld_GetChunkAt(closestPosition);
         if (chunk == NULL) {
-            if (ServerWorld_QueueChunk(closestPosition)) {
-                player->chunkRequestPending = true;
-                player->pendingChunkPosition = closestPosition;
-            }
-            return;
+            if (player->pendingChunkCount >= SERVER_MAX_PENDING_CHUNKS) return;
+            ServerWorld_QueueChunk(closestPosition);
+            player->pendingChunks[player->pendingChunkCount++] = closestPosition;
+            /* v65.44: pipeline - immediately look for the next-nearest
+             * missing chunk instead of idling until this one lands; the
+             * loader thread stays fed and the generate->compress->send
+             * conveyor no longer runs one chunk at a time */
+            continue;
         }
         ServerChunk_AddPlayer(chunk, player);
 

@@ -168,9 +168,13 @@ static void ProcessLoadedChunks(void) {
         for (int playerIndex = 0; playerIndex < WORLD_MAX_PLAYERS; playerIndex++) {
             Player *player = serverWorld.players[playerIndex];
             if (player == NULL) continue;
-            if (player->chunkRequestPending &&
-                Vector3Equals(player->pendingChunkPosition, result->position)) {
-                player->chunkRequestPending = false;
+            /* v65.44: clear the matching pipelined request (swap-remove) */
+            for (int pi = 0; pi < player->pendingChunkCount; pi++) {
+                if (Vector3Equals(player->pendingChunks[pi], result->position)) {
+                    player->pendingChunks[pi] =
+                        player->pendingChunks[--player->pendingChunkCount];
+                    break;
+                }
             }
             if (chunk == NULL || !PositionInLoadRadius(player, result->position) ||
                 ServerChunk_PlayerInChunk(chunk, player)) continue;

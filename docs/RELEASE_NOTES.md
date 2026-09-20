@@ -2,6 +2,51 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.44
+
+- WORLD LOADING IS HONEST NOW. The loading screen never actually loaded
+  the world: the fill gate only checked that 185 chunks (radius-3 disc,
+  ~0.7% of the visible world at draw distance 30) had their DATA arrive,
+  and chunk building (light + mesh) did not run at all until after entry -
+  ~25k queued chunks then assembled in-game on a 4 ms/frame budget, so
+  islands popped in one by one for minutes. Now the loading screen pumps
+  the build queue at 30 ms/frame, the gate covers a radius-10 disc
+  (~1585 chunks) and requires every chunk to be fully BUILT
+  (data + light + mesh), opening at 95% (45 s safety cap unchanged).
+- PURE-AIR CHUNKS TAKE A FAST PATH. Most chunks in a floating-islands
+  world are empty air, yet each ran the full emitter scan, light
+  reconcile and 4096-cell mesh pass. The arriving RLE now marks all-air
+  chunks; their sunlight is filled uniformly when every column is
+  sky-open (with all reconcile face flags set, so shadowed island
+  undersides still receive lateral light exactly as before) or falls
+  back to the real flood, and the mesh pass is skipped entirely. A new
+  headless test (tools_dev/airlight_test.c, `probe_build.sh
+  airlight-run`) proves the fast path byte-identical to the classic
+  pipeline in four scenarios: open sky, covered underside, overhang
+  side-lighting and a neighbouring emitter; it also covers the
+  dirty-list and block-placement mutation semantics.
+- QUADRATIC LOAD PATHS REMOVED. The per-pop closest-chunk scan of the
+  build queue (O(queue) on every chunk, quadratic over a full load) is
+  replaced by a distance sort done once per player chunk crossing for
+  big backlogs; the whole-hashmap light-dirty scan after every built
+  chunk is replaced by a targeted dirty list (World_MarkLightDirty);
+  the offline World_LoadChunks ring scan (~33k positions per frame from
+  Player_Update) now runs only when the player crosses a chunk border.
+- SERVER CHUNK STREAMING IS PIPELINED. A single chunkRequestPending
+  flag stalled ALL streaming while the loader thread generated one
+  chunk; a player may now keep up to 8 generation requests in flight
+  and already-generated chunks keep flowing while generation runs.
+- IN-GAME BUILD BUDGET IS ADAPTIVE: 10 ms/frame while the backlog
+  exceeds 900 chunks, 6 ms above 200, 4 ms otherwise.
+- Release hygiene: a workspace rollback briefly left a stale
+  build/client/textures atlas copy in the local working tree (old teal
+  mushrooms, leaves holes); per protocol both tracked atlases were
+  re-audited tile-by-tile against the current generator and are
+  byte-identical again. Repository and CI artefacts were never
+  affected.
+- Dev tooling: airlight_test added to the probe battery; pocketplay
+  full loop, worldprobe, modprobe, compile (76+3) and api checks green.
+
 ## v65.43
 
 - GILDING IS VISIBLE AGAIN: the dragon's natural-ground whitelist only
