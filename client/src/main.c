@@ -29,6 +29,7 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "pocketfx.h"
+#include "voxdecor.h"   /* v65.40: ephtracy .vox landmarks */
 #include "colonnade.h"
 #include "golem.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
@@ -219,6 +220,9 @@ void Game_RunLoop(void) {
                 }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
+                VoxDecor_Draw(player.camera.position);   /* v65.40: sub-block
+                    * .vox models on the starter island (main world only -
+                    * the module gates itself on the pocket factor) */
                 Colonnade_Draw(PocketFx_Factor());   /* v65.16 peristyle */
                 Golem_Draw();                        /* v65.21 the Warden */
                 /* v65.13: no overworld threats or auras bleed into the pocket */

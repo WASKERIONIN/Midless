@@ -100,6 +100,9 @@ jobs:
         fi
         cp build/client/textures/*.png "$OUT/textures/"
         cp mods/*.lua "$OUT/mods/"
+        mkdir -p "$OUT/models/vox"
+        cp models/vox/*.vox "$OUT/models/vox/"
+        cp models/CREDITS.txt "$OUT/models/CREDITS.txt"
         cp docs/RELEASE_README.txt "$OUT/README.txt"
         cp docs/world_guide.png "$OUT/world_guide.png"
         cp docs/WORLD_GUIDE.md "$OUT/world_guide.md"

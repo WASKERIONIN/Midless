@@ -1,0 +1,9 @@
+The .vox models in models/vox/ are the official sample models by
+ephtracy, from the MagicaVoxel / voxel-model project
+(https://github.com/ephtracy/voxel-model).
+
+MagicaVoxel license: "Free to use for any project. Credits to the
+software are appreciated." - https://ephtracy.github.io
+
+They are rendered in-game as decorative sub-block landmarks on the
+starter island (visual only, no collision).
