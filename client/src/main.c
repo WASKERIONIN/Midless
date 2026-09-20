@@ -29,7 +29,7 @@
 #include "runtimepaths.h"
 #include "starfield.h"
 #include "pocketfx.h"
-#include "voxdecor.h"   /* v65.40: ephtracy .vox landmarks */
+#include "dragon.h"       /* v65.41: the wandering dragon + gilded hoard */
 #include "colonnade.h"
 #include "golem.h"   /* v65.8: pocket universe sky swap */
 #include "clientlog.h"   /* v65.9.1 */
@@ -170,6 +170,7 @@ void Game_RunLoop(void) {
             Bird_Update(GetFrameTime());
             Hunter_Update(GetFrameTime());
             Mobs_Update(GetFrameTime());
+            Dragon_Update();   /* v65.41: appearances + the 10-minute hoard */
         }
         SoundFx_PocketUpdate(PocketFx_Factor());
         SoundFx_Pocket2Update(PocketFx_Factor2());   /* v65.28: the Foundry station */
@@ -220,8 +221,8 @@ void Game_RunLoop(void) {
                 }
                 World_Draw(player.camera.position);
                 World_DrawWireAuras();
-                VoxDecor_Draw(player.camera.position);   /* v65.40: sub-block
-                    * .vox models on the starter island (main world only -
+                Dragon_Draw(player.camera.position);   /* v65.41: sub-block
+                    * .vox dragon circling a random island (main world only -
                     * the module gates itself on the pocket factor) */
                 Colonnade_Draw(PocketFx_Factor());   /* v65.16 peristyle */
                 Golem_Draw();                        /* v65.21 the Warden */

@@ -2,6 +2,30 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.41
+
+- VOXEL RENDER FIXED: 4 of the 6 face directions were wound clockwise, so
+  backface culling ate those faces - models looked like they had missing
+  cube sides and came apart in slices. All quads are now wound CCW seen
+  from outside; the dragon renders solid.
+- The decoration layer is reduced to the dragon: character figures and the
+  other sample models are removed; only models/vox/dragon.vox ships.
+- WANDERING DRAGON: every 4-8 minutes (first hunt ~25 s after entering the
+  world) a dragon appears over a random island 28-72 blocks from the
+  player and circles it for 85 s, 12 blocks above the surface. It never
+  appears near the pockets (220-block exclusion around both pocket
+  centres).
+- GILDED HOARD: on arrival, up to 14 natural surface blocks within +-6 of
+  the anchor (base terrain ids 1-18 and turf 78; never plants, machines,
+  gates or crafted blocks) turn into Gold Plate (24) through the normal
+  client->server SetBlock path - co-op players see them and can mine them.
+- Each gilded block carries a 10-MINUTE timer: not mined in time, it
+  reverts to the exact original block; mined, it is kept. Pending
+  reverts persist to dragonhoard.dat next to the executable and survive a
+  restart; reverts only run while the area is loaded (within 128 blocks).
+- A chat line on arrival explains the rule; new client module dragon.c/h,
+  voxprobe now validates dragon.vox (PASS).
+
 ## v65.40
 
 - SUB-BLOCK VOXEL DECORATIONS: new client modules voxparse.c (pure-C
