@@ -1501,7 +1501,7 @@ static void Grazer_StartSocial(Grazer *a, Grazer *b, bool aLeads) {
     b->socialWait = aLeads ? 0.80f : 0.15f;
     a->grounded = true; b->grounded = true;
     a->velY = 0.0f; b->velY = 0.0f;
-    float cool = 25.0f + (float)GetRandomValue(0, 2500) / 100.0f;
+    float cool = 12.0f + (float)GetRandomValue(0, 1500) / 100.0f;   /* v65.45 */
     a->socialCooldown = cool;
     b->socialCooldown = cool;
 }
@@ -1518,7 +1518,9 @@ static void Grazer_Update(float deltaTime, double now) {
 
         /* flee check overrides everything but eating's last bite;
          * sleep is shallower - a grazer wakes from further away */
-        if (pd < (g->state == 4 ? 5.5f : 3.4f) && g->state != 3) {
+        /* v65.45: a sleeping grazer does not startle until the player is
+         * practically touching it (1 block); awake ones keep the 3.4 */
+        if (pd < (g->state == 4 ? 1.0f : 3.4f) && g->state != 3) {
             g->state = 3;
             g->stateTimer = 1.7f;
             g->fleeFrom = pc;
@@ -1535,21 +1537,26 @@ static void Grazer_Update(float deltaTime, double now) {
                 if (g->decide <= 0.0f) {
                     g->decide = 0.55f + GetRandomValue(0, 45) / 100.0f;
                     int roll = GetRandomValue(0, 99);
-                    /* a fed grazer dozes off a lot - it is a rabbit, not a robot */
-                    if (g->eats > 0 && roll < 22) {
+                    /* v65.45: naps need a proper appetite - dozing off
+                     * right after the very first bite looked strange */
+                    if (g->eats >= 3 && roll < 12) {
                         g->state = 4;
                         g->stateTimer = 8.0f + GetRandomValue(0, 1400) / 100.0f;
                         continue;
                     }
-                    /* v65.43: a nearby idle companion -> maybe a talk */
+                    /* v65.43: a nearby idle companion -> maybe a talk.
+                     * v65.45: a sleeping companion counts too - the passer-by
+                     * wakes it for the conversation; talks happen a bit more
+                     * often overall */
                     if (g->socialCooldown <= 0.0f) {
                         int pi = -1;
                         for (int j = 0; j < GRAZER_MAX; j++) {
-                            if (j == i || !grazers[j].active || grazers[j].state != 0) continue;
+                            if (j == i || !grazers[j].active) continue;
+                            if (grazers[j].state != 0 && grazers[j].state != 4) continue;
                             float d = Vector3Distance(g->pos, grazers[j].pos);
                             if (d > 2.0f && d < 6.0f) { pi = j; break; }
                         }
-                        if (pi >= 0 && GetRandomValue(0, 99) < 35) {
+                        if (pi >= 0 && GetRandomValue(0, 99) < 45) {
                             Grazer_StartSocial(g, &grazers[pi], i < pi);
                             continue;
                         }
@@ -1604,8 +1611,9 @@ static void Grazer_Update(float deltaTime, double now) {
                 }
                 g->state = 0;
                 g->stateTimer = 1.0f + GetRandomValue(0, 150) / 100.0f;
-                /* v63.4: after a meal, usually a nap in the sun */
-                if (GetRandomValue(0, 99) < 60) {
+                /* v63.4: after a meal, a nap in the sun - v65.45: only
+                 * after at least three meals, and not every time */
+                if (g->eats >= 3 && GetRandomValue(0, 99) < 35) {
                     g->state = 4;
                     g->stateTimer = 8.0f + GetRandomValue(0, 1400) / 100.0f;
                 }
@@ -2026,10 +2034,11 @@ static void Mushrooms_Update(double now) {
         if (!m->active) continue;
         double left = m->expireAt - now;
         if (left <= 0.0) { m->active = false; continue; }
-        /* v65.5: the ten-minute life ends with a visible wither - the cap
-         * shrinks into the lawn over the last 12 s instead of popping out */
-        if (left < 12.0)
-            m->scale = m->baseScale * (0.15f + 0.85f * (float)(left / 12.0));
+        /* v65.5: the ten-minute life ends with a visible wither.
+         * v65.45: no expiry blink anymore - the cap simply dries up:
+         * a smooth shrink all the way to zero over the last 24 s */
+        if (left < 24.0)
+            m->scale = m->baseScale * (float)(left / 24.0);
         else
             m->scale = m->baseScale;
     }
@@ -2642,8 +2651,11 @@ void Mobs_Draw(void) {
             Mushroom *m = &mushrooms[i];
             if (!m->active) continue;
             double left = m->expireAt - now;
-            if (left < 30.0 && ((int)(now * 2.0)) % 2 == 0) continue;  /* expiry blink */
-            unsigned char br = (unsigned char)(205.0f + 50.0f * sinf((float)now * 2.0f + i));
+            /* v65.45: expiry blink removed - the mushroom dries up (the
+             * shrink lives in Mushrooms_Update) and darkens as it goes */
+            float wither = (left < 24.0) ? (float)(left / 24.0) : 1.0f;
+            unsigned char br = (unsigned char)((205.0f + 50.0f * sinf((float)now * 2.0f + i)) *
+                                               (0.45f + 0.55f * wither));
             /* v61.3: Mob_FloraBillboard paints the mushroom, THEN its
              * grass ring - the stem base hides in the lawn */
             Mob_FloraBillboard(m->pos, m->scale, m->tile ? m->tile : 27, br);

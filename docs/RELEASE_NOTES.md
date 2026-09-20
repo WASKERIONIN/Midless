@@ -2,6 +2,31 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.45
+
+- LOADING BAR PACING: now that the world often fills in a few seconds,
+  the grazer could not finish its walk - the gate opened while the bunny
+  was still before the middle of the bar. The displayed progress now
+  climbs at most ~10%/s toward the real readiness, and the gate opens
+  only when BOTH conditions hold: world 95% built AND the walk at 100%
+  (the 45 s safety cap is unchanged). The grazer also starts ON the bar
+  (tail at the left edge at 0%) instead of standing in front of it, and
+  the flowers are munched when its nose actually reaches them.
+- GRAZER SLEEP IS LESS EAGER: a grazer now naps only after at least
+  three meals (was: 60% chance after EVERY meal, plus 22% idle doze
+  after a single bite). Sleep durations unchanged.
+- A SLEEPING GRAZER NO LONGER STARTLES from 5.5 blocks - it wakes and
+  flees only when the player comes within 1 block (awake flee radius
+  stays 3.4).
+- MORE GRAZER INTERACTION: a wandering grazer passing within 2-6 blocks
+  of a SLEEPING one can now wake it for the turn-based hop conversation
+  (previously both had to be idle-awake); chat chance 35% -> 45% per
+  decision tick, per-pair cooldown 25-50 s -> 12-27 s.
+- MUSHROOMS DRY UP INSTEAD OF BLINKING: the 2 Hz expiry blink in the
+  last 30 s is removed; the existing wither shrink is extended to the
+  final 24 s, runs smoothly all the way to zero scale, and the cap
+  darkens as it dries.
+
 ## v65.44
 
 - WORLD LOADING IS HONEST NOW. The loading screen never actually loaded

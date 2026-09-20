@@ -1242,13 +1242,11 @@ void Screen_DrawLogin(void) {
 
 /* v63.4: the world-fill loading screen - a grazer strolls along the
  * progress bar munching flowers while the near-field chunks stream in */
-static void Screen_DrawWorldFill(float prog, double elapsed) {
+static void Screen_DrawWorldFill(float disp, double elapsed) {
     int w = screenWidth, h = screenHeight;
-    /* v63.5: show the NEAR-FIELD gate as 0..100% so the bunny actually
-     * reaches the end of the bar when loading completes */
-    float disp = prog / 0.95f;
-    if (disp > 1.0f) disp = 1.0f;
-    if (disp < 0.0f) disp = 0.0f;
+    /* v65.45: disp arrives pre-smoothed from Screen_DrawLoading - the
+     * grazer walks the bar at a visible pace instead of teleporting to
+     * the end when the world happens to fill quickly */
     /* dusk sky */
     DrawRectangleGradientV(0, 0, w, h, (Color){22, 12, 44, 255}, (Color){8, 4, 18, 255});
     for (int i = 0; i < 90; i++) {
@@ -1289,6 +1287,11 @@ static void Screen_DrawWorldFill(float prog, double elapsed) {
                                      (float)barW + 6, (float)barH + 6}, 2,
                          (Color){70, 70, 95, 255});
 
+    /* v65.45: the grazer starts ON the bar - at disp=0 its tail sits at
+     * the left edge (nose at +89px), at disp=1 its nose touches the right
+     * edge; it never stands in front of the bar anymore */
+    float gx = barX + 83.0f + (barW - 89.0f) * disp;
+
     /* flowers along the bar; the grazer eats them as it passes */
     static float fracs[3] = { 0.22f, 0.47f, 0.72f };
     static int eaten = 0;
@@ -1297,7 +1300,7 @@ static void Screen_DrawWorldFill(float prog, double elapsed) {
     for (int i = 0; i < 3; i++) {
         if (eaten & (1 << i)) continue;
         float fx = barX + fracs[i] * barW;
-        if (disp >= fracs[i]) {          /* nom - right at the nose */
+        if (gx >= fx - 4.0f) {           /* nom - right at the nose */
             eaten |= (1 << i);
             chewT = 0.7f;
             for (int p = 0; p < 10; p++) {
@@ -1313,9 +1316,7 @@ static void Screen_DrawWorldFill(float prog, double elapsed) {
     }
     if (chewT > 0) chewT -= GetFrameTime();
 
-    /* the grazer itself: NOSE exactly on the progress point, walking
-     * right - the next flower is eaten right in front of its face */
-    float gx = barX + barW * disp;
+    /* the grazer itself: NOSE on the progress point, walking right */
     float gy = barY + 2;
     float gait = sinf((float)elapsed * 10.0f);
     for (int leg = 0; leg < 4; leg++) {
@@ -1350,6 +1351,19 @@ void Screen_DrawLoading(void) {
     if (World_FillGateActive()) {
         float prog = World_FillGateProgress();
         double elapsed = World_FillGateElapsed();
+        /* v65.45: the DISPLAYED progress climbs at most ~10%/s toward the
+         * real readiness, and the gate opens only when the world (95%
+         * built) AND the grazer's walk (full bar) are done - before this
+         * the game could enter while the bunny was still before the
+         * middle of the bar */
+        static float worldFillDisp = 0.0f;
+        if (elapsed < 0.05) worldFillDisp = 0.0f;
+        float dispTarget = prog / 0.95f;
+        if (dispTarget > 1.0f) dispTarget = 1.0f;
+        if (dispTarget < 0.0f) dispTarget = 0.0f;
+        float dispStep = 0.10f * GetFrameTime();
+        worldFillDisp = (worldFillDisp + dispStep < dispTarget)
+                            ? worldFillDisp + dispStep : dispTarget;
         if (IsKeyPressed(KEY_ESCAPE)) {
             LocalServer_Stop();
             loadingStarted = false;
@@ -1359,7 +1373,7 @@ void Screen_DrawLoading(void) {
             Screen_Switch(SCREEN_LOGIN);
             return;
         }
-        if ((prog >= 0.95f && elapsed > 1.2) || elapsed > 45.0) {
+        if ((prog >= 0.95f && worldFillDisp >= 0.999f && elapsed > 1.2) || elapsed > 45.0) {
             /* v65.35: the editor TEST warp fires only now - after the
              * fill gate is done, so loading never hangs on it */
             if (ParkourMapTestWarp()) {
@@ -1372,7 +1386,7 @@ void Screen_DrawLoading(void) {
             screenCursorEnabled = false;
             return;
         }
-        Screen_DrawWorldFill(prog, elapsed);
+        Screen_DrawWorldFill(worldFillDisp, elapsed);
         return;
     }
 
