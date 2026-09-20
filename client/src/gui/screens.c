@@ -748,6 +748,39 @@ void Screen_DrawGame(void) {
 
     BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
 
+    /* v65.46: the corner preview is SIGNED - the item's name in a normal
+     * readable font right under the icon (underscores become spaces, every
+     * word is capitalised; special satchel items keep their proper names) */
+    if (player.blockSelected > 0) {
+        const char *rawName;
+        switch (player.blockSelected) {
+            case 73: case 74: case 75: case 40:
+                rawName = Satchel_ItemName(player.blockSelected);
+                break;
+            default:
+                rawName = Block_GetDefinition(player.blockSelected)->name;
+                break;
+        }
+        if (rawName && rawName[0]) {
+            static char prettyName[80];
+            int pn = 0;
+            bool wordStart = true;
+            for (const char *rp = rawName; *rp && pn < 78; rp++) {
+                char ch = (*rp == '_') ? ' ' : *rp;
+                if (wordStart && ch >= 'a' && ch <= 'z') ch = (char)(ch - 'a' + 'A');
+                if (ch != ' ') wordStart = false;
+                prettyName[pn++] = ch;
+            }
+            prettyName[pn] = 0;
+            int nameW = I18n_MeasureText(prettyName, 16);
+            int nameX = screenWidth - 48 - nameW / 2;
+            if (nameX + nameW > screenWidth - 6) nameX = screenWidth - 6 - nameW;
+            if (nameX < screenWidth - 236) nameX = screenWidth - 236;
+            I18n_DrawText(prettyName, nameX + 1, 93, 16, (Color){ 10, 6, 20, 230 });
+            I18n_DrawText(prettyName, nameX, 92, 16, (Color){ 238, 234, 248, 255 });
+        }
+    }
+
     /* v58: four quick slots at the bottom - miniatures of our items;
      * click them (or press 1..4) to use, click in the satchel to assign */
     {
@@ -1277,20 +1310,20 @@ static void Screen_DrawWorldFill(float disp, double elapsed) {
         Rectangle dst = { barX + tx, barY, 32, 32 };
         DrawTexturePro(atlas, soil, dst, (Vector2){0, 0}, 0, (Color){150, 140, 158, 255});
     }
-    int fillW = (int)(barW * disp) / 32 * 32;
-    for (int tx = 0; tx < fillW; tx += 32) {
+    /* v65.46: the grazer stands ON the progress line - the turf and the
+     * green edge end exactly at its nose, and at 0% the rabbit already
+     * stands on the bar (tail at the left edge), never in front of it */
+    float gx = barX + 83.0f + (barW - 89.0f) * disp;
+    int lineW = (int)(gx - barX);
+    int tileFill = lineW / 32 * 32;
+    for (int tx = 0; tx < tileFill; tx += 32) {
         Rectangle dst = { barX + tx, barY, 32, 32 };
         DrawTexturePro(atlas, turf, dst, (Vector2){0, 0}, 0, WHITE);
     }
-    DrawRectangle(barX, barY - 4, fillW, 4, (Color){110, 214, 156, 255});
+    DrawRectangle(barX, barY - 4, lineW, 4, (Color){110, 214, 156, 255});
     DrawRectangleLinesEx((Rectangle){(float)barX - 3, (float)barY - 3,
                                      (float)barW + 6, (float)barH + 6}, 2,
                          (Color){70, 70, 95, 255});
-
-    /* v65.45: the grazer starts ON the bar - at disp=0 its tail sits at
-     * the left edge (nose at +89px), at disp=1 its nose touches the right
-     * edge; it never stands in front of the bar anymore */
-    float gx = barX + 83.0f + (barW - 89.0f) * disp;
 
     /* flowers along the bar; the grazer eats them as it passes */
     static float fracs[3] = { 0.22f, 0.47f, 0.72f };

@@ -2,6 +2,26 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.46
+
+- LOADING BAR TELLS THE TRUTH AGAIN: the v65.45 crawl cap (~10%/s) is
+  removed - the displayed progress tracks the real gate readiness 1:1
+  and the gate opens on the real 95% condition as soon as it is met.
+- THE GRAZER STANDS ON THE PROGRESS LINE: the turf fill and the green
+  edge now end exactly at the rabbit's nose, so it walks ON the line
+  instead of ahead of it, and at 0% the whole rabbit is already on the
+  bar (tail at the left edge) instead of spawning in front of it.
+- CORNER BLOCK PREVIEW IS SIGNED: the held-item preview in the top-right
+  corner now shows the item's name under the icon in a readable 16px
+  font with a dark outline (underscores become spaces, words are
+  capitalised; mushrooms and the Gaze Scroll keep their proper satchel
+  names). Empty hand shows no label.
+- THE STALE BUILD-TEXTURE TRAP IS GONE FOR GOOD: the tracked
+  build/client/textures/*.png duplicates (which twice went stale on
+  workspace rollbacks and overrode the real atlas during packaging) are
+  untracked and deleted; the release workflow now packages
+  client/textures as the single source of truth.
+
 ## v65.45
 
 - LOADING BAR PACING: now that the world often fills in a few seconds,
