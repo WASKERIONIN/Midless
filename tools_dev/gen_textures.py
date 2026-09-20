@@ -277,18 +277,20 @@ def t_leaves(index):
     n = value_noise(index * 67 + 8, 5)
     img = blank_tile()
     px = img.load()
+    # v65.43: no punched holes - leaves are a SOLID cube tile; depth comes
+    # from a dark speckle instead of see-through pixels
     r = rng(index * 71)
-    holes = {(r.randrange(16), r.randrange(16)) for _ in range(5)}
+    dark = {(r.randrange(16), r.randrange(16)) for _ in range(5)}
     for y in range(TILE):
         for x in range(TILE):
-            if (x, y) in holes:
-                continue
             v = n[y][x]
             c = lerp(LEAF_DEEP, LEAF_MID, v)
             if v > 0.6:
                 c = lerp(c, LEAF_LIGHT, (v - 0.6) * 2)
             if v > 0.85:
                 c = lerp(c, LEAF_TIP, (v - 0.85) * 4)
+            if (x, y) in dark:
+                c = LEAF_DEEP
             px[x, y] = with_a(c, 255)
     speckle(img, index * 73 + 13, LEAF_TIP, 3, 0.3)
     return img
@@ -1563,9 +1565,11 @@ def build_humanoid(path):
 # 110-230 pixels inside stone/ore/log tiles; the chunk shader discards
 # texels below a=0.5 and the GL blender always blends, so those pixels
 # punched visible holes and see-through specks into the cubes.
-CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 11, 15, 18, 19, 20, 21, 23, 26, 56, 57, 58, 78, 79, 80}
-# (intentionally translucent/cutout tiles stay untouched: 10 leaves,
-# 14 water, 17 glass, 22 crystal, every SPRITE/flora tile)
+CUBE_TILES = {1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19, 20, 21, 23, 26, 56, 57, 58, 78, 79, 80}
+# v65.43: 10 (leaves) joined the opaque set - the punched transparent
+# pixels read as holes in the block ("transparent pixel holes are back").
+# (intentionally translucent tiles stay untouched: 14 water, 17 glass,
+# 22 crystal, every SPRITE/flora tile)
 
 
 def enforce_opaque_cube_tiles(atlas):

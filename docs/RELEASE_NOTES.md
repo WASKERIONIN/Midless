@@ -2,6 +2,30 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.43
+
+- GILDING IS VISIBLE AGAIN: the dragon's natural-ground whitelist only
+  knew the base terrain ids 1-18 and meadow turf 78, but main-world
+  islands surface as Ember Turf (57) and Frost Turf (58) - every gild
+  candidate was rejected and no gold plates ever spawned. Dragon_NaturalId
+  now accepts 57/58.
+- TRANSPARENT-PIXEL HOLES FIXED AT THE SOURCE: a full atlas transparency
+  audit found exactly one cube tile with punched-through pixels - leaves
+  (tile 10, 4 fully transparent texels, deliberately skipped by the
+  generator since pre-v65.6). The hole-punching is removed (replaced by a
+  dark speckle for depth) and tile 10 joined CUBE_TILES, so
+  enforce_opaque_cube_tiles guarantees it. Atlas regenerated and copied to
+  build/client/textures/; intentionally translucent tiles (water 14, fire
+  16, glass 17, crystal 22) untouched.
+- GRAZERS TALK IN TURNS: two idle grazers within 2-6 blocks of each other
+  can enter a new social state (5): they face one another and perform up
+  to 4 ballistic hops each (v0 3.0, g 9.8), strictly ALTERNATING - the
+  pair starts with offset timers (0.15 s vs 0.80 s) and every landing
+  adds a 0.85-1.15 s wait, so one always hops while the other waits.
+  Per-pair cooldown 25-50 s; the chat dissolves if the partner wanders
+  beyond 8 blocks or the player comes within the usual 3.4-block flee
+  radius. Ground-snap smoothing is suspended mid-hop only.
+
 ## v65.42
 
 - MUSHROOM COLOURS RESTORED: the shipped terrain atlas was STALE - it had

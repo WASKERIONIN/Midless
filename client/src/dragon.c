@@ -67,9 +67,12 @@ static bool Dragon_NearPocket(float x, float z) {
 }
 
 /* natural terrain blocks only - never gild a machine, a plant, a gate
- * or anything the player built out of crafted materials */
+ * or anything the player built out of crafted materials. v65.43: the
+ * main-world surface is mostly EMBER/FROST TURF (57/58) - without them
+ * the dragon found nothing to gild on most islands (crystal turf 3 was
+ * the only allowed surface) */
 static bool Dragon_NaturalId(int id) {
-    return (id >= 1 && id <= 18) || id == 78;   /* base set + meadow turf */
+    return (id >= 1 && id <= 18) || id == 57 || id == 58 || id == 78;
 }
 
 /* ------------------------------------------------------- mesh (fixed) */

@@ -1310,6 +1310,9 @@ typedef struct Grazer {
     float speedSm;         /* v63: smoothed speed -> gait amplitude */
     float decide;          /* v63.4: slow decision tick while idle */
     Vector3 fleeFrom;      /* v63.4: what scared it (player or eaten cell) */
+    float socialWait;      /* v65.43: pause before MY next talking hop */
+    int socialHops;        /* v65.43: hops done in the current chat */
+    float socialCooldown;  /* v65.43: chats happen only sometimes */
 } Grazer;
 static Grazer grazers[GRAZER_MAX];
 static bool grazerAnnounced;
@@ -1475,6 +1478,9 @@ static void Grazer_SpawnTry(void) {
         g->tint = (unsigned char)(200 + GetRandomValue(0, 40));
         g->decide = 0.5f + GetRandomValue(0, 50) / 100.0f;
         g->fleeFrom = (Vector3){ 0 };
+        g->socialWait = 0.0f;
+        g->socialHops = 0;
+        g->socialCooldown = 6.0f + GetRandomValue(0, 1000) / 100.0f;
         if (!grazerAnnounced) {
             grazerAnnounced = true;
             Chat_AddLine(Tr("Something small is nibbling the meadow flowers."));
@@ -1483,12 +1489,30 @@ static void Grazer_SpawnTry(void) {
     }
 }
 
+/* v65.43: two idle grazers close to each other sometimes face one another
+ * and hop IN TURN, like a conversation. The leader hops first; each hop
+ * ends with a wait long enough for the partner's hop, so the rhythm
+ * alternates instead of jumping in sync. */
+static void Grazer_StartSocial(Grazer *a, Grazer *b, bool aLeads) {
+    a->state = 5; b->state = 5;
+    a->stateTimer = 0.0f; b->stateTimer = 0.0f;
+    a->socialHops = 0; b->socialHops = 0;
+    a->socialWait = aLeads ? 0.15f : 0.80f;
+    b->socialWait = aLeads ? 0.80f : 0.15f;
+    a->grounded = true; b->grounded = true;
+    a->velY = 0.0f; b->velY = 0.0f;
+    float cool = 25.0f + (float)GetRandomValue(0, 2500) / 100.0f;
+    a->socialCooldown = cool;
+    b->socialCooldown = cool;
+}
+
 static void Grazer_Update(float deltaTime, double now) {
     Vector3 pc = Mob_PlayerCenter();
     for (int i = 0; i < GRAZER_MAX; i++) {
         Grazer *g = &grazers[i];
         if (!g->active) continue;
         g->age += deltaTime;
+        if (g->socialCooldown > 0.0f) g->socialCooldown -= deltaTime;
         float pd = Vector3Distance(g->pos, pc);
         if (g->age > 240.0f || pd > 48.0f) { g->active = false; continue; }
 
@@ -1516,6 +1540,19 @@ static void Grazer_Update(float deltaTime, double now) {
                         g->state = 4;
                         g->stateTimer = 8.0f + GetRandomValue(0, 1400) / 100.0f;
                         continue;
+                    }
+                    /* v65.43: a nearby idle companion -> maybe a talk */
+                    if (g->socialCooldown <= 0.0f) {
+                        int pi = -1;
+                        for (int j = 0; j < GRAZER_MAX; j++) {
+                            if (j == i || !grazers[j].active || grazers[j].state != 0) continue;
+                            float d = Vector3Distance(g->pos, grazers[j].pos);
+                            if (d > 2.0f && d < 6.0f) { pi = j; break; }
+                        }
+                        if (pi >= 0 && GetRandomValue(0, 99) < 35) {
+                            Grazer_StartSocial(g, &grazers[pi], i < pi);
+                            continue;
+                        }
                     }
                     Vector3 flower;
                     if (roll < 60 && Grazer_FindFlower(g, &flower)) {
@@ -1582,6 +1619,45 @@ static void Grazer_Update(float deltaTime, double now) {
                 g->walkTarget = Vector3Add(g->pos, V3_(cosf(ang) * 2.0f, 0, sinf(ang) * 2.0f));
             }
             continue;   /* no movement while asleep */
+        } else if (g->state == 5) {                            /* social hops */
+            Grazer *p = NULL;
+            for (int j = 0; j < GRAZER_MAX; j++) {
+                if (j == i || !grazers[j].active) continue;
+                if (grazers[j].state == 5) { p = &grazers[j]; break; }
+            }
+            if (!p || Vector3Distance(g->pos, p->pos) > 8.0f) {
+                g->state = 0;                 /* partner left: chat over */
+                g->stateTimer = 0.8f;
+                g->grounded = true;
+                g->velY = 0.0f;
+                continue;
+            }
+            /* face each other */
+            g->faceAng = atan2f(p->pos.z - g->pos.z, p->pos.x - g->pos.x);
+            if (g->grounded) {
+                g->socialWait -= deltaTime;
+                if (g->socialWait <= 0.0f) {
+                    if (g->socialHops >= 4) {  /* four hops each: goodbye */
+                        g->state = 0;
+                        g->stateTimer = 1.0f + GetRandomValue(0, 100) / 100.0f;
+                        continue;
+                    }
+                    g->grounded = false;
+                    g->velY = 3.0f;            /* the talking hop */
+                    g->socialHops++;
+                }
+            } else {
+                g->velY -= 9.8f * deltaTime;
+                g->pos.y += g->velY * deltaTime;
+                float gy = Grazer_GroundY(g->pos) + 0.36f;
+                if (g->pos.y <= gy) {
+                    g->pos.y = gy;
+                    g->velY = 0.0f;
+                    g->grounded = true;
+                    /* wait long enough that the partner hops in between */
+                    g->socialWait = 0.85f + GetRandomValue(0, 30) / 100.0f;
+                }
+            }
         } else {                                               /* flee */
             g->stateTimer -= deltaTime;
             Vector3 away = Vector3Subtract(g->pos, g->fleeFrom);
@@ -1622,9 +1698,12 @@ static void Grazer_Update(float deltaTime, double now) {
                 g->pos = Vector3Add(g->pos, push);
             }
         }
-        /* settle onto ground */
-        float groundHere = Grazer_GroundY(g->pos);
-        g->pos.y += (groundHere + 0.36f - g->pos.y) * (1.0f - powf(0.0001f, deltaTime));
+        /* settle onto ground (v65.43: not mid-hop - the social hop owns
+         * its own airborne physics) */
+        if (!(g->state == 5 && !g->grounded)) {
+            float groundHere = Grazer_GroundY(g->pos);
+            g->pos.y += (groundHere + 0.36f - g->pos.y) * (1.0f - powf(0.0001f, deltaTime));
+        }
         /* never sink under the world */
         if (isnan(g->pos.x) || isnan(g->pos.y) || isnan(g->pos.z)) g->active = false;
     }
