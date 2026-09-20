@@ -11,6 +11,8 @@
 #include "raylib.h"
 
 void Dragon_Update(void);   /* call per frame inside the main-world gate */
+/* v65.42: while the dragon hovers, the mushroom rain cloud keeps away */
+bool Dragon_GetAnchor(Vector3 *out);
 void Dragon_Draw(Vector3 camPos);
 void Dragon_Unload(void);
 

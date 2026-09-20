@@ -7,6 +7,7 @@
 #include "block.h"
 #include "pocketfx.h"
 #include "player.h"
+#include "mobs.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "chat.h"
@@ -292,6 +293,12 @@ static bool Dragon_SeekAnchor(void) {
         float ax = floorf(pp.x + cosf(ang) * r);
         float az = floorf(pp.z + sinf(ang) * r);
         if (Dragon_NearPocket(ax, az)) continue;
+        /* v65.42: never share the sky with the mushroom rain cloud */
+        if (Mobs_ShellActive()) {
+            Vector3 sc = Mobs_ShellCenter();
+            float ex = ax + 0.5f - sc.x, ez = az + 0.5f - sc.z;
+            if (ex * ex + ez * ez < 80.0f * 80.0f) continue;
+        }
         int top = -1;
         for (int y = 168; y >= 40; y--)
             if (Dragon_Solid(ax, (float)y, az)) { top = y + 1; break; }
@@ -370,20 +377,27 @@ void Dragon_Draw(Vector3 camPos) {
     if (PocketFx_FactorAny() >= 0.5f) return;
     if (dstate != DR_ACTIVE || !meshReady) return;
     double now = GetTime();
-    float ang = (float)now * 0.35f;
-    float x = anchor.x + 0.5f + cosf(ang) * DRAGON_CIRCLE_R;
-    float z = anchor.z + 0.5f + sinf(ang) * DRAGON_CIRCLE_R;
+    /* v65.42: HOVER like v65.40 did - the v65.41 circle orbit plus the
+     * tangential yaw read as "spinning around a strange axis". The dragon
+     * parks above its island, bobs gently and turns on the vertical axis */
+    float x = anchor.x + 0.5f;
+    float z = anchor.z + 0.5f;
     float y = anchorTop + DRAGON_HOVER + 0.5f * sinf((float)now * 0.9f);
     float dx = x - camPos.x, dz = z - camPos.z;
     if (dx * dx + dz * dz > 240.0f * 240.0f) return;
-    /* face along the circle tangent */
-    float yaw = 90.0f - ang * RAD2DEG;
+    float yaw = (float)(now * 9.0);   /* slow turntable, degrees */
     rlPushMatrix();
     rlTranslatef(x, y, z);
     rlRotatef(yaw, 0.0f, 1.0f, 0.0f);
     rlScalef(meshScale, meshScale, meshScale);
     DrawMesh(mesh, mat, MatrixIdentity());
     rlPopMatrix();
+}
+
+bool Dragon_GetAnchor(Vector3 *out) {
+    if (dstate != DR_ACTIVE) return false;
+    if (out) *out = (Vector3){ anchor.x + 0.5f, anchorTop, anchor.z + 0.5f };
+    return true;
 }
 
 void Dragon_Unload(void) {

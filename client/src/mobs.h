@@ -10,6 +10,9 @@
 void Mobs_Init(void);
 void Mobs_Shutdown(void);
 void Mobs_Update(float deltaTime);
+/* v65.42: the mushroom rain cloud - the dragon must not share its sky */
+bool Mobs_ShellActive(void);
+Vector3 Mobs_ShellCenter(void);
 void Mobs_Draw(void);
 
 /* weapon dispatchers: return true if something was hit */

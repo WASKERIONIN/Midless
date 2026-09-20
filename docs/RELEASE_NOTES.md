@@ -2,6 +2,24 @@
 
 Floating islands drifting through a starlit void. The sun is a black hole wearing a gold ring.
 
+## v65.42
+
+- MUSHROOM COLOURS RESTORED: the shipped terrain atlas was STALE - it had
+  been regenerated back in v65.34 from an outdated texture script (a
+  workspace-rollback artefact), so since v65.34 the Void Glowcaps (73)
+  were teal-green again and Cinder Trumpet / Frost Puffball wore the old
+  ember/frost palettes. The atlas is regenerated from the current script:
+  all three mushroom species are back in the violet family per the colour
+  rule, and every other tile matches the generator again.
+- DRAGON HOVERS LIKE BEFORE: the v65.41 circular orbit plus tangential yaw
+  read as "spinning around a strange axis". The dragon now parks above its
+  island, bobs gently and turns slowly on the vertical axis.
+- DRAGON AND RAIN CLOUD NEVER SHARE AN ISLAND: the dragon rejects anchors
+  within 80 blocks of an active mushroom rain cloud, and the cloud event
+  defers 30 s when its chosen spot is within 80 blocks of a hovering
+  dragon (new accessors Mobs_ShellActive/Mobs_ShellCenter and
+  Dragon_GetAnchor).
+
 ## v65.41
 
 - VOXEL RENDER FIXED: 4 of the 6 face directions were wound clockwise, so

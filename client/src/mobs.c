@@ -12,6 +12,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "mobs.h"
+#include "dragon.h"   /* v65.42: cloud defers to the dragon */
 #include "player.h"
 #include "i18n.h"
 #include "world.h"
@@ -1886,12 +1887,25 @@ static void Mushroom_SpawnTry(Vector3 shellC) {
     }
 }
 
+bool Mobs_ShellActive(void) { return shellActive; }
+Vector3 Mobs_ShellCenter(void) { return shellCenter; }
+
 static void Shell_Update(float deltaTime, double now) {
     if (!shellActive) {
         if (shellEventAt <= 0.0) shellEventAt = now + 75.0;
         if (now >= shellEventAt) {
             Vector3 spot;
             if (Mob_FindSurfaceSpot(Mob_PlayerCenter(), 14.0f, 26.0f, &spot)) {
+                /* v65.42: the dragon and the rain cloud never share one
+                 * island - if a dragon hovers nearby, wait and retry */
+                Vector3 da;
+                if (Dragon_GetAnchor(&da)) {
+                    float ex = spot.x - da.x, ez = spot.z - da.z;
+                    if (ex * ex + ez * ez < 80.0f * 80.0f) {
+                        shellEventAt = now + 30.0;
+                        return;
+                    }
+                }
                 shellCenter = (Vector3){ spot.x, spot.y + 11.0f, spot.z };
                 shellActive = true;
                 shellUntil = now + 80.0;
